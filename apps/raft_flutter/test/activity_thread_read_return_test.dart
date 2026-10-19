@@ -54,15 +54,11 @@ Future<void> _dispatch(WidgetTester tester) async {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [390.0]) {
       for (final outcome in ['success', 'failure', 'after return']) {
         testWidgets(
-          '$family/$dark ${width.toInt()}px Activity thread receipt $outcome updates the first return',
+          '${dark ? 'dark' : 'light'} ${width.toInt()}px Activity thread receipt $outcome updates the first return',
           (tester) async {
             SharedPreferences.setMockInitialValues({});
             tester.view.physicalSize = Size(width, 900);
@@ -145,11 +141,11 @@ void main() {
             };
             await tester.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 home: withAppServices(
                   WorkspaceView(
                     controller: w,
-                    appearance: RaftAppearance(light: family),
+                    appearance: RaftAppearance(),
                     onAppearance: (_) async {},
                     onLogout: () async {},
                   ),
@@ -299,7 +295,7 @@ void main() {
         'readStateVersion': 2,
       };
       Widget page() => MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: ResourceView(
             controller: w,

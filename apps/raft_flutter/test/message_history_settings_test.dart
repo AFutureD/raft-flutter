@@ -91,7 +91,6 @@ class _Capacity implements HistoryCapacity {
 Future<void> _pump(
   WidgetTester t,
   _Capacity cap, {
-  RaftFamily family = RaftFamily.elegant,
   bool dark = false,
   double scale = 1,
   Locale locale = const Locale('en'),
@@ -101,7 +100,7 @@ Future<void> _pump(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       locale: locale,
       supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,

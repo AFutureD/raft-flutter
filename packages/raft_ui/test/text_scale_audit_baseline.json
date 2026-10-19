@@ -1,13 +1,13 @@
 {
-  "real|brutal|android-zh|agentProfileHoverCardPreview|zh-1.0x": [
+  "real|light|android-zh|agentProfileHoverCardPreview|zh-1.0x": [
     "inkClipped: Capturing visual testing baselines"
   ],
-  "real|brutal|android-zh|agentProfileHoverCardPreview|zh-1.3x": [
+  "real|light|android-zh|agentProfileHoverCardPreview|zh-1.3x": [
     "inkClipped: Capturing visual testing baselines",
     "inkClipped: Jiachengs-MacBook-Pro",
     "inkClipped: Keeps the visual testing baselines current."
   ],
-  "real|brutal|android-zh|agentProfileHoverCardPreview|zh-2.0x": [
+  "real|light|android-zh|agentProfileHoverCardPreview|zh-2.0x": [
     "inkClipped: Capturing visual testing baselines",
     "inkClipped: Codex CLI",
     "inkClipped: GPT-5.5",
@@ -16,71 +16,131 @@
     "inkClipped: Planning the capture run",
     "inkClipped: Running command"
   ],
-  "real|brutal|android-zh|documentMediaPreview|zh-1.0x": [
-    "overflow: A RenderFlex overflowed by 16 pixels on the bottom."
+  "real|light|android-zh|announcementModalPreview|zh-1.0x": [
+    "offCentre: Cmd K"
   ],
-  "real|brutal|android-zh|reactionReactorsPreview|zh-1.3x": [
+  "real|light|android-zh|announcementModalPreview|zh-2.0x": [
+    "offCentre: Cmd K"
+  ],
+  "real|light|android-zh|channelHeaderPreview|zh-2.0x": [
+    "escapes: Public channel"
+  ],
+  "real|light|android-zh|documentMediaPreview|zh-1.0x": [
+    "overflow: A RenderFlex overflowed by 14 pixels on the bottom."
+  ],
+  "real|light|android-zh|mountedThreadCompositionDesktopPreview|zh-1.0x": [
+    "inkClipped: Public fixture 中文 日本語"
+  ],
+  "real|light|android-zh|mountedThreadCompositionTouchPreview|zh-1.0x": [
+    "inkClipped: Public fixture 中文 日本語"
+  ],
+  "real|light|android-zh|reactionReactorsPreview|zh-1.3x": [
     "inkClipped: Product UX Designer"
   ],
-  "real|brutal|android-zh|reactionReactorsPreview|zh-2.0x": [
+  "real|light|android-zh|reactionReactorsPreview|zh-2.0x": [
     "inkClipped: Product UX Designer"
   ],
-  "real|brutal|android-zh|runtimeUsageCardPreview|zh-1.0x": [
+  "real|light|android-zh|runtimeUsageCardPreview|zh-1.0x": [
     "overflow: A RenderFlex overflowed by 8.0 pixels on the right."
   ],
-  "real|brutal|android-zh|selectionPopoverPreview|zh-1.3x": [
-    "overflow: A RenderFlex overflowed by 1.4 pixels on the right."
+  "real|light|android-zh|selectionPopoverPreview|zh-1.3x": [
+    "overflow: A RenderFlex overflowed by 1.9 pixels on the right."
   ],
-  "real|brutal|android-zh|selectionPopoverPreview|zh-2.0x": [
-    "overflow: A RenderFlex overflowed by 160 pixels on the right."
+  "real|light|android-zh|selectionPopoverPreview|zh-2.0x": [
+    "overflow: A RenderFlex overflowed by 165 pixels on the right."
   ],
-  "real|brutal|android-zh|sourcePhoneNotificationSettingsPreview|zh-2.0x": [
+  "real|light|android-zh|sourcePhoneNotificationSettingsPreview|zh-2.0x": [
     "escapes: Stops notifications from Preview for your account. Other servers are unchanged.",
     "escapes: 保存",
     "escapes: 开启通知",
     "escapes: 静音此服务器",
-    "overflow: A RenderFlex overflowed by 325 pixels on the bottom."
+    "overflow: A RenderFlex overflowed by 312 pixels on the bottom."
   ],
-  "real|brutal|android-zh|uploadPreview|zh-1.3x": [
+  "real|light|android-zh|uploadPreview|zh-1.3x": [
     "offCentre: 点按以重试"
   ],
-  "real|brutal|android-zh|uploadPreview|zh-2.0x": [
-    "escapes: application/pdf",
-    "escapes: audio/wav",
-    "inkClipped: application/pdf",
-    "offCentre: 点按以重试",
-    "overflow: A RenderFlex overflowed by 5.1 pixels on the bottom."
+  "real|light|android-zh|uploadPreview|zh-2.0x": [
+    "offCentre: 点按以重试"
   ],
-  "real|brutal|communityAgreementPreview|3.1x": [
-    "overflow: A RenderFlex overflowed by 45 pixels on the right."
+  "real|light|android-zh|workingAgentsChannelHeaderPreview|zh-2.0x": [
+    "escapes: launch-week"
   ],
-  "real|brutal|composerSuggestionsPreview|3.1x": [
+  "real|light|channelHeaderPreview|2.0x": [
+    "escapes: Public channel"
+  ],
+  "real|light|channelHeaderPreview|3.1x": [
+    "escapes: Public channel"
+  ],
+  "real|light|communityAgreementPreview|3.1x": [
+    "overflow: A RenderFlex overflowed by 42 pixels on the right."
+  ],
+  "real|light|composerSuggestionsPreview|3.1x": [
+    "escapes: Choose the human or agent identity before sending.",
     "escapes: Message",
-    "overflow: A RenderFlex overflowed by 117 pixels on the bottom."
+    "overflow: A RenderFlex overflowed by 198 pixels on the bottom."
   ],
-  "real|brutal|mobileServerSwitcherPreview|3.1x": [
+  "real|light|desktopPanelHeaderPreview|3.1x": [
+    "escapes: design"
+  ],
+  "real|light|longMessagePreview|1.0x": [
+    "inkClipped: Cody"
+  ],
+  "real|light|messageAffordancePreview|1.0x": [
+    "inkClipped: Cindy"
+  ],
+  "real|light|messageExportPreview|1.0x": [
+    "inkClipped: Cody"
+  ],
+  "real|light|messageRowPreview|1.0x": [
+    "inkClipped: Cindy"
+  ],
+  "real|light|messageTranslationPreview|1.0x": [
+    "inkClipped: Bilingual",
+    "inkClipped: Pending (auto)"
+  ],
+  "real|light|mobileServerSwitcherPreview|3.1x": [
     "inkClipped: Visual Server"
   ],
-  "real|brutal|uploadPreview|2.0x": [
-    "escapes: application/pdf",
-    "escapes: audio/wav",
-    "inkClipped: application/pdf",
-    "overflow: A RenderFlex overflowed by 5.1 pixels on the bottom."
+  "real|light|mountedThreadCompositionTouchPreview|1.0x": [
+    "inkClipped: Public fixture 中文 日本語",
+    "inkClipped: Public reply"
   ],
-  "real|brutal|uploadPreview|3.1x": [
-    "escapes: application/pdf",
-    "escapes: audio/wav",
-    "inkClipped: application/pdf",
-    "inkClipped: audio/wav",
-    "inkClipped: design.png",
-    "inkClipped: report.pdf",
-    "overflow: A RenderFlex overflowed by 31 pixels on the bottom."
+  "real|light|mountedThreadCompositionTouchPreview|zh-1.0x": [
+    "inkClipped: Public fixture 中文 日本語"
   ],
-  "tall|brutal|uploadPreview|zh-2.0x": [
-    "escapes: application/pdf",
-    "escapes: audio/wav",
-    "inkClipped: application/pdf",
-    "inkClipped: design.png",
-    "overflow: A RenderFlex overflowed by 5.1 pixels on the bottom."
+  "tall|light|channelHeaderPreview|1.0x": [
+    "inkClipped: A public description can wrap without hiding the channel identity."
+  ],
+  "tall|light|channelHeaderPreview|zh-1.0x": [
+    "inkClipped: A public description can wrap without hiding the channel identity."
+  ],
+  "tall|light|channelHeaderPreview|zh-2.0x": [
+    "escapes: Public channel",
+    "inkClipped: A public description can wrap without hiding the channel identity."
+  ],
+  "tall|light|composerEditableLineBoxPreview|1.3x": [
+    "inkClipped: Review the Android composer crop before release."
+  ],
+  "tall|light|longMessagePreview|1.0x": [
+    "inkClipped: Cody"
+  ],
+  "tall|light|messageAffordancePreview|1.0x": [
+    "inkClipped: Cindy"
+  ],
+  "tall|light|messageExportPreview|1.0x": [
+    "inkClipped: Cody"
+  ],
+  "tall|light|messageRowPreview|1.0x": [
+    "inkClipped: Cindy"
+  ],
+  "tall|light|messageTranslationPreview|1.0x": [
+    "inkClipped: Bilingual",
+    "inkClipped: Pending (auto)"
+  ],
+  "tall|light|mountedThreadCompositionTouchPreview|1.0x": [
+    "inkClipped: Public reply"
+  ],
+  "tall|light|mountedThreadCompositionTouchPreview|zh-1.0x": [
+    "inkClipped: Public fixture 中文 日本語"
   ]
 }

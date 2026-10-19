@@ -117,7 +117,7 @@ Future<(WorkspaceController, _Client)> _mount(
   });
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: withAppServices(
         WorkspaceView(
           controller: w,

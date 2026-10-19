@@ -34,7 +34,7 @@ List<WorkspaceView> phonePages(WidgetTester tester) => tester
     .toList();
 
 void main() {
-  for (final theme in ['brutal', 'elegant-dark']) {
+  for (final theme in ['dark']) {
     testWidgets('phone Chat and Activity share one draft $theme', (
       tester,
     ) async {
@@ -125,7 +125,7 @@ void main() {
       f.overrides['POST /v2/messages'] = (_) => accepted.future;
       await f.mount(
         tester,
-        'brutal',
+        'light',
         390,
         uri: Uri.parse('/s/alpha/channel/ca'),
       );

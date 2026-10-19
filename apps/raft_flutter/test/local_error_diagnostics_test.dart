@@ -33,7 +33,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: const Scaffold(
             body: SingleChildScrollView(child: StorageSettingsPage()),
           ),
@@ -124,7 +124,7 @@ void main() {
     late BuildContext context;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         builder: (context, child) => RaftToastHost(child: child!),
         home: Builder(
           builder: (held) {
@@ -241,7 +241,7 @@ void main() {
       );
       var page = 0;
       Widget app(LocalErrorDiagnostics current) => MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         builder: (context, child) => RaftToastHost(child: child!),
         home: Scaffold(
           body: LocalErrorDiagnosticsCard(key: ValueKey(page++), log: current),

@@ -97,7 +97,7 @@ void main() {
             w.messageDomain.ledger.switchServer('s1');
             await t.pumpWidget(
               MaterialApp(
-                theme: raftTheme(RaftFamily.elegant),
+                theme: raftTheme(),
                 home: withAppServices(
                   WorkspaceView(
                     controller: w,

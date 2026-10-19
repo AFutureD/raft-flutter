@@ -56,7 +56,7 @@ void main() {
   });
 
   Widget page(String channel) => MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     home: RaftDensityScope(
       density: RaftDensity.desktop,
       child: Scaffold(
@@ -71,7 +71,7 @@ void main() {
     ),
   );
   final away = MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     home: const Scaffold(body: SizedBox.expand()),
   );
   // TasksPanel loading is Web's SkeletonRow cards (no spinner).

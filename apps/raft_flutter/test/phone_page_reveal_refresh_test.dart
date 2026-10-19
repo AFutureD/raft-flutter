@@ -153,11 +153,11 @@ Future<(WorkspaceController, _Client, List<Map<String, dynamic>>)> _mount(
   };
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.brutal),
+      theme: raftTheme(),
       home: withAppServices(
         WorkspaceView(
           controller: w,
-          appearance: RaftAppearance(light: RaftFamily.brutal),
+          appearance: RaftAppearance(),
           onAppearance: (_) async {},
           onLogout: () async {},
         ),
@@ -301,11 +301,11 @@ void main() {
     };
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: withAppServices(
           WorkspaceView(
             controller: w,
-            appearance: RaftAppearance(light: RaftFamily.elegant),
+            appearance: RaftAppearance(),
             onAppearance: (_) async {},
             onLogout: () async {},
           ),

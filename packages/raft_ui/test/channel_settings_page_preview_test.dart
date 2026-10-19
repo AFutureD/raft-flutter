@@ -9,16 +9,14 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final (name, preview, title) in [
       ('channel', channelSettingsPagePreview, '#general'),
       ('dm', dmSettingsPagePreview, 'Alice'),
     ]) {
-      testWidgets('current settings preview $name $family/$dark', (t) async {
+      testWidgets('current settings preview $name ${dark ? 'dark' : 'light'}', (
+        t,
+      ) async {
         t.view.physicalSize = const Size(390, 844);
         t.view.devicePixelRatio = 1;
         addTearDown(t.view.reset);
@@ -26,7 +24,7 @@ void main() {
         final capture = GlobalKey();
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: RepaintBoundary(key: capture, child: preview()),
             ),
@@ -42,11 +40,8 @@ void main() {
         expect(t.getSize(back), const Size.square(28));
         // No left edge line on the phone (owner decision 2026-10-12).
         expect(t.getCenter(back).dx, 16 + 14);
-        // Centred in the border-box less its bottom edge (2px brutal, 1px).
-        expect(
-          t.getTopLeft(back).dy,
-          (62 - (family == RaftFamily.brutal ? 2 : 1) - 28) / 2,
-        );
+        // Centred in the border-box less its bottom edge (1px).
+        expect(t.getTopLeft(back).dy, (62 - 1 - 28) / 2);
         expect(
           t.getSemantics(find.text(title)).flagsCollection.isHeader,
           isTrue,
@@ -65,7 +60,7 @@ void main() {
           final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
           image.dispose();
           final file = File(
-            '../../.local/settings-page-previews/$name-${family.name}-$dark.png',
+            '../../.local/settings-page-previews/$name-${dark ? 'dark' : 'light'}.png',
           );
           await file.parent.create(recursive: true);
           await file.writeAsBytes(bytes!.buffer.asUint8List());

@@ -136,7 +136,7 @@ void main() {
     };
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(body: build(w)),
       ),
     );
@@ -203,7 +203,7 @@ void main() {
       });
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: AttachmentPreviewDialog(
             controller: w,
             metadata: {'id': 'v1', 'filename': file},

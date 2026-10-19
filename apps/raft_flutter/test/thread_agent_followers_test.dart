@@ -47,7 +47,7 @@ void main() {
     api.routes['GET /agents'] = (_) => [];
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: Align(
             alignment: Alignment.topRight,

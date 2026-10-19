@@ -87,7 +87,7 @@ void main() {
     addTearDown(t.view.reset);
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Builder(
           builder: (context) => Scaffold(
             body: TextButton(

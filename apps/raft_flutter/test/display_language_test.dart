@@ -13,7 +13,7 @@ void main() {
         locale: const Locale('zh', 'CN'),
         supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftFormDialog(
             title: 'Move to sidebar section',
@@ -65,7 +65,7 @@ void main() {
           locale: const Locale('zh', 'CN'),
           supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: Column(
               children: [
@@ -101,7 +101,7 @@ void main() {
           locale: const Locale('zh', 'CN'),
           supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftFormDialog(
               title: 'Create Channel',

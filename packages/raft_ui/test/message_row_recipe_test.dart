@@ -10,8 +10,7 @@ const avatarKey = Key('public-avatar');
 const bodyKey = Key('public-body');
 const actionKey = Key('public-thread-action');
 
-Widget host(
-  RaftFamily family, {
+Widget host({
   bool dark = false,
   bool continuation = false,
   bool coarse = false,
@@ -20,7 +19,7 @@ Widget host(
   double width = 390,
 }) {
   return MaterialApp(
-    theme: raftTheme(family, dark: dark),
+    theme: raftTheme(dark: dark),
     home: MediaQuery(
       data: MediaQueryData(size: Size(width, 480), devicePixelRatio: 1),
       child: Scaffold(
@@ -55,17 +54,13 @@ Widget host(
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
     testWidgets(
-      'header preserves intrinsic author/model/clock and shrinks description only $family/$dark',
+      'header preserves intrinsic author/model/clock and shrinks description only ${dark ? 'dark' : 'light'}',
       (tester) async {
         var mentions = 0;
         Widget frame(double width) => MaterialApp(
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: Scaffold(
             body: Align(
               alignment: Alignment.topLeft,
@@ -100,11 +95,7 @@ void main() {
         expect(tester.getSize(find.text('Long private description')).width, 0);
         expect(
           tester.getTopLeft(find.byKey(const Key('model'))).dx,
-          closeTo(
-            tester.getTopRight(author).dx +
-                (family == RaftFamily.brutal ? 8 : 6),
-            .01,
-          ),
+          closeTo(tester.getTopRight(author).dx + (6), .01),
         );
         await tester.tap(author);
         await tester.pump();
@@ -121,16 +112,12 @@ void main() {
     );
 
     testWidgets(
-      'mounted avatar and content origins match source $family/$dark',
+      'mounted avatar and content origins match source ${dark ? 'dark' : 'light'}',
       (tester) async {
-        await tester.pumpWidget(host(family, dark: dark));
-        final brutal = family == RaftFamily.brutal;
+        await tester.pumpWidget(host(dark: dark));
         expect(tester.getSize(find.byKey(avatarKey)), const Size(36, 36));
-        expect(
-          tester.getTopLeft(find.byKey(avatarKey)),
-          Offset(brutal ? 20 : 17, brutal ? 14 : 11),
-        );
-        expect(tester.getTopLeft(find.byKey(bodyKey)).dx, brutal ? 68 : 57);
+        expect(tester.getTopLeft(find.byKey(avatarKey)), const Offset(17, 11));
+        expect(tester.getTopLeft(find.byKey(bodyKey)).dx, 57);
         final body = tester.widget<Text>(find.byKey(bodyKey));
         expect(body.style, isNull);
         final resolved = DefaultTextStyle.of(
@@ -147,12 +134,10 @@ void main() {
     );
 
     testWidgets(
-      'hover and keyboard focus reveal the source strip $family/$dark',
+      'hover and keyboard focus reveal the source strip ${dark ? 'dark' : 'light'}',
       (tester) async {
         var activated = 0;
-        await tester.pumpWidget(
-          host(family, dark: dark, action: () => activated++),
-        );
+        await tester.pumpWidget(host(dark: dark, action: () => activated++));
         Opacity strip() => tester.widget<Opacity>(
           find
               .ancestor(
@@ -168,10 +153,7 @@ void main() {
         await tester.pump();
         expect(strip().opacity, 1);
         final button = find.byKey(actionKey);
-        expect(
-          tester.getSize(button),
-          Size.square(family == RaftFamily.brutal ? 24 : 28),
-        );
+        expect(tester.getSize(button), Size.square(28));
         await mouse.moveTo(const Offset(2, 300));
         await tester.pump();
         expect(find.byType(RaftMessageToolbar), findsNothing);
@@ -191,9 +173,7 @@ void main() {
     tester,
   ) async {
     for (final width in [390.0, 1280.0]) {
-      await tester.pumpWidget(
-        host(RaftFamily.elegant, width: width, coarse: true),
-      );
+      await tester.pumpWidget(host(width: width, coarse: true));
       expect(find.byType(RaftMessageToolbar), findsNothing);
       expect(find.byKey(bodyKey), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -203,7 +183,7 @@ void main() {
   testWidgets(
     'continuation omits avatar/header but keeps body and hidden gutter clock',
     (tester) async {
-      await tester.pumpWidget(host(RaftFamily.elegant, continuation: true));
+      await tester.pumpWidget(host(continuation: true));
       expect(find.byKey(avatarKey), findsNothing);
       expect(find.text('Public Agent'), findsNothing);
       expect(find.text('14:30'), findsOneWidget);
@@ -215,7 +195,7 @@ void main() {
   testWidgets('popup retains strip without hover or keyboard focus', (
     tester,
   ) async {
-    await tester.pumpWidget(host(RaftFamily.elegant, popup: true));
+    await tester.pumpWidget(host(popup: true));
     final opacity = tester.widget<Opacity>(
       find
           .ancestor(
@@ -233,7 +213,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: const Scaffold(
             body: SizedBox(
               width: 390,
@@ -260,7 +240,7 @@ void main() {
   test(
     'source grouping and breakpoint overrides remain independent of pointer',
     () {
-      final t = raftTheme(RaftFamily.elegant).extension<RaftTokens>()!;
+      final t = raftTheme().extension<RaftTokens>()!;
       final mobile = RaftMessageRowRecipe(
         t,
         viewportWidth: 390,

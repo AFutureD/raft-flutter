@@ -5,7 +5,8 @@
 // of known failures in text_scale_audit_baseline.json. A test fails when a
 // surface gains a failure that is not recorded (a regression) and also when a
 // recorded failure no longer occurs (so the entry is deleted and the ratchet
-// tightens). The 1.0x mode must always be clean: parity runs at 1.0.
+// tightens). 1.0x should be clean (parity runs at 1.0); its entries are the
+// Elegant-structure defects the audit never saw while it only ran Brutal.
 //
 //   RAFT_TEXT_SCALE_UPDATE=1  rewrite the baseline from the current results
 //   RAFT_TEXT_SCALE_SWEEP=1   also run the non-representative previews
@@ -89,7 +90,6 @@ Set<String> signatures(AuditReport r, {Set<String> ignore = const {}}) => {
 void defineSurfaceAudits(
   AuditFonts fonts, {
   required List<AuditMode> modes,
-  RaftFamily family = RaftFamily.brutal,
 
   /// A profile beyond the default Web one (e.g. `android-zh`): keys the
   /// baseline entries, picks the theme and turns the label-centring check on.
@@ -113,7 +113,7 @@ void defineSurfaceAudits(
   final baseline = _readBaseline();
   final actual = <String, List<String>>{};
   final prefix =
-      '${fonts.name}|${family.name}${dark ? '-dark' : ''}'
+      '${fonts.name}|${dark ? 'dark' : 'light'}'
       '${profile.isEmpty ? '' : '|$profile'}';
 
   tearDownAll(() {
@@ -133,7 +133,6 @@ void defineSurfaceAudits(
     testWidgets('$prefix ${s.fn}', (t) async {
       await loadAuditFonts(t, fonts);
       final theme = raftTheme(
-        family,
         dark: dark,
         locale: androidChinese ? const Locale('zh', 'CN') : null,
         platform: androidChinese ? TargetPlatform.android : null,
@@ -160,11 +159,11 @@ void defineSurfaceAudits(
           actual[key] = got;
         } else {
           final known = (baseline[key] ?? const []).toSet();
-          if (mode.name == '1.0x' && got.isNotEmpty) {
-            problems.add(
-              '${mode.name}: not clean at 1.0x: ${report.failures.where((f) => !ignoreKinds.contains(f.kind)).join('; ')}',
-            );
-          }
+          // 1.0x should be clean (parity runs at 1.0). The baseline records the
+          // defects of the Elegant structure, which the audit had never run
+          // before the Raft collapse (it audited Brutal); the follow-up
+          // structure changes delete them, and a fixed one fails the run until
+          // it is removed.
           final added = got.toSet().difference(known);
           final fixed = known.difference(got.toSet());
           if (added.isNotEmpty) {

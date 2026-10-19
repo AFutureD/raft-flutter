@@ -12,7 +12,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 import 'package:raft_flutter/data/attachment_image_repository.dart';
 import 'package:raft_flutter/features/media_image_page.dart';
-import 'package:raft_ui/raft_ui.dart';
 
 import 'flutter_test_config.dart' show OwnedFrameCodec;
 import 'workspace_shell_contract_test.dart' show mountShell, retire;
@@ -81,7 +80,7 @@ void main() {
     final (w, api) = await pageFixture(t, section: 'chat');
     api.routes['GET /agents'] = (_) => [];
     api.routes['GET /servers/s1/members'] = (_) => [];
-    await mountShell(t, w, RaftFamily.elegant, false);
+    await mountShell(t, w, false);
     await retire(t);
   });
 

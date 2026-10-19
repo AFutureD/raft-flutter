@@ -10,7 +10,7 @@ void main() {
     Key? key,
     Widget? child,
   }) => MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     home: Scaffold(
       body: SingleChildScrollView(
         child: RaftCollapsible(

@@ -4,17 +4,13 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'shared draft updates a focused editor without losing selection or IME $family/$dark',
+      'shared draft updates a focused editor without losing selection or IME ${dark ? 'dark' : 'light'}',
       (t) async {
         final edits = <String>[];
         Widget host(String draft, int revision) => MaterialApp(
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: Scaffold(
             body: Align(
               alignment: Alignment.bottomCenter,

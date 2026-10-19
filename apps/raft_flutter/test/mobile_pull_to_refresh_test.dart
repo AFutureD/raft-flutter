@@ -83,13 +83,9 @@ Future<void> pull(WidgetTester t) async {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark Home pull refreshes channels, DMs and unread without bootstrap or losing drafts',
+      '${dark ? 'dark' : 'light'} Home pull refreshes channels, DMs and unread without bootstrap or losing drafts',
       (t) async {
         SharedPreferences.setMockInitialValues({});
         final api = _RefreshClient()..selectServer('s1');
@@ -124,7 +120,7 @@ void main() {
         };
         api.routes['/announcements/active'] = () => {'announcements': []};
         api.routes['/servers/s1/sidebar-order'] = () => {};
-        await mountPage(t, w, family, dark, width: 390);
+        await mountPage(t, w, dark, width: 390);
         expect(find.byType(RefreshIndicator), findsOneWidget);
         final before = api.reads.length;
         final location = w.location.uri;
@@ -157,7 +153,7 @@ void main() {
 
     for (final empty in [false, true]) {
       testWidgets(
-        '$family/$dark Members empty=$empty refreshes shared directory in place and survives failure',
+        '${dark ? 'dark' : 'light'} Members empty=$empty refreshes shared directory in place and survives failure',
         (t) async {
           mobile(t);
           final client = _RefreshClient()..empty = empty;
@@ -169,10 +165,8 @@ void main() {
           });
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(
-                family,
-                dark: dark,
-              ).copyWith(platform: TargetPlatform.android),
+              theme: raftTheme(dark: dark)
+                  .copyWith(platform: TargetPlatform.android),
               home: Scaffold(
                 body: DesktopDirectoryView(
                   controller: w,
@@ -240,7 +234,7 @@ void main() {
 
     for (final enabled in [false, true]) {
       testWidgets(
-        '$family/$dark Activity enabled=$enabled refreshes populated and empty pager sections',
+        '${dark ? 'dark' : 'light'} Activity enabled=$enabled refreshes populated and empty pager sections',
         (t) async {
           mobile(t);
           final (client, w) = activityFixture();
@@ -253,10 +247,8 @@ void main() {
           ];
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(
-                family,
-                dark: dark,
-              ).copyWith(platform: TargetPlatform.android),
+              theme: raftTheme(dark: dark)
+                  .copyWith(platform: TargetPlatform.android),
               home: Scaffold(
                 body: ResourceView(
                   controller: w,

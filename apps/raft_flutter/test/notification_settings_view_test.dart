@@ -113,14 +113,13 @@ Widget host(
   WorkspaceController w,
   NativeNotificationService s, {
   bool dark = false,
-  RaftFamily family = RaftFamily.elegant,
   Locale? locale,
   BatteryOptimization? battery,
 }) => MaterialApp(
   locale: locale,
   localizationsDelegates: GlobalMaterialLocalizations.delegates,
   supportedLocales: const [Locale('en'), Locale('zh')],
-  theme: raftTheme(family, dark: dark),
+  theme: raftTheme(dark: dark),
   home: Scaffold(
     body: SingleChildScrollView(
       child: NotificationSettingsView(
@@ -139,47 +138,46 @@ Future<void> drain(WidgetTester t) async {
 }
 
 void main() {
-  for (final theme in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    testWidgets('member mute real checkbox/keyboard/save $theme', (t) async {
-      final f = (await t.runAsync(fixture))!;
-      final (w, a, s) = f;
-      addTearDown(w.dispose);
-      addTearDown(s.dispose);
-      await t.pumpWidget(host(w, s, family: theme.$1, dark: theme.$2));
-      await t.pumpAndSettle();
-      expect(card(t).onSave, isNull);
-      expect(card(t).muted, isFalse);
-      await t.tap(find.byType(RaftCheckbox));
-      await drain(t);
-      expect(card(t).onSave, isNotNull);
-      a.settings = (o) {
-        expect(o.method, 'PATCH');
-        expect(o.data, {'serverPushMuted': true});
-        return {'serverPushMuted': true, 'prefsVersion': 2};
-      };
-      await t.ensureVisible(
-        find.byKey(const ValueKey('notification-settings-save')),
-      );
-      await t.tap(find.byKey(const ValueKey('notification-settings-save')));
-      await t.pumpAndSettle();
-      expect(w.server!.json['serverPushMuted'], true);
-      expect(card(t).onSave, isNull);
-      expect(
-        find.text('Notifications from Fixture are muted.'),
-        findsOneWidget,
-      );
-      expect(a.calls.where((o) => o.method == 'PATCH').length, 1);
-      // Keyboard traversal uses the actual recipe controls, not direct callbacks.
-      await t.sendKeyEvent(LogicalKeyboardKey.tab);
-      await t.pump();
-      await t.sendKeyEvent(LogicalKeyboardKey.space);
-      await drain(t);
-      expect(t.takeException(), isNull);
-    });
+  for (final dark in raftThemeMatrix([false, true])) {
+    testWidgets(
+      'member mute real checkbox/keyboard/save ${dark ? 'dark' : 'light'}',
+      (t) async {
+        final f = (await t.runAsync(fixture))!;
+        final (w, a, s) = f;
+        addTearDown(w.dispose);
+        addTearDown(s.dispose);
+        await t.pumpWidget(host(w, s, dark: dark));
+        await t.pumpAndSettle();
+        expect(card(t).onSave, isNull);
+        expect(card(t).muted, isFalse);
+        await t.tap(find.byType(RaftCheckbox));
+        await drain(t);
+        expect(card(t).onSave, isNotNull);
+        a.settings = (o) {
+          expect(o.method, 'PATCH');
+          expect(o.data, {'serverPushMuted': true});
+          return {'serverPushMuted': true, 'prefsVersion': 2};
+        };
+        await t.ensureVisible(
+          find.byKey(const ValueKey('notification-settings-save')),
+        );
+        await t.tap(find.byKey(const ValueKey('notification-settings-save')));
+        await t.pumpAndSettle();
+        expect(w.server!.json['serverPushMuted'], true);
+        expect(card(t).onSave, isNull);
+        expect(
+          find.text('Notifications from Fixture are muted.'),
+          findsOneWidget,
+        );
+        expect(a.calls.where((o) => o.method == 'PATCH').length, 1);
+        // Keyboard traversal uses the actual recipe controls, not direct callbacks.
+        await t.sendKeyEvent(LogicalKeyboardKey.tab);
+        await t.pump();
+        await t.sendKeyEvent(LogicalKeyboardKey.space);
+        await drain(t);
+        expect(t.takeException(), isNull);
+      },
+    );
   }
   testWidgets(
     'server projection seeds the first frame; channel switches keep it without reloading',

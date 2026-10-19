@@ -37,7 +37,7 @@ void main() {
           };
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(RaftFamily.brutal).copyWith(platform: platform),
+              theme: raftTheme().copyWith(platform: platform),
               home: Scaffold(
                 body: Center(
                   child: InlineVideoAttachment(

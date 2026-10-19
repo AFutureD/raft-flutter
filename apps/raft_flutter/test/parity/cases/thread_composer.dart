@@ -394,7 +394,7 @@ final ParityCase _header = ParityCase(
             maxWidth: ctx.width,
             minHeight: ctx.height,
             maxHeight: ctx.height,
-            child: _HeaderHost(fixture: fx, family: ctx.family),
+            child: _HeaderHost(fixture: fx),
           ),
         ),
       ),
@@ -418,9 +418,8 @@ final ParityCase _header = ParityCase(
 );
 
 class _HeaderHost extends StatefulWidget {
-  const _HeaderHost({required this.fixture, required this.family});
+  const _HeaderHost({required this.fixture});
   final ParityThreadFixture fixture;
-  final RaftFamily family;
   @override
   State<_HeaderHost> createState() => _HeaderHostState();
 }
@@ -438,7 +437,7 @@ class _HeaderHostState extends State<_HeaderHost> {
   Widget build(BuildContext context) => withAppServices(
     WorkspaceView(
       controller: w,
-      appearance: RaftAppearance(light: widget.family),
+      appearance: RaftAppearance(),
       onAppearance: (_) async {},
       onLogout: () async {},
     ),

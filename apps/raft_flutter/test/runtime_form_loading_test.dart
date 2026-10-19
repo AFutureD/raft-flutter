@@ -70,7 +70,7 @@ void main() {
     });
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: SingleChildScrollView(
             child: AnimatedBuilder(

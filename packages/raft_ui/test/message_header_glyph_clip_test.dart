@@ -70,192 +70,188 @@ final _cjkFont = File('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc');
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
     for (final (label, author, timestamp, cjk) in const [
       ('latin descenders', 'tygg', '23:16 gypq', false),
       ('cjk author', '张三丰丽', '23:16', true),
     ]) {
-      testWidgets('header glyph ink is not clipped $label $family/$dark', (
-        t,
-      ) async {
-        if (cjk && !_cjkFont.existsSync()) return;
-        await t.runAsync(_loadFonts);
-        // Flutter's test engine has no system font fallback, so the CJK case
-        // names the proxy face the way the app names PingFang on macOS: as the
-        // theme's fallback, which every control hands to its text.
-        final primary = family == RaftFamily.brutal ? 'HankenGrotesk' : 'Geist';
-        final theme = raftTheme(
-          family,
-          dark: dark,
-          systemFonts: cjk,
-          systemFontFamilies: RaftFontFamilies(
-            body: primary,
-            heading: primary,
-            mono: 'GeistMono',
-            fallback: const ['ProxyCJK'],
-          ),
-        );
-        final tokens = theme.extension<RaftTokens>()!;
-        final recipe = RaftMessageRowRecipe(tokens, viewportWidth: 800);
-        final key = GlobalKey();
-        final bg = theme.scaffoldBackgroundColor;
-        Widget host(Widget child) => MaterialApp(
-          theme: theme,
-          home: Scaffold(
-            backgroundColor: bg,
-            body: DefaultTextStyle.merge(
-              style: TextStyle(
-                fontFamilyFallback: cjk ? const ['ProxyCJK'] : null,
-              ),
-              child: RepaintBoundary(
-                key: key,
-                child: ColoredBox(
-                  color: bg,
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: child,
+      testWidgets(
+        'header glyph ink is not clipped $label ${dark ? 'dark' : 'light'}',
+        (t) async {
+          if (cjk && !_cjkFont.existsSync()) return;
+          await t.runAsync(_loadFonts);
+          // Flutter's test engine has no system font fallback, so the CJK case
+          // names the proxy face the way the app names PingFang on macOS: as the
+          // theme's fallback, which every control hands to its text.
+          final primary = 'Geist';
+          final theme = raftTheme(
+            dark: dark,
+            systemFonts: cjk,
+            systemFontFamilies: RaftFontFamilies(
+              body: primary,
+              heading: primary,
+              mono: 'GeistMono',
+              fallback: const ['ProxyCJK'],
+            ),
+          );
+          final tokens = theme.extension<RaftTokens>()!;
+          final recipe = RaftMessageRowRecipe(tokens, viewportWidth: 800);
+          final key = GlobalKey();
+          final bg = theme.scaffoldBackgroundColor;
+          Widget host(Widget child) => MaterialApp(
+            theme: theme,
+            home: Scaffold(
+              backgroundColor: bg,
+              body: DefaultTextStyle.merge(
+                style: TextStyle(
+                  fontFamilyFallback: cjk ? const ['ProxyCJK'] : null,
+                ),
+                child: RepaintBoundary(
+                  key: key,
+                  child: ColoredBox(
+                    color: bg,
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: child,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
-
-        Future<(ByteData, int)> shot() async {
-          late ui.Image image;
-          await t.runAsync(() async {
-            final boundary =
-                key.currentContext!.findRenderObject()!
-                    as RenderRepaintBoundary;
-            image = await boundary.toImage(pixelRatio: _pixelRatio);
-          });
-          late ByteData bytes;
-          await t.runAsync(() async {
-            bytes = (await image.toByteData())!;
-          });
-          final width = image.width;
-          image.dispose();
-          return (bytes, width);
-        }
-
-        // Ink extent relative to the paragraph baseline: (above, below).
-        (double, double) inkAroundBaseline(
-          ByteData bytes,
-          int width,
-          Finder text,
-        ) {
-          final paragraph = t.renderObject<RenderParagraph>(
-            find.descendant(of: text, matching: find.byType(RichText)).first,
           );
-          final origin = paragraph.localToGlobal(Offset.zero);
-          // ignore: invalid_use_of_protected_member
-          final fromTop = paragraph.computeDistanceToActualBaseline(
-            TextBaseline.alphabetic,
-          );
-          final baseline = origin.dy + fromTop;
-          final rect = Rect.fromLTRB(
-            origin.dx,
-            origin.dy - 12,
-            origin.dx + paragraph.size.width,
-            origin.dy + paragraph.size.height + 12,
-          );
-          final rows = _inkRows(bytes, width, rect, bg)!;
-          return (baseline - rows.$1, rows.$2 - baseline);
-        }
 
-        // Reference: the same strings with the same styles, nothing around
-        // them that could clip.
-        await t.pumpWidget(
-          host(
-            DefaultTextHeightBehavior(
-              textHeightBehavior: raftCssTextHeightBehavior,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 20),
-                  Text(
-                    author,
-                    key: const ValueKey('ref-a'),
-                    style: recipe.author,
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    timestamp,
-                    key: const ValueKey('ref-t'),
-                    style: recipe.time,
-                  ),
-                  const SizedBox(height: 20),
-                ],
+          Future<(ByteData, int)> shot() async {
+            late ui.Image image;
+            await t.runAsync(() async {
+              final boundary =
+                  key.currentContext!.findRenderObject()!
+                      as RenderRepaintBoundary;
+              image = await boundary.toImage(pixelRatio: _pixelRatio);
+            });
+            late ByteData bytes;
+            await t.runAsync(() async {
+              bytes = (await image.toByteData())!;
+            });
+            final width = image.width;
+            image.dispose();
+            return (bytes, width);
+          }
+
+          // Ink extent relative to the paragraph baseline: (above, below).
+          (double, double) inkAroundBaseline(
+            ByteData bytes,
+            int width,
+            Finder text,
+          ) {
+            final paragraph = t.renderObject<RenderParagraph>(
+              find.descendant(of: text, matching: find.byType(RichText)).first,
+            );
+            final origin = paragraph.localToGlobal(Offset.zero);
+            // ignore: invalid_use_of_protected_member
+            final fromTop = paragraph.computeDistanceToActualBaseline(
+              TextBaseline.alphabetic,
+            );
+            final baseline = origin.dy + fromTop;
+            final rect = Rect.fromLTRB(
+              origin.dx,
+              origin.dy - 12,
+              origin.dx + paragraph.size.width,
+              origin.dy + paragraph.size.height + 12,
+            );
+            final rows = _inkRows(bytes, width, rect, bg)!;
+            return (baseline - rows.$1, rows.$2 - baseline);
+          }
+
+          // Reference: the same strings with the same styles, nothing around
+          // them that could clip.
+          await t.pumpWidget(
+            host(
+              DefaultTextHeightBehavior(
+                textHeightBehavior: raftCssTextHeightBehavior,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    Text(
+                      author,
+                      key: const ValueKey('ref-a'),
+                      style: recipe.author,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      timestamp,
+                      key: const ValueKey('ref-t'),
+                      style: recipe.time,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-        final (refBytes, refWidth) = await shot();
-        final refAuthor = inkAroundBaseline(
-          refBytes,
-          refWidth,
-          find.byKey(const ValueKey('ref-a')),
-        );
-        final refTime = inkAroundBaseline(
-          refBytes,
-          refWidth,
-          find.byKey(const ValueKey('ref-t')),
-        );
+          );
+          final (refBytes, refWidth) = await shot();
+          final refAuthor = inkAroundBaseline(
+            refBytes,
+            refWidth,
+            find.byKey(const ValueKey('ref-a')),
+          );
+          final refTime = inkAroundBaseline(
+            refBytes,
+            refWidth,
+            find.byKey(const ValueKey('ref-t')),
+          );
 
-        await t.pumpWidget(
-          host(
-            SizedBox(
-              width: 650,
-              child: RaftMessageRow(
-                author: author,
-                timestamp: timestamp,
-                onAuthor: () {},
-                content: const SizedBox(height: 20, width: 200),
+          await t.pumpWidget(
+            host(
+              SizedBox(
+                width: 650,
+                child: RaftMessageRow(
+                  author: author,
+                  timestamp: timestamp,
+                  onAuthor: () {},
+                  content: const SizedBox(height: 20, width: 200),
+                ),
               ),
             ),
-          ),
-        );
-        await t.pump();
-        final (rowBytes, rowWidth) = await shot();
-        final rowAuthor = inkAroundBaseline(
-          rowBytes,
-          rowWidth,
-          find.byKey(const ValueKey('message-author')),
-        );
-        final rowTime = inkAroundBaseline(
-          rowBytes,
-          rowWidth,
-          find.text(timestamp).first,
-        );
-        // ignore: avoid_print
-        print(
-          '$family/$dark $label author ref=$refAuthor row=$rowAuthor | '
-          'time ref=$refTime row=$rowTime',
-        );
-        const eps = 1 / _pixelRatio + 0.01; // one device pixel
-        for (final (name, ref, row) in [
-          ('author', refAuthor, rowAuthor),
-          ('time', refTime, rowTime),
-        ]) {
-          expect(
-            row.$1,
-            greaterThanOrEqualTo(ref.$1 - eps),
-            reason: '$name top',
           );
-          expect(
-            row.$2,
-            greaterThanOrEqualTo(ref.$2 - eps),
-            reason: '$name bottom',
+          await t.pump();
+          final (rowBytes, rowWidth) = await shot();
+          final rowAuthor = inkAroundBaseline(
+            rowBytes,
+            rowWidth,
+            find.byKey(const ValueKey('message-author')),
           );
-        }
-      });
+          final rowTime = inkAroundBaseline(
+            rowBytes,
+            rowWidth,
+            find.text(timestamp).first,
+          );
+          // ignore: avoid_print
+          print(
+            '${dark ? 'dark' : 'light'} $label author ref=$refAuthor row=$rowAuthor | '
+            'time ref=$refTime row=$rowTime',
+          );
+          const eps = 1 / _pixelRatio + 0.01; // one device pixel
+          for (final (name, ref, row) in [
+            ('author', refAuthor, rowAuthor),
+            ('time', refTime, rowTime),
+          ]) {
+            expect(
+              row.$1,
+              greaterThanOrEqualTo(ref.$1 - eps),
+              reason: '$name top',
+            );
+            expect(
+              row.$2,
+              greaterThanOrEqualTo(ref.$2 - eps),
+              reason: '$name bottom',
+            );
+          }
+        },
+      );
     }
   }
 }

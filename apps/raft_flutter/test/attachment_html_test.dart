@@ -196,7 +196,7 @@ void main() {
       var authorized = true, opened = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: HtmlAttachmentPreviewDialog(
               controller: w,
@@ -236,7 +236,7 @@ void main() {
       final externalOpened = Completer<void>();
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: HtmlAttachmentPreviewDialog(
               controller: w,
@@ -402,7 +402,7 @@ void main() {
     final shown = <Uri>[];
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: HtmlAttachmentPreviewDialog(
             controller: w,
@@ -543,7 +543,7 @@ void main() {
       final loader = PendingHtmlLoader();
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: HtmlAttachmentPreviewDialog(
               controller: w,
@@ -620,7 +620,7 @@ void main() {
       var downloads = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: HtmlAttachmentPreviewDialog(
               controller: w,

@@ -6,7 +6,7 @@ import 'package:raft_ui/src/theme.dart';
 import 'package:raft_ui/src/thread_composition.dart';
 
 Widget _host(double scale, Widget child, {double width = 300}) => MaterialApp(
-  theme: raftTheme(RaftFamily.brutal),
+  theme: raftTheme(),
   home: MediaQuery(
     data: MediaQueryData(
       size: Size(width, 800),

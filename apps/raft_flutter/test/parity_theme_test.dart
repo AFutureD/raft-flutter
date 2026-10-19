@@ -1,35 +1,36 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:raft_ui/raft_ui.dart';
 
 import 'parity/parity_harness.dart';
 
 void main() {
-  final brutal = <String, dynamic>{'id': 'components.ui.button.states'};
-  final elegant = <String, dynamic>{
+  final official = <String, dynamic>{'id': 'components.ui.button.states'};
+  final elegantNamed = <String, dynamic>{
     'id': 'components.ui.button.states.elegant',
   };
-  test('official themes retain the original case contract', () {
-    expect(parityThemeFor(brutal), (RaftFamily.brutal, false));
-    expect(parityThemeFor(elegant), (RaftFamily.elegant, false));
+  test('official cases render the one light look', () {
+    expect(parityThemeFor(official), isFalse);
+    expect(parityThemeFor(elegantNamed), isFalse);
   });
-  test('supplemental themes override both families and mode explicitly', () {
-    for (final c in [brutal, elegant]) {
-      expect(parityThemeFor(c, override: 'brutal-light'), (
-        RaftFamily.brutal,
-        false,
-      ));
-      expect(parityThemeFor(c, override: 'elegant-light'), (
-        RaftFamily.elegant,
-        false,
-      ));
-      expect(parityThemeFor(c, override: 'elegant-dark'), (
-        RaftFamily.elegant,
-        true,
-      ));
+  test('supplemental runs choose light or dark explicitly', () {
+    for (final c in [official, elegantNamed]) {
+      expect(parityThemeFor(c, override: 'brutal-light'), isFalse);
+      expect(parityThemeFor(c, override: 'elegant-light'), isFalse);
+      expect(parityThemeFor(c, override: 'elegant-dark'), isTrue);
       expect(
         () => parityThemeFor(c, override: 'elegant-black'),
         throwsArgumentError,
       );
     }
+  });
+  test('extension cases name their theme', () {
+    final dark = <String, dynamic>{
+      'id': 'ext.case',
+      'variants': [
+        {
+          'props': {'parityTheme': 'elegant-dark'},
+        },
+      ],
+    };
+    expect(parityThemeFor(dark), isTrue);
   });
 }

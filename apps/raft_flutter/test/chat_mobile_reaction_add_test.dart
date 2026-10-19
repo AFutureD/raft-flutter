@@ -8,13 +8,9 @@ import 'package:raft_ui/test_themes.dart';
 import 'message_presentation_test.dart' show fixture;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark actual mobile add opens scoped picker without mutation and Escape preserves draft',
+      '${dark ? 'dark' : 'light'} actual mobile add opens scoped picker without mutation and Escape preserves draft',
       (t) async {
         final (w, transport) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -45,7 +41,7 @@ void main() {
         transport.routes['GET /tasks/channel/c1'] = (_) => {'tasks': []};
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: MediaQuery(
               data: const MediaQueryData(size: Size(390, 720)),
               child: Scaffold(

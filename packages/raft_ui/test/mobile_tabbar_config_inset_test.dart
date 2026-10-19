@@ -22,30 +22,23 @@ Finder previewNav() => find.descendant(
 );
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final inset in [0.0, 24.0, 48.0]) {
-      testWidgets('$family/$dark preview clears $inset system inset and IME', (
-        t,
-      ) async {
-        addTearDown(t.view.reset);
-        metrics(t, inset);
-        await t.pumpWidget(
-          MaterialApp(
-            theme: raftTheme(
-              family,
-              dark: dark,
-            ).copyWith(platform: TargetPlatform.android),
-            home: Scaffold(body: mobileTabbarConfigDefaultPreview()),
-          ),
-        );
-        final nav = previewNav();
-        expect(t.getRect(nav).bottom, screen.height - inset);
-        final navHeight = t.getSize(nav).height;
-        if (family != RaftFamily.brutal) {
+      testWidgets(
+        '${dark ? 'dark' : 'light'} preview clears $inset system inset and IME',
+        (t) async {
+          addTearDown(t.view.reset);
+          metrics(t, inset);
+          await t.pumpWidget(
+            MaterialApp(
+              theme: raftTheme(dark: dark)
+                  .copyWith(platform: TargetPlatform.android),
+              home: Scaffold(body: mobileTabbarConfigDefaultPreview()),
+            ),
+          );
+          final nav = previewNav();
+          expect(t.getRect(nav).bottom, screen.height - inset);
+          final navHeight = t.getSize(nav).height;
           expect(
             t
                 .getRect(
@@ -54,56 +47,58 @@ void main() {
                 .bottom,
             screen.height - inset - 16,
           );
-        }
-        // A pinned preview leaves the scrollable form usable on short bodies.
-        await t.tap(
-          find.byKey(const ValueKey('mobile-tabbar-switch-activity')),
-        );
-        await t.pump();
-        expect(
-          t.widget<RaftMobileNav>(nav).items.map((i) => i.id),
-          contains('activity'),
-        );
-        expect(t.getRect(nav).bottom, screen.height - inset);
-        expect(t.getSize(nav).height, navHeight);
-        // Scaffold has already consumed the IME: no second navigation inset.
-        metrics(t, inset, keyboard: 300);
-        await t.pump();
-        expect(t.getRect(nav).bottom, screen.height - 300);
-        expect(t.getSize(nav).height, navHeight);
-        metrics(t, inset);
-        await t.pump();
-        expect(t.getRect(nav).bottom, screen.height - inset);
-        expect(t.takeException(), isNull);
-      });
-    }
-    testWidgets('$family/$dark parent SafeArea consumes the inset once', (
-      t,
-    ) async {
-      addTearDown(t.view.reset);
-      metrics(t, 48);
-      await t.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(family, dark: dark),
-          home: Scaffold(
-            body: SafeArea(
-              top: false,
-              child: mobileTabbarConfigDefaultPreview(),
-            ),
-          ),
-        ),
+
+          // A pinned preview leaves the scrollable form usable on short bodies.
+          await t.tap(
+            find.byKey(const ValueKey('mobile-tabbar-switch-activity')),
+          );
+          await t.pump();
+          expect(
+            t.widget<RaftMobileNav>(nav).items.map((i) => i.id),
+            contains('activity'),
+          );
+          expect(t.getRect(nav).bottom, screen.height - inset);
+          expect(t.getSize(nav).height, navHeight);
+          // Scaffold has already consumed the IME: no second navigation inset.
+          metrics(t, inset, keyboard: 300);
+          await t.pump();
+          expect(t.getRect(nav).bottom, screen.height - 300);
+          expect(t.getSize(nav).height, navHeight);
+          metrics(t, inset);
+          await t.pump();
+          expect(t.getRect(nav).bottom, screen.height - inset);
+          expect(t.takeException(), isNull);
+        },
       );
-      expect(t.getRect(previewNav()).bottom, screen.height - 48);
-      expect(t.takeException(), isNull);
-    });
+    }
     testWidgets(
-      '$family/$dark dock paints to the edge with matching icon contrast',
+      '${dark ? 'dark' : 'light'} parent SafeArea consumes the inset once',
       (t) async {
         addTearDown(t.view.reset);
         metrics(t, 48);
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
+            home: Scaffold(
+              body: SafeArea(
+                top: false,
+                child: mobileTabbarConfigDefaultPreview(),
+              ),
+            ),
+          ),
+        );
+        expect(t.getRect(previewNav()).bottom, screen.height - 48);
+        expect(t.takeException(), isNull);
+      },
+    );
+    testWidgets(
+      '${dark ? 'dark' : 'light'} dock paints to the edge with matching icon contrast',
+      (t) async {
+        addTearDown(t.view.reset);
+        metrics(t, 48);
+        await t.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: mobileTabbarConfigDefaultPreview()),
           ),
         );

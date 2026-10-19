@@ -9,13 +9,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'message_presentation_test.dart' show fixture;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[K13d] $family/$dark actual highlight timer retains composer draft and keyboard selection',
+      '[K13d] ${dark ? 'dark' : 'light'} actual highlight timer retains composer draft and keyboard selection',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(411, 915);
@@ -52,7 +48,7 @@ void main() {
         };
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );

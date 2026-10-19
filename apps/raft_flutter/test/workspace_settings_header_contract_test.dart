@@ -18,14 +18,10 @@ import 'support/app_services_fixture.dart';
 // composition. Its content header begins in the top row of the desktop pane;
 // WorkspaceView must not prepend another full-width Settings page header.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
-        '$family/$dark width$width actual Settings has only its own navigation/content header',
+        '${dark ? 'dark' : 'light'} width$width actual Settings has only its own navigation/content header',
         (t) async {
           final (w, api) = await pageFixture(t, section: 'settings');
           api.routes['GET /auth/identities'] = (_) => {
@@ -35,7 +31,7 @@ void main() {
           api.routes['GET /auth/providers'] = (_) => {'providers': []};
           w.navigation.navigate(RaftLocation.parse('/s/demo/settings/account'));
           await shellFonts(t);
-          await mountShell(t, w, family, dark, width: width);
+          await mountShell(t, w, dark, width: width);
           final header = find.byType(RaftSettingsPanelHeader);
           expect(header, findsOneWidget);
           expect(t.getRect(header).top, 0);
@@ -69,7 +65,7 @@ void main() {
     }
 
     testWidgets(
-      '$family/$dark actual Account draft/focus and one header survive every theme-transition frame',
+      '${dark ? 'dark' : 'light'} actual Account draft/focus and one header survive every theme-transition frame',
       (t) async {
         final (w, api) = await pageFixture(t, section: 'settings');
         api.routes['GET /auth/identities'] = (_) => {
@@ -84,7 +80,7 @@ void main() {
         });
         w.navigation.navigate(RaftLocation.parse('/s/demo/settings/account'));
         await shellFonts(t);
-        await mountShell(t, w, family, dark);
+        await mountShell(t, w, dark);
         final field = find.byKey(const Key('account-profile-display-name'));
         await t.tap(field);
         await t.enterText(field, 'Unsaved account draft');
@@ -99,16 +95,13 @@ void main() {
           matching: find.byType(EditableText),
         );
         final state = t.state(editing);
-        final nextFamily = family == RaftFamily.brutal
-            ? RaftFamily.elegant
-            : RaftFamily.brutal;
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(nextFamily),
+            theme: raftTheme(dark: !dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: nextFamily),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),

@@ -35,11 +35,7 @@ class _MountedActivity {
   int get oldReads =>
       api.calls.where((r) => r.path == '/channels/thread-1/read').length;
 
-  static Future<_MountedActivity> mount(
-    WidgetTester tester,
-    RaftFamily family,
-    bool dark,
-  ) async {
+  static Future<_MountedActivity> mount(WidgetTester tester, bool dark) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(1440, 900);
     tester.view.devicePixelRatio = 1;
@@ -83,7 +79,7 @@ class _MountedActivity {
     };
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(family, dark: dark),
+        theme: raftTheme(dark: dark),
         home: withAppServices(
           WorkspaceView(
             controller: w,
@@ -204,17 +200,13 @@ class _MountedActivity {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final authority in ['principal', 'server']) {
       for (final pending in [false, true]) {
         testWidgets(
-          '[K07] $family/$dark actual row input retires $authority ${pending ? 'after the first thread frame' : 'before the first frame'} without private late paint',
+          '[K07] ${dark ? 'dark' : 'light'} actual row input retires $authority ${pending ? 'after the first thread frame' : 'before the first frame'} without private late paint',
           (tester) async {
-            final page = await _MountedActivity.mount(tester, family, dark);
+            final page = await _MountedActivity.mount(tester, dark);
             try {
               await page.open(tester);
               if (pending) {
@@ -259,9 +251,9 @@ void main() {
       }
     }
     testWidgets(
-      '[K07] $family/$dark actual thread row and painted reply retire on accepted parent-channel revocation while parent HTTP waits',
+      '[K07] ${dark ? 'dark' : 'light'} actual thread row and painted reply retire on accepted parent-channel revocation while parent HTTP waits',
       (tester) async {
-        final page = await _MountedActivity.mount(tester, family, dark);
+        final page = await _MountedActivity.mount(tester, dark);
         try {
           await page.open(tester);
           await page.reachFirstThreadFrame(tester);

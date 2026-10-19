@@ -48,20 +48,16 @@ Widget messageRow({
 );
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'touch rows ignore compatibility hover before and after a swipe $family/$dark',
+      'touch rows ignore compatibility hover before and after a swipe ${dark ? 'dark' : 'light'}',
       (tester) async {
         final scroll = ScrollController();
         addTearDown(scroll.dispose);
         var actions = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: SizedBox(
                 width: 390,
@@ -105,13 +101,13 @@ void main() {
     );
 
     testWidgets(
-      'switching to touch retires hover but keeps explicit menus $family/$dark',
+      'switching to touch retires hover but keeps explicit menus ${dark ? 'dark' : 'light'}',
       (tester) async {
         var coarse = false, popupOpen = false;
         late StateSetter update;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Align(
                 alignment: Alignment.topLeft,

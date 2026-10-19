@@ -76,7 +76,7 @@ Future<(WorkspaceController, _Adapter)> _fixture(String role) async {
 Widget _host(Widget child, {double width = 1280}) => MediaQuery(
   data: MediaQueryData(size: Size(width, 2000)),
   child: MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     home: Scaffold(
       body: ListView(padding: const EdgeInsets.all(20), children: [child]),
     ),

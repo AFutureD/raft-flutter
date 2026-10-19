@@ -12,8 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_global_server_selector_test.dart';
 
-/// The family a built theme belongs to.
-RaftFamily _family(ThemeData theme) => theme.extension<RaftTokens>()!.family;
+/// Whether a built theme carries the dark tokens.
+bool _isDark(ThemeData theme) => theme.extension<RaftTokens>()!.dark;
 
 class _PendingSessionStore extends MemorySessionStore {
   final pending = Completer<Session?>();
@@ -78,50 +78,86 @@ void main() {
     },
   );
 
-  testWidgets('the first built MaterialApp uses the stored family and mode', (
-    t,
-  ) async {
-    final app = await _firstBuilt(t, {
-      'raft.mode': 'dark',
-      'raft.light': 'elegant',
-    }, preload: true);
+  testWidgets('the first built MaterialApp uses the stored mode', (t) async {
+    final app = await _firstBuilt(t, {'raft.mode': 'dark'}, preload: true);
     expect(app.themeMode, ThemeMode.dark);
-    expect(
-      _family(app.theme!),
-      RaftFamily.elegant,
-      reason: 'light theme must be the stored family from the first build',
-    );
+    expect(_isDark(app.theme!), isFalse);
+    expect(_isDark(app.darkTheme!), isTrue);
   });
 
-  testWidgets('first build without stored values keeps brutal and system', (
+  testWidgets('first build without stored values follows the system', (
     t,
   ) async {
     final app = await _firstBuilt(t, {}, preload: true);
     expect(app.themeMode, ThemeMode.system);
-    expect(_family(app.theme!), RaftFamily.brutal);
+    expect(_isDark(app.theme!), isFalse);
+    expect(_isDark(app.darkTheme!), isTrue);
   });
 
-  testWidgets('an unknown stored value falls back per key, not wholesale', (
-    t,
-  ) async {
+  testWidgets('an unknown stored value falls back to System', (t) async {
     final app = await _firstBuilt(t, {
-      'raft.mode': 'dark',
-      'raft.light': 'retired-family',
+      'raft.mode': 'retired-mode',
     }, preload: true);
-    expect(app.themeMode, ThemeMode.dark);
-    expect(_family(app.theme!), RaftFamily.brutal);
+    expect(app.themeMode, ThemeMode.system);
   });
 
-  test('storedAppearance reads each key synchronously', () async {
+  // Brutal and Elegant are the one Raft look now; `raft.mode` already said
+  // Light, Dark or System.
+  for (final family in ['brutal', 'elegant', 'retired-family']) {
+    testWidgets('the retired theme family "$family" changes nothing', (
+      t,
+    ) async {
+      final app = await _firstBuilt(t, {
+        'raft.mode': 'light',
+        'raft.light': family,
+      }, preload: true);
+      expect(app.themeMode, ThemeMode.light);
+      expect(_isDark(app.theme!), isFalse);
+    });
+  }
+
+  test('stored appearance values migrate to Light / Dark / System', () {
+    // The retired theme ids map by their brightness; System follows the platform.
+    for (final (stored, mode) in [
+      ('light', ThemeMode.light),
+      ('dark', ThemeMode.dark),
+      ('system', ThemeMode.system),
+      ('brutal', ThemeMode.light),
+      ('elegantLight', ThemeMode.light),
+      ('elegantDark', ThemeMode.dark),
+    ]) {
+      expect(storedThemeMode(stored), mode, reason: stored);
+    }
+    expect(storedThemeMode('elegant'), isNull);
+    expect(storedThemeMode(null), isNull);
+  });
+
+  test('storedAppearance reads the mode synchronously', () async {
     SharedPreferences.setMockInitialValues({
       'raft.mode': 'light',
       'raft.light': 'elegant',
     });
     final p = await SharedPreferences.getInstance();
-    final a = storedAppearance(p);
-    expect(a.mode, ThemeMode.light);
-    expect(a.light, RaftFamily.elegant);
+    expect(storedAppearance(p).mode, ThemeMode.light);
+    SharedPreferences.setMockInitialValues({'raft.mode': 'elegantDark'});
+    expect(
+      storedAppearance(await SharedPreferences.getInstance()).mode,
+      ThemeMode.dark,
+    );
     DevicePreferences.reset();
-    expect(storedAppearance().light, RaftFamily.brutal);
+    expect(storedAppearance().mode, ThemeMode.system);
+  });
+
+  test('the retired family key is dropped once', () async {
+    SharedPreferences.setMockInitialValues({
+      'raft.mode': 'dark',
+      'raft.light': 'elegant',
+    });
+    final p = await SharedPreferences.getInstance();
+    await retireStoredAppearanceTheme(p);
+    expect(p.containsKey(retiredAppearanceThemeKey), isFalse);
+    expect(p.getString('raft.mode'), 'dark');
+    await retireStoredAppearanceTheme(p);
+    expect(p.getString('raft.mode'), 'dark');
   });
 }

@@ -22,11 +22,7 @@ Map<String, dynamic> doneThread({String authoritySeq = '12'}) => {
 };
 
 void main() {
-  for (final theme in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     late Client client;
     late Workspace workspace;
     setUp(() {
@@ -46,7 +42,7 @@ void main() {
     Future<dynamic> mount(WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(theme.$1, dark: theme.$2),
+          theme: raftTheme(dark: dark),
           home: Scaffold(
             body: ResourceView(
               controller: workspace,
@@ -61,7 +57,7 @@ void main() {
     }
 
     testWidgets(
-      '[Activity Done] ${theme.$1}/${theme.$2} held pre-intent read cannot restore the row after newer ACK reconciliation',
+      '[Activity Done] ${dark ? 'dark' : 'light'} held pre-intent read cannot restore the row after newer ACK reconciliation',
       (tester) async {
         final dynamic state = await mount(tester);
         final stale = Completer<dynamic>();
@@ -86,7 +82,7 @@ void main() {
       },
     );
     testWidgets(
-      '[Activity Done] ${theme.$1}/${theme.$2} failed ACK refresh shows the actual error and retires its bridge before retry',
+      '[Activity Done] ${dark ? 'dark' : 'light'} failed ACK refresh shows the actual error and retires its bridge before retry',
       (tester) async {
         final dynamic state = await mount(tester);
         await tester.tap(find.byTooltip('Mark conversation done'));
@@ -111,7 +107,7 @@ void main() {
       },
     );
     testWidgets(
-      '[Activity Done] ${theme.$1}/${theme.$2} first owned refresh stays armed until acceptance then retires suppression',
+      '[Activity Done] ${dark ? 'dark' : 'light'} first owned refresh stays armed until acceptance then retires suppression',
       (tester) async {
         final dynamic state = await mount(tester);
         await tester.tap(find.byTooltip('Mark conversation done'));
@@ -139,7 +135,7 @@ void main() {
       },
     );
     testWidgets(
-      '[Activity Done] ${theme.$1}/${theme.$2} newer authority activity bypasses suppression while POST is pending and after ACK',
+      '[Activity Done] ${dark ? 'dark' : 'light'} newer authority activity bypasses suppression while POST is pending and after ACK',
       (tester) async {
         final dynamic state = await mount(tester);
         await tester.tap(find.byTooltip('Mark conversation done'));
@@ -156,7 +152,7 @@ void main() {
       },
     );
     testWidgets(
-      '[Activity Done] ${theme.$1}/${theme.$2} failed persistence restores canonical row and unread through reconciliation',
+      '[Activity Done] ${dark ? 'dark' : 'light'} failed persistence restores canonical row and unread through reconciliation',
       (tester) async {
         final dynamic state = await mount(tester);
         await tester.tap(find.byTooltip('Mark conversation done'));
@@ -172,7 +168,7 @@ void main() {
       },
     );
     testWidgets(
-      '[Activity Done] ${theme.$1}/${theme.$2} principal change rejects late success and old refresh effects',
+      '[Activity Done] ${dark ? 'dark' : 'light'} principal change rejects late success and old refresh effects',
       (tester) async {
         final dynamic state = await mount(tester);
         await tester.tap(find.byTooltip('Mark conversation done'));
@@ -190,7 +186,7 @@ void main() {
       },
     );
     testWidgets(
-      '[Activity Done] ${theme.$1}/${theme.$2} denied persistence retires rows and never accepts optimistic success',
+      '[Activity Done] ${dark ? 'dark' : 'light'} denied persistence retires rows and never accepts optimistic success',
       (tester) async {
         final dynamic state = await mount(tester);
         await tester.tap(find.byTooltip('Mark conversation done'));
@@ -209,7 +205,7 @@ void main() {
       },
     );
     testWidgets(
-      '[Activity Done] ${theme.$1}/${theme.$2} old success cannot clear the newer Done generation or drive its refresh',
+      '[Activity Done] ${dark ? 'dark' : 'light'} old success cannot clear the newer Done generation or drive its refresh',
       (tester) async {
         final dynamic state = await mount(tester);
         await tester.tap(find.byTooltip('Mark conversation done'));
@@ -239,7 +235,7 @@ void main() {
       },
     );
     testWidgets(
-      '[Activity Done] ${theme.$1}/${theme.$2} legacy server omits sequence and never sends display units',
+      '[Activity Done] ${dark ? 'dark' : 'light'} legacy server omits sequence and never sends display units',
       (tester) async {
         workspace.row.remove('doneFrontierSeq');
         final dynamic state = await mount(tester);
@@ -254,7 +250,7 @@ void main() {
     );
     for (final kind in ['channel', 'dm']) {
       testWidgets(
-        '[Activity Done] ${theme.$1}/${theme.$2} $kind uses inbox Done with their accepted storage frontier',
+        '[Activity Done] ${dark ? 'dark' : 'light'} $kind uses inbox Done with their accepted storage frontier',
         (tester) async {
           workspace.row = {
             ...doneThread(),
@@ -278,7 +274,7 @@ void main() {
       );
     }
     testWidgets(
-      '[Activity Done] ${theme.$1}/${theme.$2} intent removes exact row before POST and stale ACK refresh stays removed',
+      '[Activity Done] ${dark ? 'dark' : 'light'} intent removes exact row before POST and stale ACK refresh stays removed',
       (tester) async {
         final dynamic state = await mount(tester);
         await tester.tap(find.byTooltip('Mark conversation done'));

@@ -93,17 +93,13 @@ void main() {
       await Future.wait([initialization, duplicate]);
     },
   );
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ]) {
+  for (final (dark) in [(false), (true)]) {
     testWidgets(
-      'preference readback, pending save, error and retry $family dark=$dark',
+      'preference readback, pending save, error and retry dark=$dark',
       (t) async {
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: SingleChildScrollView(
                 child: WindowsTraySettings(tray: tray),
@@ -150,7 +146,7 @@ void main() {
       pending = Completer<Map<String, dynamic>>();
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(textScaler: const TextScaler.linear(3.1)),

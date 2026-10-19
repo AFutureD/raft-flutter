@@ -15,12 +15,11 @@ void main() {
   Widget host({
     required bool expanded,
     required ValueChanged<bool> onExpandedChanged,
-    RaftFamily family = RaftFamily.elegant,
     bool dark = false,
     Widget? action,
     Key disclosureKey = const ValueKey('disclosure'),
   }) => MaterialApp(
-    theme: raftTheme(family, dark: dark),
+    theme: raftTheme(dark: dark),
     home: Scaffold(
       body: RaftDensityScope(
         density: RaftDensity.desktop,
@@ -48,52 +47,41 @@ void main() {
     ),
   );
 
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    testWidgets('collapsed shows only the header row ($family/$dark)', (
-      tester,
-    ) async {
-      var changes = <bool>[];
-      await tester.pumpWidget(
-        host(
-          expanded: false,
-          onExpandedChanged: changes.add,
-          family: family,
-          dark: dark,
-        ),
-      );
-      expect(eyebrow('Skills'), findsOneWidget);
-      expect(
-        tester.widget<RaftSectionHeader>(find.byType(RaftSectionHeader)).count,
-        3,
-      );
-      expect(find.text('deploy'), findsNothing);
-      expect(find.text('feature-map'), findsNothing);
-      // One row tall: the header only.
-      expect(
-        tester.getSize(find.byType(RaftCollapsibleSectionHeader)).height,
-        tester.getSize(find.byType(RaftSectionHeader)).height,
-      );
-
-      await tester.tap(find.byKey(const ValueKey('disclosure')));
-      expect(changes, [true]);
-      expect(tester.takeException(), isNull);
-    });
-
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'expanded shows the content under the same header ($family/$dark)',
+      'collapsed shows only the header row (${dark ? 'dark' : 'light'})',
       (tester) async {
         var changes = <bool>[];
         await tester.pumpWidget(
-          host(
-            expanded: true,
-            onExpandedChanged: changes.add,
-            family: family,
-            dark: dark,
-          ),
+          host(expanded: false, onExpandedChanged: changes.add, dark: dark),
+        );
+        expect(eyebrow('Skills'), findsOneWidget);
+        expect(
+          tester
+              .widget<RaftSectionHeader>(find.byType(RaftSectionHeader))
+              .count,
+          3,
+        );
+        expect(find.text('deploy'), findsNothing);
+        expect(find.text('feature-map'), findsNothing);
+        // One row tall: the header only.
+        expect(
+          tester.getSize(find.byType(RaftCollapsibleSectionHeader)).height,
+          tester.getSize(find.byType(RaftSectionHeader)).height,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('disclosure')));
+        expect(changes, [true]);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'expanded shows the content under the same header (${dark ? 'dark' : 'light'})',
+      (tester) async {
+        var changes = <bool>[];
+        await tester.pumpWidget(
+          host(expanded: true, onExpandedChanged: changes.add, dark: dark),
         );
         expect(eyebrow('Skills'), findsOneWidget);
         expect(find.text('deploy'), findsOneWidget);

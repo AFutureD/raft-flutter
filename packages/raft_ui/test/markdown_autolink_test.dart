@@ -334,7 +334,7 @@ void main() {
     String? opened;
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftMessageBody(
             content: '看这里https://docs.raft.build/x。然后',

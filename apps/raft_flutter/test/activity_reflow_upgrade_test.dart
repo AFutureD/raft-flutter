@@ -16,13 +16,11 @@ import 'workspace_activity_activation_test.dart' show channelRow, message;
 import 'support/app_services_fixture.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final mode in ['other-row', 'other-row-double', 'late', 'detail']) {
-      testWidgets('Activity C reflow $family/$dark $mode', (t) async {
+      testWidgets('Activity C reflow ${dark ? 'dark' : 'light'} $mode', (
+        t,
+      ) async {
         SharedPreferences.setMockInitialValues({});
         t.view.physicalSize = const Size(1440, 900);
         t.view.devicePixelRatio = 1;
@@ -61,11 +59,11 @@ void main() {
         };
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),

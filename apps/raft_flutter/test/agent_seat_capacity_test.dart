@@ -98,7 +98,7 @@ void main() {
         addTearDown(() => tester.binding.setSurfaceSize(null));
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.brutal),
+            theme: raftTheme(),
             home: Scaffold(
               body: Builder(
                 builder: (context) => TextButton(

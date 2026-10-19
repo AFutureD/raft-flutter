@@ -66,7 +66,7 @@ Future<(WorkspaceController, MessageAdapter)> _mount(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: RaftDensityScope(
           density: RaftDensity.desktop,

@@ -80,7 +80,6 @@ class _Fixture {
 
   Future<void> open(
     WidgetTester t, {
-    RaftFamily family = RaftFamily.elegant,
     bool dark = false,
     double width = 1280,
   }) async {
@@ -102,7 +101,7 @@ class _Fixture {
     await w.entityDirectory.preload();
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(family, dark: dark),
+        theme: raftTheme(dark: dark),
         home: Builder(
           builder: (context) => Scaffold(
             body: Center(
@@ -131,17 +130,13 @@ class _Fixture {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
-        '$family/$dark/$width the real Computer finishes the placeholder registration and Done targets its identity',
+        '${dark ? 'dark' : 'light'}/$width the real Computer finishes the placeholder registration and Done targets its identity',
         (t) async {
           final f = _Fixture();
-          await f.open(t, family: family, dark: dark, width: width);
+          await f.open(t, dark: dark, width: width);
           expect(
             find.text('Waiting for computer to connect...'),
             findsOneWidget,

@@ -24,7 +24,6 @@ Future<void> _pump(
   WidgetTester tester,
   Widget child, {
   Size size = const Size(390, 844),
-  RaftFamily family = RaftFamily.elegant,
   bool reduceMotion = false,
 }) async {
   tester.view.physicalSize = size;
@@ -32,7 +31,7 @@ Future<void> _pump(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family),
+      theme: raftTheme(),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(disableAnimations: reduceMotion),
         child: child!,
@@ -380,28 +379,23 @@ void main() {
       expect(find.byKey(const ValueKey('media-caption')), findsNothing);
     });
 
-    for (final family in RaftFamily.values) {
-      testWidgets('$family draws its own chrome (solid bars or scrims)', (
-        tester,
-      ) async {
-        await _pump(tester, _shell(), family: family);
-        final brutal = family == RaftFamily.brutal;
-        final solid = find.byWidgetPredicate(
-          (w) =>
-              (w is Container || w is DecoratedBox) &&
-              _decorationOf(w) is BoxDecoration &&
-              (_decorationOf(w)! as BoxDecoration).color == Colors.black,
-        );
-        expect(solid.evaluate().isNotEmpty, brutal);
-        final gradient = find.byWidgetPredicate(
-          (w) =>
-              (w is Container || w is DecoratedBox) &&
-              _decorationOf(w) is BoxDecoration &&
-              (_decorationOf(w)! as BoxDecoration).gradient != null,
-        );
-        expect(gradient.evaluate().isNotEmpty, !brutal);
-      });
-    }
+    testWidgets('draws its own chrome (scrims, no solid bars)', (tester) async {
+      await _pump(tester, _shell());
+      final solid = find.byWidgetPredicate(
+        (w) =>
+            (w is Container || w is DecoratedBox) &&
+            _decorationOf(w) is BoxDecoration &&
+            (_decorationOf(w)! as BoxDecoration).color == Colors.black,
+      );
+      expect(solid.evaluate().isNotEmpty, isFalse);
+      final gradient = find.byWidgetPredicate(
+        (w) =>
+            (w is Container || w is DecoratedBox) &&
+            _decorationOf(w) is BoxDecoration &&
+            (_decorationOf(w)! as BoxDecoration).gradient != null,
+      );
+      expect(gradient.evaluate().isNotEmpty, isTrue);
+    });
   });
 
   group('RaftMediaDismissible', () {
@@ -579,7 +573,7 @@ void main() {
     }) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: const Scaffold(body: Text('chat')),
         ),
       );
@@ -660,7 +654,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Builder(
             builder: (context) => Scaffold(
               body: Center(

@@ -1,20 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_flutter/features/windows_tray_settings.dart';
 
 import 'native_notifications_test.dart' show deferredMacNotifications;
 import 'notification_settings_view_test.dart' show host, fixture, card;
 
 void main() {
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ]) {
+  for (final (dark) in [(false), (true)]) {
     testWidgets(
-      'macOS denied permission links to system settings and clears after a grant $family/$dark',
+      'macOS denied permission links to system settings and clears after a grant ${dark ? 'dark' : 'light'}',
       (t) async {
         final (w, _, unused) = (await t.runAsync(fixture))!;
         final (service, _, permission) = deferredMacNotifications();
@@ -43,13 +38,7 @@ void main() {
         );
         await service.bind('alice');
         await t.pumpWidget(
-          host(
-            w,
-            service,
-            family: family,
-            dark: dark,
-            locale: const Locale('zh'),
-          ),
+          host(w, service, dark: dark, locale: const Locale('zh')),
         );
         await t.pumpAndSettle();
         expect(card(t).status, 'Off in system settings');
@@ -70,13 +59,7 @@ void main() {
         expect(find.text('系统里没开'), findsNothing);
         await t.pumpWidget(const SizedBox());
         await t.pumpWidget(
-          host(
-            w,
-            service,
-            family: family,
-            dark: dark,
-            locale: const Locale('zh'),
-          ),
+          host(w, service, dark: dark, locale: const Locale('zh')),
         );
         await t.pumpAndSettle();
         expect(card(t).status, 'Enabled');

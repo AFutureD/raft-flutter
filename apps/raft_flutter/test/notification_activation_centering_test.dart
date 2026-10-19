@@ -18,15 +18,11 @@ import 'parity/parity_harness.dart' show loadParityFonts;
 void main() {
   late List<String> loadedFonts;
   setUpAll(() async => loadedFonts = await loadParityFonts());
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ]) {
+  for (final dark in [false, true]) {
     for (final chinese in [false, true]) {
       for (final width in [480.0, 900.0]) {
         testWidgets(
-          'activation action and text centered $family/$dark/$chinese/$width',
+          'activation action and text centered ${dark ? 'dark' : 'light'}/$chinese/$width',
           (t) async {
             SharedPreferences.setMockInitialValues({});
             t.view.physicalSize = const Size(1200, 800);
@@ -58,7 +54,6 @@ void main() {
                   ),
                 ),
                 s,
-                family: family,
                 dark: dark,
                 chinese: chinese,
               ),
@@ -96,7 +91,7 @@ void main() {
               'below': banner.bottom - button.bottom,
             };
             final name =
-                '${family.name}-${dark ? 'dark' : 'light'}-${chinese ? 'zh' : 'en'}-${width.toInt()}';
+                '${dark ? 'dark' : 'light'}-${chinese ? 'zh' : 'en'}-${width.toInt()}';
             final capture = Platform.environment['RAFT_NOTIFICATION_CAPTURE'];
             if (capture != null) {
               if (chinese) {

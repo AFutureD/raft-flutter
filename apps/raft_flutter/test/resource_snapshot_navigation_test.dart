@@ -28,7 +28,7 @@ void main() {
   });
 
   Widget page(String section, {Key? key}) => MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     home: Scaffold(
       body: ResourceView(
         key: key,
@@ -44,7 +44,7 @@ void main() {
   }
 
   Widget away() => MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     home: const Scaffold(body: SizedBox.expand()),
   );
 

@@ -15,16 +15,12 @@ import 'workspace_activity_activation_test.dart'
 import 'support/app_services_fixture.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final outcome in ['accepted', 'back', 'denied']) {
       final backBeforeMetadata = outcome == 'back';
       final metadataDenied = outcome == 'denied';
       testWidgets(
-        '[N24e] $family/$dark uncached-parent double ${backBeforeMetadata
+        '[N24e] ${dark ? 'dark' : 'light'} uncached-parent double ${backBeforeMetadata
             ? 'Back fences metadata'
             : metadataDenied
             ? 'rejects unavailable metadata without fake channel'
@@ -75,11 +71,11 @@ void main() {
           };
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),
@@ -286,7 +282,7 @@ void main() {
     }
     for (final thread in [true, false]) {
       testWidgets(
-        '${thread ? '[N25a]' : '[N25b]'} $family/$dark actual narrow Activity ${thread ? 'thread' : 'channel'} uses Source single focus and Back',
+        '${thread ? '[N25a]' : '[N25b]'} ${dark ? 'dark' : 'light'} actual narrow Activity ${thread ? 'thread' : 'channel'} uses Source single focus and Back',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           tester.view.physicalSize = const Size(390, 844);
@@ -325,11 +321,11 @@ void main() {
           };
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),

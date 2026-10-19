@@ -82,7 +82,7 @@ Future<SurfaceProbe> historySettingsConfirmation(
   final capacity = _Capacity();
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(RaftSpace.x4),

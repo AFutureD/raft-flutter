@@ -15,7 +15,6 @@ const _lastKey = ValueKey('document-last-line');
 
 Future<GlobalKey> _pumpHome(
   WidgetTester tester,
-  RaftFamily family,
   double scale, {
   Size size = _size,
   double inset = _inset,
@@ -26,7 +25,7 @@ Future<GlobalKey> _pumpHome(
   final boundary = GlobalKey();
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family),
+      theme: raftTheme(),
       builder: (context, child) => RepaintBoundary(
         key: boundary,
         child: MediaQuery(
@@ -113,199 +112,176 @@ Future<Color> _pixel(WidgetTester tester, GlobalKey boundary, Offset at) async {
 }
 
 void main() {
-  for (final family in RaftFamily.values) {
-    for (final page in [true, false]) {
-      for (final scale in [1.0, 2.0]) {
-        final name =
-            '$family ${page ? 'page' : 'dialog'} ${scale}x: collapsed bar';
-        testWidgets('$name: the end of the content stays above it', (
+  for (final page in [true, false]) {
+    for (final scale in [1.0, 2.0]) {
+      final name = '${page ? 'page' : 'dialog'} ${scale}x: collapsed bar';
+      testWidgets('$name: the end of the content stays above it', (
+        tester,
+      ) async {
+        await _pumpHome(tester, scale);
+        final controller = ScrollController();
+        addTearDown(controller.dispose);
+        await _push(
           tester,
-        ) async {
-          await _pumpHome(tester, family, scale);
-          final controller = ScrollController();
-          addTearDown(controller.dispose);
-          await _push(
-            tester,
-            page,
-            () => _shell(page: page, child: _document(controller)),
-          );
-          controller.jumpTo(controller.position.maxScrollExtent);
-          await tester.pump();
-          final sheet = tester.getRect(
-            find.byKey(const ValueKey('attachment-comments-sheet')),
-          );
-          final last = tester.getRect(find.byKey(_lastKey));
-          expect(last.bottom, lessThanOrEqualTo(sheet.top));
-          // The last line is fully on screen, right above the bar.
-          expect(last.top, greaterThan(0));
-          expect(sheet.top - last.bottom, lessThan(1));
-        });
+          page,
+          () => _shell(page: page, child: _document(controller)),
+        );
+        controller.jumpTo(controller.position.maxScrollExtent);
+        await tester.pump();
+        final sheet = tester.getRect(
+          find.byKey(const ValueKey('attachment-comments-sheet')),
+        );
+        final last = tester.getRect(find.byKey(_lastKey));
+        expect(last.bottom, lessThanOrEqualTo(sheet.top));
+        // The last line is fully on screen, right above the bar.
+        expect(last.top, greaterThan(0));
+        expect(sheet.top - last.bottom, lessThan(1));
+      });
 
-        testWidgets('$name: is opaque down to the screen bottom', (
+      testWidgets('$name: is opaque down to the screen bottom', (tester) async {
+        final boundary = await _pumpHome(tester, scale);
+        await _push(
           tester,
-        ) async {
-          final boundary = await _pumpHome(tester, family, scale);
-          await _push(
-            tester,
-            page,
-            () => _shell(page: page, child: const Text('body')),
-          );
-          final sheet = tester.getRect(
-            find.byKey(const ValueKey('attachment-comments-sheet')),
-          );
-          expect(sheet.bottom, _size.height);
-          expect(sheet.left, 0);
-          expect(sheet.right, _size.width);
-          // The header row sits fully above the system bar.
+          page,
+          () => _shell(page: page, child: const Text('body')),
+        );
+        final sheet = tester.getRect(
+          find.byKey(const ValueKey('attachment-comments-sheet')),
+        );
+        expect(sheet.bottom, _size.height);
+        expect(sheet.left, 0);
+        expect(sheet.right, _size.width);
+        // The header row sits fully above the system bar.
+        expect(
+          tester
+              .getRect(
+                find.byKey(const ValueKey('attachment-comments-sheet-toggle')),
+              )
+              .bottom,
+          lessThanOrEqualTo(_size.height - _inset),
+        );
+        // And what is painted there is the sheet's own surface: not the
+        // dimmed page behind a dialog, not the magenta home.
+        final t = RaftTokens.of(
+          tester.element(find.byType(RaftAttachmentPreviewShell)),
+        );
+        final surface = t.panel;
+        for (final y in [_size.height - 2, _size.height - _inset / 2]) {
+          final color = await _pixel(tester, boundary, Offset(60, y));
+          expect(color.a, 1.0, reason: 'opaque at y=$y');
           expect(
-            tester
-                .getRect(
-                  find.byKey(
-                    const ValueKey('attachment-comments-sheet-toggle'),
-                  ),
-                )
-                .bottom,
-            lessThanOrEqualTo(_size.height - _inset),
+            (color.r - surface.r).abs() +
+                (color.g - surface.g).abs() +
+                (color.b - surface.b).abs(),
+            lessThan(.01),
+            reason: 'the sheet surface at y=$y, got $color',
           );
-          // And what is painted there is the sheet's own surface: not the
-          // dimmed page behind a dialog, not the magenta home.
-          final t = RaftTokens.of(
-            tester.element(find.byType(RaftAttachmentPreviewShell)),
-          );
-          final surface = t.brutal ? Colors.white : t.panel;
-          for (final y in [_size.height - 2, _size.height - _inset / 2]) {
-            final color = await _pixel(tester, boundary, Offset(60, y));
-            expect(color.a, 1.0, reason: 'opaque at y=$y');
-            expect(
-              (color.r - surface.r).abs() +
-                  (color.g - surface.g).abs() +
-                  (color.b - surface.b).abs(),
-              lessThan(.01),
-              reason: 'the sheet surface at y=$y, got $color',
-            );
-          }
-        });
-      }
+        }
+      });
     }
-
-    testWidgets('$family open sheet stays an overlay: the body does not move', (
-      tester,
-    ) async {
-      await _pumpHome(tester, family, 1);
-      final controller = ScrollController();
-      addTearDown(controller.dispose);
-      await _push(
-        tester,
-        true,
-        () => _shell(page: true, child: _document(controller)),
-      );
-      final before = tester.getRect(find.text('line 5'));
-      await tester.tap(
-        find.byKey(const ValueKey('attachment-comments-sheet-toggle')),
-      );
-      await tester.pumpAndSettle();
-      expect(tester.getRect(find.text('line 5')), before);
-      expect(
-        tester
-            .getRect(find.byKey(const ValueKey('attachment-comments-sheet')))
-            .height,
-        _size.height * .45,
-      );
-    });
-
-    testWidgets('$family no comments: the content clears the system bar', (
-      tester,
-    ) async {
-      await _pumpHome(tester, family, 1);
-      final controller = ScrollController();
-      addTearDown(controller.dispose);
-      await _push(
-        tester,
-        false,
-        () => RaftAttachmentPreviewShell(
-          page: false,
-          filename: 'notes.txt',
-          onClose: () {},
-          child: _document(controller),
-        ),
-      );
-      controller.jumpTo(controller.position.maxScrollExtent);
-      await tester.pump();
-      expect(
-        tester.getRect(find.byKey(_lastKey)).bottom,
-        lessThanOrEqualTo(_size.height - _inset),
-      );
-    });
   }
 
+  testWidgets('open sheet stays an overlay: the body does not move', (
+    tester,
+  ) async {
+    await _pumpHome(tester, 1);
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await _push(
+      tester,
+      true,
+      () => _shell(page: true, child: _document(controller)),
+    );
+    final before = tester.getRect(find.text('line 5'));
+    await tester.tap(
+      find.byKey(const ValueKey('attachment-comments-sheet-toggle')),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.text('line 5')), before);
+    expect(
+      tester
+          .getRect(find.byKey(const ValueKey('attachment-comments-sheet')))
+          .height,
+      _size.height * .45,
+    );
+  });
+
+  testWidgets('no comments: the content clears the system bar', (tester) async {
+    await _pumpHome(tester, 1);
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await _push(
+      tester,
+      false,
+      () => RaftAttachmentPreviewShell(
+        page: false,
+        filename: 'notes.txt',
+        onClose: () {},
+        child: _document(controller),
+      ),
+    );
+    controller.jumpTo(controller.position.maxScrollExtent);
+    await tester.pump();
+    expect(
+      tester.getRect(find.byKey(_lastKey)).bottom,
+      lessThanOrEqualTo(_size.height - _inset),
+    );
+  });
+
   // Audio is centred while the card fits and scrolls when it does not.
-  for (final family in RaftFamily.values) {
-    testWidgets('$family audio: centred when it fits', (tester) async {
-      await _pumpHome(tester, family, 1);
+  testWidgets('audio: centred when it fits', (tester) async {
+    await _pumpHome(tester, 1);
+    await _push(
+      tester,
+      true,
+      () => _shell(
+        page: true,
+        child: const RaftAudioPreview(filename: 'voice.mp3'),
+      ),
+    );
+    final viewport = tester.getRect(
+      find.descendant(
+        of: find.byType(RaftAudioPreview),
+        matching: find.byType(SingleChildScrollView),
+      ),
+    );
+    final card = tester.getRect(find.byKey(const Key('audio-preview')));
+    expect((card.center.dy - viewport.center.dy).abs(), lessThan(1));
+  });
+
+  for (final page in [true, false]) {
+    testWidgets('${page ? 'page' : 'dialog'} audio: a short window at 2x text '
+        'scrolls instead of overflowing', (tester) async {
+      await _pumpHome(tester, 2, size: const Size(600, 300), inset: 24);
       await _push(
         tester,
-        true,
+        page,
         () => _shell(
-          page: true,
+          page: page,
           child: const RaftAudioPreview(filename: 'voice.mp3'),
         ),
       );
-      final viewport = tester.getRect(
-        find.descendant(
-          of: find.byType(RaftAudioPreview),
-          matching: find.byType(SingleChildScrollView),
-        ),
+      expect(tester.takeException(), isNull);
+      final scrollable = find.descendant(
+        of: find.byType(RaftAudioPreview),
+        matching: find.byType(SingleChildScrollView),
       );
+      final viewport = tester.getRect(scrollable);
+      final position = tester
+          .state<ScrollableState>(
+            find.descendant(of: scrollable, matching: find.byType(Scrollable)),
+          )
+          .position;
+      expect(position.maxScrollExtent, greaterThan(0));
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pump();
       final card = tester.getRect(find.byKey(const Key('audio-preview')));
-      expect((card.center.dy - viewport.center.dy).abs(), lessThan(1));
-    });
-
-    for (final page in [true, false]) {
-      testWidgets(
-        '$family ${page ? 'page' : 'dialog'} audio: a short window at 2x text '
-        'scrolls instead of overflowing',
-        (tester) async {
-          await _pumpHome(
-            tester,
-            family,
-            2,
-            size: const Size(600, 300),
-            inset: 24,
-          );
-          await _push(
-            tester,
-            page,
-            () => _shell(
-              page: page,
-              child: const RaftAudioPreview(filename: 'voice.mp3'),
-            ),
-          );
-          expect(tester.takeException(), isNull);
-          final scrollable = find.descendant(
-            of: find.byType(RaftAudioPreview),
-            matching: find.byType(SingleChildScrollView),
-          );
-          final viewport = tester.getRect(scrollable);
-          final position = tester
-              .state<ScrollableState>(
-                find.descendant(
-                  of: scrollable,
-                  matching: find.byType(Scrollable),
-                ),
-              )
-              .position;
-          expect(position.maxScrollExtent, greaterThan(0));
-          position.jumpTo(position.maxScrollExtent);
-          await tester.pump();
-          final card = tester.getRect(find.byKey(const Key('audio-preview')));
-          final sheet = tester.getRect(
-            find.byKey(const ValueKey('attachment-comments-sheet')),
-          );
-          expect(card.bottom, lessThanOrEqualTo(viewport.bottom));
-          expect(viewport.bottom, lessThanOrEqualTo(sheet.top));
-          expect(tester.takeException(), isNull);
-        },
+      final sheet = tester.getRect(
+        find.byKey(const ValueKey('attachment-comments-sheet')),
       );
-    }
+      expect(card.bottom, lessThanOrEqualTo(viewport.bottom));
+      expect(viewport.bottom, lessThanOrEqualTo(sheet.top));
+      expect(tester.takeException(), isNull);
+    });
   }
 }

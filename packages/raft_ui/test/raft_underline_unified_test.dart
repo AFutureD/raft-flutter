@@ -11,40 +11,30 @@ List<_Stroke> _strokes(WidgetTester tester) => [
     ...(element.renderObject! as dynamic).debugUnderlines as List<_Stroke>,
 ];
 
-Widget _host(
-  RaftFamily family,
-  bool dark,
-  double scale,
-  Widget child, {
-  double width = 1400,
-}) => MaterialApp(
-  theme: raftTheme(family, dark: dark),
-  home: Scaffold(
-    body: Align(
-      alignment: Alignment.topLeft,
-      child: MediaQuery(
-        data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-        child: SizedBox(width: width, child: child),
+Widget _host(bool dark, double scale, Widget child, {double width = 1400}) =>
+    MaterialApp(
+      theme: raftTheme(dark: dark),
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+            child: SizedBox(width: width, child: child),
+          ),
+        ),
       ),
-    ),
-  ),
-);
+    );
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final scale in [1.0, 2.0]) {
       testWidgets('mention and hyperlink share one baseline gap '
-          '$family/$dark/$scale', (tester) async {
+          '${dark ? 'dark' : 'light'}/$scale', (tester) async {
         tester.view.physicalSize = const Size(3000, 1000);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
           _host(
-            family,
             dark,
             scale,
             RaftMessageBody(
@@ -86,7 +76,6 @@ void main() {
     late StateSetter set;
     await tester.pumpWidget(
       _host(
-        RaftFamily.elegant,
         false,
         1,
         StatefulBuilder(

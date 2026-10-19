@@ -19,11 +19,7 @@ import 'support/app_services_fixture.dart';
 // the Panel's canvas-muted surface and the content on a separate panel surface.
 // Exact Chromium samples are retained in the desktop-region-audit receipt.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final (tab, width) in [
       ('language-region', 1280.0),
       ('notifications', 1280.0),
@@ -33,7 +29,7 @@ void main() {
       ('language-region', 390.0),
     ]) {
       testWidgets(
-        '$family/$dark $tab width$width actual Settings header inherits its own surface',
+        '${dark ? 'dark' : 'light'} $tab width$width actual Settings header inherits its own surface',
         (t) async {
           final (w, api) = await pageFixture(t, section: 'settings');
           api.routes['GET /servers/s1/notification-settings'] = (_) => {
@@ -50,13 +46,13 @@ void main() {
           final key = GlobalKey();
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: RepaintBoundary(
                 key: key,
                 child: withAppServices(
                   WorkspaceView(
                     controller: w,
-                    appearance: RaftAppearance(light: family),
+                    appearance: RaftAppearance(),
                     onAppearance: (_) async {},
                     onLogout: () async {},
                     notifications: notifications,
@@ -90,18 +86,21 @@ void main() {
                 for (var c = 0; c < 3; c++)
                   data.getUint8((y * image.width + image.width - 8) * 4 + c),
               ];
+              final colors =
+                  (dark ? RaftTokenSet.dark : RaftTokenSet.light).colors;
+              List<int> bytes(Color c) => [
+                (c.r * 255).round(),
+                (c.g * 255).round(),
+                (c.b * 255).round(),
+              ];
               expect(
                 rgb(28),
-                family == RaftFamily.brutal
-                    ? [255, 255, 255]
-                    : dark
-                    ? [13, 13, 11]
-                    : [248, 248, 247],
+                bytes(colors.layerCanvasMuted),
                 reason: 'Source transparent header inherits canvas-muted',
               );
               expect(
                 rgb(780),
-                dark ? [36, 36, 34] : [255, 255, 255],
+                bytes(colors.layerPanel),
                 reason: 'Source content independently owns layer-panel',
               );
             } finally {

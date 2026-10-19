@@ -7,13 +7,9 @@ import 'package:raft_ui/raft_ui.dart';
 import 'task_typography_test.dart' show loadTaskFonts;
 
 void main() {
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ]) {
+  for (final (dark) in [(false), (true)]) {
     testWidgets(
-      'proportional time keeps trailing actions aligned $family/$dark',
+      'proportional time keeps trailing actions aligned ${dark ? 'dark' : 'light'}',
       (tester) async {
         // Ahem's wide, square glyphs fill the loose allocation and hide this bug.
         await loadTaskFonts(tester);
@@ -26,7 +22,7 @@ void main() {
               for (final long in [false, true]) {
                 await tester.pumpWidget(
                   MaterialApp(
-                    theme: raftTheme(family, dark: dark),
+                    theme: raftTheme(dark: dark),
                     home: Scaffold(
                       body: Center(
                         child: SizedBox(
@@ -102,14 +98,16 @@ void main() {
       ),
       ('inline', videoInlineControlsPreview, const Size(320, 240)),
     ]) {
-      testWidgets('real controls preview $name $family/$dark', (tester) async {
+      testWidgets('real controls preview $name ${dark ? 'dark' : 'light'}', (
+        tester,
+      ) async {
         await loadTaskFonts(tester);
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: preview()),
           ),
         );
@@ -147,7 +145,7 @@ void main() {
       tester.view.physicalSize = Size(width, 700);
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftVideoViewer(
               filename: 'clip.mp4',

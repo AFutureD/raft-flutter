@@ -101,13 +101,9 @@ Future<void> _dispatch(WidgetTester tester) async {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[K09f] $family/$dark actual Chat preloads accepted Activity and reconciles while Activity is unopened',
+      '[K09f] ${dark ? 'dark' : 'light'} actual Chat preloads accepted Activity and reconciles while Activity is unopened',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1440, 900);
@@ -119,11 +115,11 @@ void main() {
         api.routes['GET /channels/inbox'] = (_) => initial.future;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),

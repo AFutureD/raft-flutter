@@ -33,13 +33,9 @@ Future<void> settleUntil(
 
 void main() {
   const channel = MethodChannel('flutter_dynamic_icon_plus');
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark mounted mobile setting uses its standard header and returns to settings root',
+      '${dark ? 'dark' : 'light'} mounted mobile setting uses its standard header and returns to settings root',
       (t) async {
         String? actual = defaultTargetPlatform == TargetPlatform.iOS
             ? null
@@ -67,7 +63,7 @@ void main() {
         final icon = NativeAppIcon.instance;
         final (w, _) = await pageFixture(t, section: 'settings');
         w.navigation.navigate(RaftLocation.parse('/s/demo/settings'));
-        await mountShell(t, w, family, dark, width: 390);
+        await mountShell(t, w, dark, width: 390);
         final destination = find.byKey(
           const ValueKey('workspace-settings-nav-appearance'),
         );

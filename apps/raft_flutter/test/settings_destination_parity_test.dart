@@ -104,11 +104,11 @@ Future<WorkspaceController> _mount(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: withAppServices(
         WorkspaceView(
           controller: w,
-          appearance: const RaftAppearance(light: RaftFamily.elegant),
+          appearance: const RaftAppearance(),
           onAppearance: (_) async {},
           onLogout: () async {},
           notifications: services.notifications,

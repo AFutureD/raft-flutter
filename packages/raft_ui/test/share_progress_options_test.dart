@@ -50,16 +50,8 @@ void main() {
       await loader.load();
     }
   });
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
-    final theme = family == RaftFamily.brutal
-        ? 'brutal'
-        : dark
-        ? 'dark'
-        : 'elegant';
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
+    final theme = dark ? 'dark' : 'elegant';
     for (final (name, option, scenario) in _rows) {
       testWidgets('share wait option $name ($theme)', (t) async {
         t.view.physicalSize = const Size(412, 720) * 2;
@@ -69,7 +61,7 @@ void main() {
         await t.pumpWidget(
           MaterialApp(
             debugShowCheckedModeBanner: false,
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: RepaintBoundary(
                 key: capture,

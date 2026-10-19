@@ -193,49 +193,44 @@ void main() {
       secondary: 'verbatim',
     ));
   });
-  for (final (family, mode) in raftThemeMatrix([
-    (RaftFamily.brutal, ThemeMode.light),
-    (RaftFamily.elegant, ThemeMode.light),
-    (RaftFamily.elegant, ThemeMode.dark),
-  ])) {
-    testWidgets(
-      'activity inline paragraph ignores host 24px line $family $mode',
-      (t) async {
-        await t.pumpWidget(
-          MaterialApp(
-            theme: raftTheme(family),
-            darkTheme: raftTheme(family, dark: true),
-            themeMode: mode,
-            home: Scaffold(
-              body: DefaultTextStyle(
-                style: const TextStyle(fontSize: 16, height: 24 / 16),
-                child: RaftActivityLogView(
-                  entries: const [
-                    RaftActivityLogEntry(
-                      time: '10:00:00',
-                      dot: Colors.amber,
-                      title: 'Working',
-                      inlineDetail: 'first\nsecond',
-                      compact: true,
-                    ),
-                  ],
-                ),
+  for (final mode in raftThemeMatrix([ThemeMode.light, ThemeMode.dark])) {
+    testWidgets('activity inline paragraph ignores host 24px line $mode', (
+      t,
+    ) async {
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(),
+          darkTheme: raftTheme(dark: true),
+          themeMode: mode,
+          home: Scaffold(
+            body: DefaultTextStyle(
+              style: const TextStyle(fontSize: 16, height: 24 / 16),
+              child: RaftActivityLogView(
+                entries: const [
+                  RaftActivityLogEntry(
+                    time: '10:00:00',
+                    dot: Colors.amber,
+                    title: 'Working',
+                    inlineDetail: 'first\nsecond',
+                    compact: true,
+                  ),
+                ],
               ),
             ),
           ),
-        );
-        final paragraph = find.byWidgetPredicate(
-          (widget) =>
-              widget is RichText &&
-              widget.text.toPlainText().startsWith('Working'),
-        );
-        expect(paragraph, findsOneWidget);
-        final style = (t.widget<RichText>(paragraph).text as TextSpan).style!;
-        expect(style.fontSize, 14);
-        expect(style.height! * style.fontSize!, closeTo(20, .001));
-        expect(t.getSize(paragraph).height, closeTo(40, .001));
-      },
-    );
+        ),
+      );
+      final paragraph = find.byWidgetPredicate(
+        (widget) =>
+            widget is RichText &&
+            widget.text.toPlainText().startsWith('Working'),
+      );
+      expect(paragraph, findsOneWidget);
+      final style = (t.widget<RichText>(paragraph).text as TextSpan).style!;
+      expect(style.fontSize, 14);
+      expect(style.height! * style.fontSize!, closeTo(20, .001));
+      expect(t.getSize(paragraph).height, closeTo(40, .001));
+    });
   }
   late _Client c;
   late _Workspace w;
@@ -250,7 +245,7 @@ void main() {
     await c.dispose();
   });
   Widget host(Widget child) => MaterialApp(
-    theme: raftTheme(RaftFamily.brutal),
+    theme: raftTheme(),
     home: Scaffold(body: child),
   );
   testWidgets(

@@ -16,7 +16,7 @@ void main() {
     t,
   ) async {
     final f = RootFixture();
-    await f.mount(t, 'elegant-light', 390, uri: Uri.parse('/s/alpha/settings'));
+    await f.mount(t, 'light', 390, uri: Uri.parse('/s/alpha/settings'));
     expect(find.byType(MobileSettingsDirectPage), findsOneWidget);
     expect(
       find.byKey(const Key('mobile-settings-direct-switch')),
@@ -43,12 +43,7 @@ void main() {
     (t) async {
       MobileSettingsDirectPage.builds = 0;
       final f = RootFixture();
-      await f.mount(
-        t,
-        'elegant-light',
-        390,
-        uri: Uri.parse('/s/alpha/settings'),
-      );
+      await f.mount(t, 'light', 390, uri: Uri.parse('/s/alpha/settings'));
       expect(find.byType(MobileSettingsDirectPage), findsOneWidget);
       final before = MobileSettingsDirectPage.builds;
       expect(before, greaterThan(0));
@@ -79,12 +74,7 @@ void main() {
 
   testWidgets('a wide window has no phone settings switch', (t) async {
     final f = RootFixture();
-    await f.mount(
-      t,
-      'elegant-light',
-      1280,
-      uri: Uri.parse('/s/alpha/settings'),
-    );
+    await f.mount(t, 'light', 1280, uri: Uri.parse('/s/alpha/settings'));
     expect(
       find.byKey(const Key('mobile-settings-direct-switch')),
       findsNothing,

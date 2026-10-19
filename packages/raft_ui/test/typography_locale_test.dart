@@ -7,71 +7,65 @@ import 'package:raft_ui/src/recipes/recipe_runtime.dart';
 import 'package:raft_ui/src/recipes/token_binding.dart';
 
 void main() {
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ]) {
-    testWidgets('$family/$dark English UI keeps Chinese glyph locale', (
-      tester,
-    ) async {
-      const device = Locale('zh', 'CN');
-      final theme = raftTheme(
-        family,
-        dark: dark,
-        locale: const Locale('en'),
-        textLocale: device,
-      );
-      final tokens = theme.extension<RaftTokens>()!;
-      Locale? uiLocale;
-      await tester.pumpWidget(
-        MaterialApp(
+  for (final (dark) in [(false), (true)]) {
+    testWidgets(
+      '${dark ? 'dark' : 'light'} English UI keeps Chinese glyph locale',
+      (tester) async {
+        const device = Locale('zh', 'CN');
+        final theme = raftTheme(
+          dark: dark,
           locale: const Locale('en'),
-          theme: theme,
-          home: Scaffold(
-            body: Builder(
-              builder: (context) {
-                uiLocale = Localizations.localeOf(context);
-                return Column(
-                  children: [
-                    Text(raftText(context, 'Settings')),
-                    Text('骨直令 中文', style: RaftTypography.body(tokens)),
-                    TextField(style: tokens.fieldStyle),
-                  ],
-                );
-              },
+          textLocale: device,
+        );
+        final tokens = theme.extension<RaftTokens>()!;
+        Locale? uiLocale;
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: const Locale('en'),
+            theme: theme,
+            home: Scaffold(
+              body: Builder(
+                builder: (context) {
+                  uiLocale = Localizations.localeOf(context);
+                  return Column(
+                    children: [
+                      Text(raftText(context, 'Settings')),
+                      Text('骨直令 中文', style: RaftTypography.body(tokens)),
+                      TextField(style: tokens.fieldStyle),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
-        ),
-      );
-      expect(uiLocale!.languageCode, 'en');
-      expect(find.text('Settings'), findsOneWidget);
-      expect(find.text('设置'), findsNothing);
-      for (final label in ['Settings', '骨直令 中文']) {
-        final richText = find.descendant(
-          of: find.text(label),
-          matching: find.byType(RichText),
         );
-        final paragraph = tester.renderObject<RenderParagraph>(richText);
-        expect((paragraph.text as TextSpan).style!.locale, device);
-      }
-      final editable = tester.widget<EditableText>(find.byType(EditableText));
-      expect(editable.style.locale, device);
-      expect(tokens.fontFallback.first, 'Noto Sans CJK SC');
-      expect(RaftTypography.heading(tokens).locale, device);
-      expect(RaftTypography.mono(tokens).locale, device);
-      final recipeTokens = RaftRecipeTokens(tokens);
-      expect(
-        RaftButtonRecipe.resolve(
-          theme: family == RaftFamily.brutal
-              ? RaftRecipeTheme.brutal
-              : RaftRecipeTheme.elegant,
-          tokens: recipeTokens,
-        ).root.textStyle(recipeTokens).locale,
-        device,
-      );
-      expect(tokens.copyWith(dark: !dark).textLocale, device);
-    });
+        expect(uiLocale!.languageCode, 'en');
+        expect(find.text('Settings'), findsOneWidget);
+        expect(find.text('设置'), findsNothing);
+        for (final label in ['Settings', '骨直令 中文']) {
+          final richText = find.descendant(
+            of: find.text(label),
+            matching: find.byType(RichText),
+          );
+          final paragraph = tester.renderObject<RenderParagraph>(richText);
+          expect((paragraph.text as TextSpan).style!.locale, device);
+        }
+        final editable = tester.widget<EditableText>(find.byType(EditableText));
+        expect(editable.style.locale, device);
+        expect(tokens.fontFallback.first, 'Noto Sans CJK SC');
+        expect(RaftTypography.heading(tokens).locale, device);
+        expect(RaftTypography.mono(tokens).locale, device);
+        final recipeTokens = RaftRecipeTokens(tokens);
+        expect(
+          RaftButtonRecipe.resolve(
+            theme: RaftRecipeTheme.elegant,
+            tokens: recipeTokens,
+          ).root.textStyle(recipeTokens).locale,
+          device,
+        );
+        expect(tokens.copyWith(dark: !dark).textLocale, device);
+      },
+    );
   }
 
   test('CJK fallback follows device region and explicit script', () {
@@ -98,7 +92,7 @@ void main() {
       (const Locale('ja', 'JP'), 'JP'),
       (const Locale('ko', 'KR'), 'KR'),
     ]) {
-      final tokens = RaftTokens.theme(RaftFamily.elegant, textLocale: locale);
+      final tokens = RaftTokens.theme(textLocale: locale);
       expect(tokens.fieldStyle.locale, locale);
       expect(tokens.fontFallback.first, 'Noto Sans CJK $family');
     }

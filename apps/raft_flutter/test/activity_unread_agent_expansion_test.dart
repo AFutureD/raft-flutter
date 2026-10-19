@@ -23,16 +23,12 @@ Future<void> drain(WidgetTester tester) async {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [390.0, 1180.0]) {
       for (final kind in ['thread', 'channel', 'dm']) {
         for (final unread in [true, false]) {
           testWidgets(
-            '$family/$dark $width/$kind Activity opens ${unread ? 'unread' : 'read'} agent text after the read-all receipt',
+            '${dark ? 'dark' : 'light'} $width/$kind Activity opens ${unread ? 'unread' : 'read'} agent text after the read-all receipt',
             (tester) async {
               SharedPreferences.setMockInitialValues({});
               tester.view.physicalSize = Size(width, 900);
@@ -144,11 +140,11 @@ void main() {
               };
               await tester.pumpWidget(
                 MaterialApp(
-                  theme: raftTheme(family, dark: dark),
+                  theme: raftTheme(dark: dark),
                   home: withAppServices(
                     WorkspaceView(
                       controller: w,
-                      appearance: RaftAppearance(light: family),
+                      appearance: RaftAppearance(),
                       onAppearance: (_) async {},
                       onLogout: () async {},
                     ),

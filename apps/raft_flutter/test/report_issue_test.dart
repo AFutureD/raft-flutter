@@ -558,7 +558,7 @@ void main() {
       });
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Scaffold(
             body: FleetDetail(
               controller: w,

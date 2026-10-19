@@ -43,7 +43,6 @@ Future<(WorkspaceController, MessageAdapter)> settingsFixture(
 Future<void> mountSettingsWorkspace(
   WidgetTester t,
   WorkspaceController w,
-  RaftFamily family,
   bool dark,
   PrivateRouteGuard guard,
 ) async {
@@ -52,12 +51,12 @@ Future<void> mountSettingsWorkspace(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       navigatorObservers: [guard],
       home: withAppServices(
         WorkspaceView(
           controller: w,
-          appearance: RaftAppearance(light: family),
+          appearance: RaftAppearance(),
           onAppearance: (_) async {},
           onLogout: () async {},
         ),
@@ -132,17 +131,13 @@ Future<void> submitConfirmation(WidgetTester t, String label) async {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark actual settings keeps opening identity and draft after selection clears or changes',
+      '${dark ? 'dark' : 'light'} actual settings keeps opening identity and draft after selection clears or changes',
       (t) async {
         final (w, api) = await settingsFixture(t);
         final opening = w.channel!;
-        await mountSettingsWorkspace(t, w, family, dark, PrivateRouteGuard());
+        await mountSettingsWorkspace(t, w, dark, PrivateRouteGuard());
         final nameController = nameField(t);
         nameController.value = const TextEditingValue(
           text: 'Unsubmitted opening draft',
@@ -193,7 +188,7 @@ void main() {
     );
 
     testWidgets(
-      '$family/$dark actual archive refresh preserves settings identity through a Navigator rebuild',
+      '${dark ? 'dark' : 'light'} actual archive refresh preserves settings identity through a Navigator rebuild',
       (t) async {
         final (w, api) = await settingsFixture(t);
         var row = w.channel!.json;
@@ -207,7 +202,7 @@ void main() {
           row = {...row, 'archivedAt': '2026-10-10T00:00:00Z'};
           return row;
         };
-        await mountSettingsWorkspace(t, w, family, dark, PrivateRouteGuard());
+        await mountSettingsWorkspace(t, w, dark, PrivateRouteGuard());
         final openingState = t.state(find.byType(ChannelSettings));
         await tapSheetAction(t, 'Archive Channel');
         await submitConfirmation(t, 'Archive Channel');
@@ -237,7 +232,7 @@ void main() {
     );
 
     testWidgets(
-      '$family/$dark actual delete clears selection and retires both overlays without route-builder crash',
+      '${dark ? 'dark' : 'light'} actual delete clears selection and retires both overlays without route-builder crash',
       (t) async {
         final (w, api) = await settingsFixture(t);
         var deleted = false;
@@ -252,7 +247,7 @@ void main() {
           deleted = true;
           return {};
         };
-        await mountSettingsWorkspace(t, w, family, dark, PrivateRouteGuard());
+        await mountSettingsWorkspace(t, w, dark, PrivateRouteGuard());
         await tapSheetAction(t, 'Delete Channel');
         await submitConfirmation(t, 'Delete Channel');
         expect(w.channel?.id, 'c1');
@@ -279,10 +274,10 @@ void main() {
 
     for (final authority in ['membership', 'principal', 'workspace']) {
       testWidgets(
-        '$family/$dark actual channel settings still retires on $authority reduction',
+        '${dark ? 'dark' : 'light'} actual channel settings still retires on $authority reduction',
         (t) async {
           final (w, api) = await settingsFixture(t);
-          await mountSettingsWorkspace(t, w, family, dark, PrivateRouteGuard());
+          await mountSettingsWorkspace(t, w, dark, PrivateRouteGuard());
           switch (authority) {
             case 'membership':
               w.channel = RaftChannel({...w.channel!.json, 'joined': false});

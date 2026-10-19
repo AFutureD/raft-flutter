@@ -7,65 +7,60 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    testWidgets(
-      '$family dark=$dark controlled Switch supports pointer and keyboard',
-      (tester) async {
-        var value = false;
-        final changes = <bool>[];
-        final handle = tester.ensureSemantics();
-        try {
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: raftTheme(family, dark: dark),
-              home: Scaffold(
-                body: StatefulBuilder(
-                  builder: (context, rebuild) => RaftDensityScope(
-                    density: RaftDensity.desktop,
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: RaftSwitch(
-                        value: value,
-                        size: RaftSwitchSize.md,
-                        semanticLabel: 'Model name',
-                        onChanged: (next) {
-                          changes.add(next);
-                          rebuild(() => value = next);
-                        },
-                      ),
+  for (final dark in raftThemeMatrix([false, true])) {
+    testWidgets('dark=$dark controlled Switch supports pointer and keyboard', (
+      tester,
+    ) async {
+      var value = false;
+      final changes = <bool>[];
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(dark: dark),
+            home: Scaffold(
+              body: StatefulBuilder(
+                builder: (context, rebuild) => RaftDensityScope(
+                  density: RaftDensity.desktop,
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: RaftSwitch(
+                      value: value,
+                      size: RaftSwitchSize.md,
+                      semanticLabel: 'Model name',
+                      onChanged: (next) {
+                        changes.add(next);
+                        rebuild(() => value = next);
+                      },
                     ),
                   ),
                 ),
               ),
             ),
-          );
-          expect(tester.getSize(find.byType(RaftSwitch)), const Size(36, 20));
-          await tester.tap(find.byType(RaftSwitch));
-          await tester.pumpAndSettle();
-          expect(changes, [true]);
-          expect(
-            tester
-                .getSemantics(find.byType(RaftSwitch))
-                .flagsCollection
-                .isToggled,
-            Tristate.isTrue,
-          );
-          await tester.sendKeyEvent(LogicalKeyboardKey.space);
-          await tester.pumpAndSettle();
-          expect(changes, [true, false]);
-          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-          await tester.pumpAndSettle();
-          expect(changes, [true, false, true]);
-          await tester.pumpWidget(const SizedBox.shrink());
-        } finally {
-          handle.dispose();
-        }
-      },
-    );
+          ),
+        );
+        expect(tester.getSize(find.byType(RaftSwitch)), const Size(36, 20));
+        await tester.tap(find.byType(RaftSwitch));
+        await tester.pumpAndSettle();
+        expect(changes, [true]);
+        expect(
+          tester
+              .getSemantics(find.byType(RaftSwitch))
+              .flagsCollection
+              .isToggled,
+          Tristate.isTrue,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pumpAndSettle();
+        expect(changes, [true, false]);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(changes, [true, false, true]);
+        await tester.pumpWidget(const SizedBox.shrink());
+      } finally {
+        handle.dispose();
+      }
+    });
   }
   testWidgets('disabled touch switch keeps48px target and never toggles', (
     tester,
@@ -75,7 +70,7 @@ void main() {
     try {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant, dark: true),
+          theme: raftTheme(dark: true),
           home: Scaffold(
             body: RaftDensityScope(
               density: RaftDensity.touch,
@@ -113,7 +108,7 @@ void main() {
       var changed = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: MediaQuery(
               data: const MediaQueryData(disableAnimations: true),
@@ -150,7 +145,7 @@ void main() {
     var threads = 0;
     Future<void> render(String? model) => tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftMessageTile(
             author: 'Agent Ada',

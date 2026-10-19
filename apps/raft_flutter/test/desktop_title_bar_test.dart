@@ -57,11 +57,10 @@ class _Runner {
 
 Widget _app(
   DesktopTitleBarController controller, {
-  RaftFamily family = RaftFamily.elegant,
   bool dark = false,
   Widget child = const SizedBox.expand(key: Key('content')),
 }) => MaterialApp(
-  theme: raftTheme(family, dark: dark),
+  theme: raftTheme(dark: dark),
   home: RepaintBoundary(
     key: const Key('titlebar-surface'),
     child: DesktopTitleBar(controller: controller, child: child),
@@ -133,14 +132,10 @@ void main() {
       platform: TargetPlatform.macOS,
       web: false,
     );
-    for (final (family, dark) in [
-      (RaftFamily.brutal, false),
-      (RaftFamily.elegant, false),
-      (RaftFamily.elegant, true),
-    ]) {
-      await tester.pumpWidget(_app(controller, family: family, dark: dark));
+    for (final (dark) in [(false), (true)]) {
+      await tester.pumpWidget(_app(controller, dark: dark));
       await tester.pumpAndSettle();
-      final tokens = raftTheme(family, dark: dark).extension<RaftTokens>()!;
+      final tokens = raftTheme(dark: dark).extension<RaftTokens>()!;
       final rail = RaftRailRecipe(tokens, viewportHeight: 800);
       final sent = runner.named('setStyle').last.arguments as Map;
       expect(sent['background'], rail.background.toARGB32());
@@ -148,7 +143,7 @@ void main() {
         sent['rule'],
         Color.alphaBlend(rail.border.color, rail.background).toARGB32(),
       );
-      expect(sent['ruleWidth'], family == RaftFamily.brutal ? 2.0 : 1.0);
+      expect(sent['ruleWidth'], 1.0);
       expect(sent['dark'], dark);
     }
     final before = runner.named('setStyle').length;
@@ -166,7 +161,7 @@ void main() {
       platform: TargetPlatform.linux,
       web: false,
     );
-    await tester.pumpWidget(_app(controller, family: RaftFamily.brutal));
+    await tester.pumpWidget(_app(controller));
     await tester.pump();
     expect(find.byType(RaftDesktopTitleStrip), findsNothing);
     expect(tester.getRect(find.byKey(const Key('content'))).top, 0);
@@ -185,19 +180,14 @@ void main() {
       platform: TargetPlatform.windows,
       web: false,
     );
-    for (final (family, dark) in [
-      (RaftFamily.brutal, false),
-      (RaftFamily.elegant, false),
-      (RaftFamily.elegant, true),
-    ]) {
-      final tokens = raftTheme(family, dark: dark).extension<RaftTokens>()!;
+    for (final (dark) in [(false), (true)]) {
+      final tokens = raftTheme(dark: dark).extension<RaftTokens>()!;
       final rail = RaftRailRecipe(tokens, viewportHeight: 600);
-      final width = family == RaftFamily.brutal ? 2.0 : 1.0;
+      final width = 1.0;
       double? viewportHeight;
       await tester.pumpWidget(
         _app(
           controller,
-          family: family,
           dark: dark,
           child: Builder(
             builder: (context) {

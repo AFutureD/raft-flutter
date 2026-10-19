@@ -281,11 +281,11 @@ void main() {
       final notifications = _Notifications();
 
       Widget view() => MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: withAppServices(
           WorkspaceView(
             controller: w,
-            appearance: RaftAppearance(light: RaftFamily.brutal),
+            appearance: RaftAppearance(),
             onAppearance: (_) async {},
             onLogout: () async {},
             notifications: notifications,
@@ -598,11 +598,11 @@ void main() {
       api.routes['GET /servers/s1/members'] = (_) => {'members': []};
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: w,
-              appearance: RaftAppearance(light: RaftFamily.brutal),
+              appearance: RaftAppearance(),
               onAppearance: (_) async {},
               onLogout: () async {},
             ),
@@ -726,7 +726,7 @@ void main() {
         final before = w.location.uri;
         final list = find.byKey(const Key('workspace-sidebar'));
         await tester.longPressAt(
-          tester.getBottomLeft(list) + const Offset(120, -30),
+          tester.getBottomLeft(list) + const Offset(24, -30),
         );
         await tester.pumpAndSettle();
         final item = find.descendant(
@@ -771,11 +771,11 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: w,
-              appearance: RaftAppearance(light: RaftFamily.brutal),
+              appearance: RaftAppearance(),
               onAppearance: (_) async {},
               onLogout: () async {},
             ),

@@ -45,7 +45,7 @@ void main() {
         };
         await f.mount(
           t,
-          'elegant-light',
+          'light',
           412,
           cachedSession: true,
           preferences: {'$_memory.last': 'alpha', '$_memory.a': '/s/alpha'},

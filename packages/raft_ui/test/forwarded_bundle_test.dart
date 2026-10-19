@@ -67,17 +67,13 @@ void main() {
       isEmpty,
     );
   });
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'recipient snapshot expands without exposing restricted source: $family/$dark',
+      'recipient snapshot expands without exposing restricted source: ${dark ? 'dark' : 'light'}',
       (tester) async {
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: SingleChildScrollView(
                 child: SizedBox(

@@ -74,7 +74,6 @@ Future<(WorkspaceController, MessageAdapter)> _open(
   WidgetTester t, {
   String role = 'owner',
   Map<String, dynamic>? row,
-  RaftFamily family = RaftFamily.elegant,
   String? dmName,
   Size size = const Size(1280, 1800),
 }) async {
@@ -95,7 +94,7 @@ Future<(WorkspaceController, MessageAdapter)> _open(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family),
+      theme: raftTheme(),
       home: Builder(
         builder: (context) => Scaffold(
           body: Center(
@@ -579,67 +578,57 @@ void main() {
 
   // ChannelMembers presentation="page" mounted bare in the drawer. Its insets
   // differ by design (Web): header and search px-4, member rows and the bottom
-  // Add button px-3 / p-3, the group header's chevron box at 8 + 2 (brutal).
-  for (final family in RaftFamily.values.where(
-    (f) => f == RaftFamily.brutal || f == RaftFamily.elegant,
-  )) {
-    testWidgets('$family members page keeps the Web column insets', (t) async {
-      final (_, api) = await _open(
-        t,
-        family: family,
-        size: const Size(1280, 800),
-      );
-      api.routes['GET /servers/s1/members'] = (_) => [
-        {'userId': 'u9', 'name': 'zed', 'displayName': 'Zed'},
-      ];
-      await t.tap(_id('channel-overflow-members-entry'));
-      await t.pumpAndSettle();
-      final left =
-          t.getTopLeft(_id('channel-overflow-sheet')).dx +
-          (family == RaftFamily.brutal ? 2 : 0);
-      final right = t.getTopRight(_id('channel-overflow-sheet')).dx;
-      double inset(Finder f) => t.getTopLeft(f).dx - left;
-      double insetEnd(Finder f) => right - t.getTopRight(f).dx;
-      expect(inset(_id('member-page-back')), 16, reason: 'header px-4');
-      expect(
-        inset(
-          find.descendant(
-            of: _id('member-page-search'),
-            matching: find.byType(RaftDialogTextInput),
-          ),
+  // Add button px-3 / p-3, the group header's chevron box at 8 + 2.
+  testWidgets('members page keeps the Web column insets', (t) async {
+    final (_, api) = await _open(t, size: const Size(1280, 800));
+    api.routes['GET /servers/s1/members'] = (_) => [
+      {'userId': 'u9', 'name': 'zed', 'displayName': 'Zed'},
+    ];
+    await t.tap(_id('channel-overflow-members-entry'));
+    await t.pumpAndSettle();
+    final left = t.getTopLeft(_id('channel-overflow-sheet')).dx;
+    final right = t.getTopRight(_id('channel-overflow-sheet')).dx;
+    double inset(Finder f) => t.getTopLeft(f).dx - left;
+    double insetEnd(Finder f) => right - t.getTopRight(f).dx;
+    expect(inset(_id('member-page-back')), 16, reason: 'header px-4');
+    expect(
+      inset(
+        find.descendant(
+          of: _id('member-page-search'),
+          matching: find.byType(RaftDialogTextInput),
         ),
-        16,
-        reason: 'search px-4',
-      );
-      expect(
-        insetEnd(
-          find.descendant(
-            of: _id('member-page-search'),
-            matching: find.byType(RaftDialogTextInput),
-          ),
+      ),
+      16,
+      reason: 'search px-4',
+    );
+    expect(
+      insetEnd(
+        find.descendant(
+          of: _id('member-page-search'),
+          matching: find.byType(RaftDialogTextInput),
         ),
-        16,
-      );
-      expect(
-        inset(find.byType(RaftMountedAvatarFrame).first),
-        12,
-        reason: 'ChannelMemberRow px-3',
-      );
-      expect(inset(_id('add-member-open')), 12, reason: 'footer p-3');
-      expect(insetEnd(_id('add-member-open')), 12);
-      // Role tag of the owner row ends at the row's 12px inset.
-      expect(find.text('Channel Admin'), findsNothing);
-      await t.tap(_id('add-member-open'));
-      await t.pumpAndSettle();
-      expect(inset(_id('add-member-back')), 16);
-      expect(
-        inset(find.byKey(const ValueKey('add-member-confirm'))),
-        16,
-        reason: 'add view px-4',
-      );
-      expect(insetEnd(find.byKey(const ValueKey('add-member-confirm'))), 16);
-    });
-  }
+      ),
+      16,
+    );
+    expect(
+      inset(find.byType(RaftMountedAvatarFrame).first),
+      12,
+      reason: 'ChannelMemberRow px-3',
+    );
+    expect(inset(_id('add-member-open')), 12, reason: 'footer p-3');
+    expect(insetEnd(_id('add-member-open')), 12);
+    // Role tag of the owner row ends at the row's 12px inset.
+    expect(find.text('Channel Admin'), findsNothing);
+    await t.tap(_id('add-member-open'));
+    await t.pumpAndSettle();
+    expect(inset(_id('add-member-back')), 16);
+    expect(
+      inset(find.byKey(const ValueKey('add-member-confirm'))),
+      16,
+      reason: 'add view px-4',
+    );
+    expect(insetEnd(find.byKey(const ValueKey('add-member-confirm'))), 16);
+  });
 
   testWidgets('members page back returns to the drawer root with its draft', (
     t,
@@ -665,13 +654,8 @@ void main() {
     expect(find.byType(RaftOverflowSheet), findsNothing);
   });
 
-  for (final (family, width) in [
-    (RaftFamily.brutal, 544.0),
-    (RaftFamily.elegant, 448.0),
-  ]) {
-    testWidgets('$family drawer is $width wide on desktop', (t) async {
-      await _open(t, family: family);
-      expect(t.getSize(_id('channel-overflow-sheet')).width, width);
-    });
-  }
+  testWidgets('drawer is 448 wide on desktop', (t) async {
+    await _open(t);
+    expect(t.getSize(_id('channel-overflow-sheet')).width, 448.0);
+  });
 }

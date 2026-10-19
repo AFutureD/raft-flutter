@@ -78,7 +78,7 @@ Future<void> _mount(WidgetTester t, WorkspaceController w) async {
   addTearDown(t.view.resetDevicePixelRatio);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: RaftDensityScope(
           density: RaftDensity.desktop,

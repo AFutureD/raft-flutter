@@ -18,13 +18,9 @@ import 'task_surface_test.dart' show flush;
 import 'support/app_services_fixture.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'Mobile channel pages share current settings content, preserve history and keyboard focus $family/$dark',
+      'Mobile channel pages share current settings content, preserve history and keyboard focus ${dark ? 'dark' : 'light'}',
       (t) async {
         t.view.physicalSize = const Size(390, 844);
         t.view.devicePixelRatio = 1;
@@ -52,12 +48,12 @@ void main() {
         };
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             navigatorObservers: [PrivateRouteGuard()],
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),

@@ -260,8 +260,7 @@ class RootFixture {
   }) async {
     SharedPreferences.setMockInitialValues({
       'raft.origin': 'https://fixture.invalid',
-      'raft.mode': theme == 'elegant-dark' ? 'dark' : 'light',
-      'raft.light': theme == 'brutal' ? 'brutal' : 'elegant',
+      'raft.mode': theme == 'dark' ? 'dark' : 'light',
       ...preferences,
     });
     t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -439,11 +438,7 @@ class RootFixture {
 }
 
 void main() {
-  for (final theme in raftThemeMatrix([
-    'brutal',
-    'elegant-light',
-    'elegant-dark',
-  ])) {
+  for (final theme in raftThemeMatrix(['light', 'dark'])) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
         'actual RaftApp $theme/$width root selection, URI, return and draft',
@@ -923,7 +918,7 @@ void main() {
     'actual RaftApp creation denial does not open a fabricated workspace',
     (t) async {
       final f = RootFixture();
-      await f.mount(t, 'elegant-light', 390);
+      await f.mount(t, 'light', 390);
       // Deliver the actual 403 body through RaftClient's HTTP error path.
       final held = Completer<dynamic>();
       f.adapter.routes['POST /servers'] = (_) => held.future;
@@ -951,7 +946,7 @@ void main() {
       final f = RootFixture();
       f.serverDirectory = () => {'error': 'Directory unavailable'};
       f.adapter.statuses['GET /servers'] = 503;
-      await f.mount(t, 'elegant-light', 390);
+      await f.mount(t, 'light', 390);
       expect(find.textContaining('Directory unavailable'), findsOneWidget);
       expect(find.text('Create your first server'), findsNothing);
       expect(find.byKey(const ValueKey('global-server-name')), findsNothing);

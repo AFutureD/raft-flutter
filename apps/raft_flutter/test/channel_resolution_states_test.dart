@@ -105,14 +105,10 @@ class _Client extends RaftClient {
 /// tabs, message window or composer, and neither may show the empty-channel
 /// "Start the conversation" copy.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final resolves in [false, true]) {
       testWidgets(
-        '[L08b][K06b] $family/$dark unresolved channel shows Loading channel, then ${resolves ? 'the full channel page' : 'an explicit unavailable state'}',
+        '[L08b][K06b] ${dark ? 'dark' : 'light'} unresolved channel shows Loading channel, then ${resolves ? 'the full channel page' : 'an explicit unavailable state'}',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           tester.view.physicalSize = const Size(390, 844);
@@ -146,13 +142,12 @@ void main() {
           c.pendingMetadata['/channels/gone'] = held;
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
                   appearance: RaftAppearance(
                     mode: dark ? ThemeMode.dark : ThemeMode.light,
-                    light: family,
                   ),
                   onAppearance: (_) async {},
                   onLogout: () async {},

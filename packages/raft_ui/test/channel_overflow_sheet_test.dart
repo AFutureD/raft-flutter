@@ -4,11 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 
-Widget _host(Widget child, {RaftFamily family = RaftFamily.elegant}) =>
-    MaterialApp(
-      theme: raftTheme(family),
-      home: Scaffold(body: child),
-    );
+Widget _host(Widget child) => MaterialApp(
+  theme: raftTheme(),
+  home: Scaffold(body: child),
+);
 
 void main() {
   testWidgets('settings drawer lays out only visible panel rows', (t) async {
@@ -69,22 +68,14 @@ void main() {
     },
   );
 
-  testWidgets('drawer width: Brutal 544, Elegant 448, phones full width', (
-    t,
-  ) async {
-    for (final (family, view, width) in [
-      (RaftFamily.brutal, 1280.0, 544.0),
-      (RaftFamily.elegant, 1280.0, 448.0),
-      (RaftFamily.brutal, 390.0, 390.0),
-      (RaftFamily.elegant, 390.0, 390.0),
-    ]) {
+  testWidgets('drawer width: 448, phones full width', (t) async {
+    for (final (view, width) in [(1280.0, 448.0), (390.0, 390.0)]) {
       t.view.physicalSize = Size(view, 800);
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
       await t.pumpWidget(
         _host(
           RaftOverflowSheet(title: '#work', onClose: () {}, children: const []),
-          family: family,
         ),
       );
       // The theme change animates; let it land before measuring.
@@ -92,7 +83,7 @@ void main() {
       expect(
         t.getSize(find.byKey(const ValueKey('channel-overflow-sheet'))).width,
         width,
-        reason: '$family @ $view',
+        reason: '@ $view',
       );
     }
   });
@@ -140,7 +131,7 @@ void main() {
       bool? result;
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Builder(
             builder: (context) => TextButton(
               onPressed: () async => result = await RaftConfirmDialog.show(

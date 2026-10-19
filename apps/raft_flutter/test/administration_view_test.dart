@@ -170,7 +170,7 @@ Future<void> _pump(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: SingleChildScrollView(
           child: AdministrationView(
@@ -779,7 +779,7 @@ void main() {
 Future<void> _pumpNoSettle(WidgetTester t, WorkspaceController w) async {
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: SingleChildScrollView(child: AdministrationView(controller: w)),
       ),

@@ -69,7 +69,7 @@ void main() {
         final f = RootFixture();
         await f.mount(
           t,
-          'elegant-light',
+          'light',
           width,
           uri: Uri.parse('/s/alpha'),
           appUpdate: a,
@@ -165,7 +165,7 @@ void main() {
       final f = RootFixture();
       await f.mount(
         t,
-        'elegant-light',
+        'light',
         1280,
         uri: Uri.parse('/s/alpha/channel/ca'),
         appUpdate: update,

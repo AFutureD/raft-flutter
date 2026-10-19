@@ -45,7 +45,7 @@ class _Harness {
     await store.loadList();
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant, dark: dark),
+        theme: raftTheme(dark: dark),
         home: Scaffold(
           body: SourceFeedbackProjectionView(
             store: store,

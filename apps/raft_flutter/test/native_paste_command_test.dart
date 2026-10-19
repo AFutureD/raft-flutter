@@ -45,7 +45,7 @@ void main() {
       try {
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.brutal),
+            theme: raftTheme(),
             home: AppWindowCommands(
               navigatorKey: GlobalKey<NavigatorState>(),
               child: Scaffold(
@@ -127,7 +127,7 @@ void main() {
         try {
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(RaftFamily.brutal),
+              theme: raftTheme(),
               home: AppWindowCommands(
                 navigatorKey: GlobalKey<NavigatorState>(),
                 child: Scaffold(

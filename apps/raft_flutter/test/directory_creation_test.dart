@@ -42,15 +42,11 @@ class _Workspace extends WorkspaceController {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [390.0, 1280.0]) {
       for (final computer in [false, true]) {
         testWidgets(
-          '[K12a] $family/$dark/$width real ${computer ? 'computer' : 'agent'} Add control opens and submits',
+          '[K12a] ${dark ? 'dark' : 'light'}/$width real ${computer ? 'computer' : 'agent'} Add control opens and submits',
           (t) async {
             t.view.physicalSize = Size(width, 844);
             t.view.devicePixelRatio = 1;
@@ -65,7 +61,7 @@ void main() {
             });
             await t.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 home: Scaffold(
                   body: DesktopDirectoryView(
                     controller: w,
@@ -153,7 +149,7 @@ void main() {
       }
     }
     testWidgets(
-      '[K12b] $family/$dark revoke closes actual menu and drops late creation',
+      '[K12b] ${dark ? 'dark' : 'light'} revoke closes actual menu and drops late creation',
       (t) async {
         final c = _Client();
         final w = _Workspace(c)
@@ -165,7 +161,7 @@ void main() {
         });
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: DesktopDirectoryView(controller: w, onSelected: (_) {}),
             ),

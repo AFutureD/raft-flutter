@@ -139,7 +139,7 @@ void main() {
     });
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: AttachmentPreviewDialog(
           controller: w,
           metadata: {'id': 'a', 'filename': filename},
@@ -215,7 +215,7 @@ void main() {
     });
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: AttachmentPreviewDialog(
           controller: w,
           metadata: const {'id': 'a', 'filename': 'tone.wav'},
@@ -266,7 +266,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         navigatorKey: context,
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: InlineVideoAttachment(
             controller: w,

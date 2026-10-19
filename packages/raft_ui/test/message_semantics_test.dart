@@ -7,7 +7,7 @@ import 'package:raft_ui/raft_ui.dart';
 // only as children (links, code, toggles, reactions).
 
 Widget _host(Widget child) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(body: SingleChildScrollView(child: child)),
 );
 

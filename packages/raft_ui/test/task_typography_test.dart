@@ -19,18 +19,14 @@ Future<void> loadTaskFonts(WidgetTester tester) => tester.runAsync(() async {
 });
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark task inherits document face and retains separate status action',
+      '${dark ? 'dark' : 'light'} task inherits document face and retains separate status action',
       (tester) async {
         await loadTaskFonts(tester);
         var opened = 0;
         String? selected;
-        final theme = raftTheme(family, dark: dark);
+        final theme = raftTheme(dark: dark);
         final tokens = theme.extension<RaftTokens>()!;
         await tester.pumpWidget(
           MaterialApp(
@@ -56,7 +52,7 @@ void main() {
           ),
         );
         // MainLayout font-display is inherited; the number keeps its explicit
-        // Source family: font-mono in Brutal, font-sans in Elegant.
+        // Source family: font-sans.
         expect(
           tester
               .widget<Text>(
@@ -75,7 +71,7 @@ void main() {
         );
         expect(
           tester.widget<Text>(find.text('#210')).style!.fontFamily,
-          family == RaftFamily.brutal ? tokens.monoFont : tokens.bodyFont,
+          tokens.bodyFont,
         );
         await tester.tap(find.text('Review the thread header strip baselines'));
         expect(opened, 1);
@@ -88,59 +84,46 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
-    testWidgets('$family/$dark inline status inherits its document face', (
-      tester,
-    ) async {
-      await loadTaskFonts(tester);
-      final theme = raftTheme(family, dark: dark);
-      final tokens = theme.extension<RaftTokens>()!;
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: theme,
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.topLeft,
-              child: RaftInlineLineBox(
-                style: RaftTaskSectionRecipe(tokens).documentStyle,
-                child: RaftTaskStatusEditor(
-                  status: 'in_progress',
-                  options: raftTaskStatuses,
-                  onSelect: (_) {},
+    testWidgets(
+      '${dark ? 'dark' : 'light'} inline status inherits its document face',
+      (tester) async {
+        await loadTaskFonts(tester);
+        final theme = raftTheme(dark: dark);
+        final tokens = theme.extension<RaftTokens>()!;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: RaftInlineLineBox(
+                  style: RaftTaskSectionRecipe(tokens).documentStyle,
+                  child: RaftTaskStatusEditor(
+                    status: 'in_progress',
+                    options: raftTaskStatuses,
+                    onSelect: (_) {},
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      );
-      expect(
-        tester.widget<Text>(find.text('In Progress')).style!.fontFamily,
-        tokens.headingFont,
-      );
-      // Source DOM: h20 Brutal badge keeps the h24 strut; the h22 Elegant
-      // badge plus its baseline descent grows the inline line to h25.
-      expect(
-        tester.getSize(find.byType(RaftInlineLineBox)).height,
-        family == RaftFamily.brutal ? 24 : 25,
-      );
-      if (family == RaftFamily.brutal) {
-        final badge = find
-            .ancestor(
-              of: find.text('In Progress'),
-              matching: find.byType(DecoratedBox),
-            )
-            .first;
-        // Actual Chromium DOM: badge top 3, h20 in the document's h24 line.
-        expect(tester.getTopLeft(badge).dy, 3);
-        expect(tester.getSize(badge).height, 20);
-      }
-      expect(tester.takeException(), isNull);
-    });
+        );
+        expect(
+          tester.widget<Text>(find.text('In Progress')).style!.fontFamily,
+          tokens.headingFont,
+        );
+        // Source DOM: the h22 badge plus its baseline descent grows the inline
+        // line to h25.
+        expect(tester.getSize(find.byType(RaftInlineLineBox)).height, 25);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
-  testWidgets('task keeps the Source fractional meta line and card height', (
+  testWidgets('task keeps the Source meta line and card height', (
     tester,
   ) async {
     await loadTaskFonts(tester);
-    final theme = raftTheme(RaftFamily.brutal);
+    final theme = raftTheme();
     final tokens = theme.extension<RaftTokens>()!;
     await tester.pumpWidget(
       MaterialApp(
@@ -170,9 +153,10 @@ void main() {
       of: find.text('#210'),
       matching: find.byType(RaftCssText),
     );
-    expect(tester.getSize(number).height, 16.5);
-    // Source DOM measurement, 358px card, one title line, editable status.
-    expect(tester.getSize(find.byType(RaftTaskCard)).height, 103.25);
+    expect(tester.getSize(number).height, 14);
+    // 358px card, one title line, editable status, Elegant task-card recipe
+    // (the Brutal DOM measurement was 103.25).
+    expect(tester.getSize(find.byType(RaftTaskCard)).height, 103);
     expect(tester.takeException(), isNull);
   });
 }

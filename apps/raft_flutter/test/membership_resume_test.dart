@@ -154,7 +154,7 @@ void main() {
     testWidgets('actual RaftApp $width: window focus regain lists the new '
         'server in the switcher without changing the selection', (t) async {
       final f = RootFixture();
-      await f.mount(t, 'elegant-light', width, uri: Uri.parse('/s/alpha'));
+      await f.mount(t, 'light', width, uri: Uri.parse('/s/alpha'));
       final w = f.workspace(t);
       expect(w.server!.id, 'a');
       int reads() => f.adapter.calls

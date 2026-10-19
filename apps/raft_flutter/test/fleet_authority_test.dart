@@ -72,7 +72,7 @@ void main() {
   Future<void> detail(WidgetTester t, {Widget? child}) async {
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: Builder(
             builder: (context) => Column(
@@ -110,7 +110,7 @@ void main() {
       w.queueReads = true;
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Scaffold(body: FleetView(controller: w, computers: false)),
         ),
       );

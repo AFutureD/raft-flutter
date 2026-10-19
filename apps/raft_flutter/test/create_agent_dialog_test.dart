@@ -100,7 +100,7 @@ void main() {
     await t.binding.setSurfaceSize(const Size(390, 1400));
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: Builder(
             builder: (context) => TextButton(

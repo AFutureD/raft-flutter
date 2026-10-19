@@ -145,12 +145,9 @@ Future<Map<String, int>> _rebuilds(
 }
 
 void main() {
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-  ]) {
+  for (final (dark) in [(false)]) {
     testWidgets(
-      'hidden conversation and folded directory are not rebuilt while another page transitions $family/$dark',
+      'hidden conversation and folded directory are not rebuilt while another page transitions ${dark ? 'dark' : 'light'}',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(390, 844);
@@ -177,13 +174,12 @@ void main() {
         });
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
                 appearance: RaftAppearance(
                   mode: dark ? ThemeMode.dark : ThemeMode.light,
-                  light: family,
                 ),
                 onAppearance: (_) async {},
                 onLogout: () async {},
@@ -274,7 +270,7 @@ void main() {
         });
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.brutal),
+            theme: raftTheme(),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
@@ -394,7 +390,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: w,
@@ -457,7 +453,7 @@ void main() {
       });
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: w,

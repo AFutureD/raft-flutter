@@ -19,10 +19,6 @@ import 'workspace_source_location_contract_test.dart' show pageFixture;
 /// phone, and a failed refresh keeps what is shown.
 
 const _sizes = [Size(412, 915), Size(1280, 800)];
-const _themes = [
-  ('brutal', RaftFamily.brutal),
-  ('elegant', RaftFamily.elegant),
-];
 
 String _page(List<(String, String)> notes) => jsonEncode({
   'items': [
@@ -86,7 +82,6 @@ Future<WorkspaceController> _mount(
   WidgetTester t,
   ClientReleaseNotes source, {
   Size size = const Size(412, 915),
-  RaftFamily family = RaftFamily.elegant,
   String? installedTag,
   String? installedVersion,
   Locale? locale,
@@ -100,7 +95,7 @@ Future<WorkspaceController> _mount(
       locale: locale,
       supportedLocales: const [Locale('en'), Locale('zh')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: raftTheme(family).copyWith(platform: TargetPlatform.android),
+      theme: raftTheme().copyWith(platform: TargetPlatform.android),
       home: Scaffold(
         body: SizedBox.expand(
           child: ReleaseNotesView(
@@ -131,95 +126,73 @@ Future<void> _pull(WidgetTester t) async {
 void main() {
   leakDebt(const ['ValueNotifier<bool>']);
   for (final size in _sizes) {
-    for (final (name, family) in _themes) {
-      final on = '${size.width.toInt()}x${size.height.toInt()} $name';
+    final on = '${size.width.toInt()}x${size.height.toInt()}';
 
-      testWidgets('$on: opens on the cached copy, refreshes in the '
-          'background and shows the new data', (t) async {
-        final net = _Net();
-        final gate = Completer<String?>();
-        net.respond = () => gate.future;
-        await _mount(
-          t,
-          _source(net, _cached(_old)),
-          size: size,
-          family: family,
-        );
-        // The copy is on screen while the refresh is still in flight, with no
-        // loading line, banner or message about it.
-        expect(find.text('Old note'), findsOneWidget);
-        expect(find.text('Loading release notes…'), findsNothing);
-        expect(find.text(_unavailable), findsNothing);
-        expect(net.requests, hasLength(1));
-        gate.complete(_new);
-        await t.pumpAndSettle();
-        expect(find.text('New note'), findsOneWidget);
-        expect(find.text('Old note'), findsOneWidget);
-        expect(_quietRetry, findsNothing);
-        expect(net.requests, hasLength(1));
-        expect(t.takeException(), isNull);
-        await t.pumpWidget(const SizedBox());
-      });
+    testWidgets('$on: opens on the cached copy, refreshes in the '
+        'background and shows the new data', (t) async {
+      final net = _Net();
+      final gate = Completer<String?>();
+      net.respond = () => gate.future;
+      await _mount(t, _source(net, _cached(_old)), size: size);
+      // The copy is on screen while the refresh is still in flight, with no
+      // loading line, banner or message about it.
+      expect(find.text('Old note'), findsOneWidget);
+      expect(find.text('Loading release notes…'), findsNothing);
+      expect(find.text(_unavailable), findsNothing);
+      expect(net.requests, hasLength(1));
+      gate.complete(_new);
+      await t.pumpAndSettle();
+      expect(find.text('New note'), findsOneWidget);
+      expect(find.text('Old note'), findsOneWidget);
+      expect(_quietRetry, findsNothing);
+      expect(net.requests, hasLength(1));
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+    });
 
-      testWidgets('$on: a cache written by an older app build is refreshed '
-          'on open', (t) async {
-        final net = _Net();
-        // Fetched by build 20, installed build 21, and well within maxAge.
-        await _mount(
-          t,
-          _source(net, _cached(_old, build: 20)),
-          size: size,
-          family: family,
-        );
-        await t.pumpAndSettle();
-        expect(net.requests, hasLength(1));
-        expect(find.text('New note'), findsOneWidget);
-        await t.pumpWidget(const SizedBox());
-      });
+    testWidgets('$on: a cache written by an older app build is refreshed '
+        'on open', (t) async {
+      final net = _Net();
+      // Fetched by build 20, installed build 21, and well within maxAge.
+      await _mount(t, _source(net, _cached(_old, build: 20)), size: size);
+      await t.pumpAndSettle();
+      expect(net.requests, hasLength(1));
+      expect(find.text('New note'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+    });
 
-      testWidgets('$on: a failed refresh keeps the cached content and '
-          'offers a quiet retry', (t) async {
-        final net = _Net()..respond = () async => throw StateError('offline');
-        await _mount(
-          t,
-          _source(net, _cached(_old)),
-          size: size,
-          family: family,
-        );
-        await t.pumpAndSettle();
-        expect(find.text('Old note'), findsOneWidget);
-        expect(find.text(_unavailable), findsNothing);
-        expect(_quietRetry, findsOneWidget);
-        net.respond = () async => _new;
-        await t.ensureVisible(_quietRetry);
-        await t.tap(_quietRetry);
-        await t.pumpAndSettle();
-        expect(find.text('New note'), findsOneWidget);
-        expect(_quietRetry, findsNothing);
-        expect(net.requests, hasLength(2));
-        expect(t.takeException(), isNull);
-        await t.pumpWidget(const SizedBox());
-      });
+    testWidgets('$on: a failed refresh keeps the cached content and '
+        'offers a quiet retry', (t) async {
+      final net = _Net()..respond = () async => throw StateError('offline');
+      await _mount(t, _source(net, _cached(_old)), size: size);
+      await t.pumpAndSettle();
+      expect(find.text('Old note'), findsOneWidget);
+      expect(find.text(_unavailable), findsNothing);
+      expect(_quietRetry, findsOneWidget);
+      net.respond = () async => _new;
+      await t.ensureVisible(_quietRetry);
+      await t.tap(_quietRetry);
+      await t.pumpAndSettle();
+      expect(find.text('New note'), findsOneWidget);
+      expect(_quietRetry, findsNothing);
+      expect(net.requests, hasLength(2));
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+    });
 
-      testWidgets('$on: with no copy and no network the unavailable banner '
-          'still retries', (t) async {
-        final net = _Net()..respond = () async => throw StateError('offline');
-        await _mount(
-          t,
-          _source(net, MemoryStorage()),
-          size: size,
-          family: family,
-        );
-        await t.pumpAndSettle();
-        expect(find.text(_unavailable), findsOneWidget);
-        expect(_quietRetry, findsNothing);
-        net.respond = () async => _old;
-        await t.tap(find.byKey(const ValueKey('release-notes-retry')));
-        await t.pumpAndSettle();
-        expect(find.text('Old note'), findsOneWidget);
-        await t.pumpWidget(const SizedBox());
-      });
-    }
+    testWidgets('$on: with no copy and no network the unavailable banner '
+        'still retries', (t) async {
+      final net = _Net()..respond = () async => throw StateError('offline');
+      await _mount(t, _source(net, MemoryStorage()), size: size);
+      await t.pumpAndSettle();
+      expect(find.text(_unavailable), findsOneWidget);
+      expect(_quietRetry, findsNothing);
+      net.respond = () async => _old;
+      await t.tap(find.byKey(const ValueKey('release-notes-retry')));
+      await t.pumpAndSettle();
+      expect(find.text('Old note'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+    });
   }
 
   testWidgets('pull to refresh refetches and the list updates', (t) async {
@@ -288,7 +261,6 @@ void main() {
       String? tag,
       String? version,
       Size size = const Size(412, 915),
-      RaftFamily family = RaftFamily.elegant,
       Locale? locale,
     }) async {
       final net = _Net()..respond = () async => _newer;
@@ -296,7 +268,6 @@ void main() {
         t,
         _source(net, _cached(_newer)),
         size: size,
-        family: family,
         installedTag: tag,
         installedVersion: version,
         locale: locale,
@@ -305,29 +276,18 @@ void main() {
     }
 
     for (final size in _sizes) {
-      for (final (name, family) in _themes) {
-        testWidgets(
-          '${size.width.toInt()} $name: the installed release is Current, '
-          'newer ones are New',
-          (t) async {
-            await open(
-              t,
-              tag: 'v0.1.0+6',
-              version: '0.1.0',
-              size: size,
-              family: family,
-            );
-            expect(badge('v0.1.0+6', 'Current'), findsOneWidget);
-            expect(badge('v0.1.0+7', 'New version'), findsOneWidget);
-            expect(badge('v0.1.0+7', 'Current'), findsNothing);
-            expect(badge('v0.1.0+5', 'Current'), findsNothing);
-            expect(badge('v0.1.0+5', 'New version'), findsNothing);
-            expect(badge('v0.1.0+6', 'New version'), findsNothing);
-            expect(find.text('Current'), findsOneWidget);
-            await t.pumpWidget(const SizedBox());
-          },
-        );
-      }
+      testWidgets('${size.width.toInt()}: the installed release is Current, '
+          'newer ones are New', (t) async {
+        await open(t, tag: 'v0.1.0+6', version: '0.1.0', size: size);
+        expect(badge('v0.1.0+6', 'Current'), findsOneWidget);
+        expect(badge('v0.1.0+7', 'New version'), findsOneWidget);
+        expect(badge('v0.1.0+7', 'Current'), findsNothing);
+        expect(badge('v0.1.0+5', 'Current'), findsNothing);
+        expect(badge('v0.1.0+5', 'New version'), findsNothing);
+        expect(badge('v0.1.0+6', 'New version'), findsNothing);
+        expect(find.text('Current'), findsOneWidget);
+        await t.pumpWidget(const SizedBox());
+      });
     }
 
     testWidgets('the badges speak Chinese', (t) async {

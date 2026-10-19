@@ -46,7 +46,7 @@ void main() {
     addTearDown(t.view.resetDevicePixelRatio);
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant, dark: false),
+        theme: raftTheme(dark: false),
         home: const Scaffold(
           body: RaftDmHeader(
             name: 'A rather long peer display name',
@@ -61,7 +61,7 @@ void main() {
     // Every rebuild measures again.
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant, dark: true),
+        theme: raftTheme(dark: true),
         home: const Scaffold(
           body: RaftDmHeader(
             name: 'Peer',
@@ -79,7 +79,7 @@ void main() {
     final controller = RaftToastController();
     addTearDown(controller.dispose);
     Widget app(String label) => MaterialApp(
-      theme: raftTheme(RaftFamily.elegant, dark: false),
+      theme: raftTheme(dark: false),
       home: RaftToastHost(
         controller: controller,
         child: Scaffold(body: Text(label)),

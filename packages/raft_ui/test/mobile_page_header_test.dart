@@ -5,13 +5,9 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final theme in raftThemeMatrix([
-    raftTheme(RaftFamily.brutal),
-    raftTheme(RaftFamily.elegant),
-    raftTheme(RaftFamily.elegant, dark: true),
-  ])) {
+  for (final theme in raftThemeMatrix([raftTheme(), raftTheme(dark: true)])) {
     testWidgets(
-      'Mobile headers align navigation and accept keyboard in ${theme.brightness}/${theme.extension<RaftTokens>()?.family}',
+      'Mobile headers align navigation and accept keyboard in ${theme.brightness}',
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
@@ -55,12 +51,11 @@ void main() {
         );
         await tester.pumpAndSettle();
         final tokens = theme.extension<RaftTokens>()!;
-        // Panel / detail headers render Web's phone PanelHeader: h-62 brutal
-        // (`--shell-header-height`) / 56 elegant, boxed PanelAction Back.
-        final webHeight = tokens.brutal ? 62.0 : 56.0;
+        // Panel / detail headers render Web's phone PanelHeader: h-56, boxed
+        // PanelAction Back.
+        const webHeight = 56.0;
         // The tab-root header is Web's Sidebar mobile navbar: the same
-        // `h-panel-header`, px-4, Brutal soft-signal + border-b-2 black,
-        // Elegant layer-panel + 1px line-muted.
+        // `h-panel-header`, px-4, layer-panel + 1px line-muted.
         final root = find.byType(RaftMobilePageHeader);
         expect(root, findsOneWidget);
         expect(tester.getSize(root).height, webHeight);
@@ -68,29 +63,20 @@ void main() {
           find.descendant(of: root, matching: find.byType(Container)).first,
         );
         final rootDecoration = rootBox.decoration! as BoxDecoration;
-        expect(
-          rootDecoration.color,
-          tokens.brutal ? tokens.colors['color-soft-signal'] : tokens.panel,
-        );
+        expect(rootDecoration.color, tokens.panel);
         final rootEdge = (rootDecoration.border! as Border).bottom;
-        expect(rootEdge.width, tokens.brutal ? 2 : 1);
-        expect(
-          rootEdge.color,
-          tokens.brutal ? Colors.black : tokens.colors['line-muted'],
-        );
+        expect(rootEdge.width, 1);
+        expect(rootEdge.color, tokens.colors['line-muted']);
         expect(tester.getTopLeft(find.text('Settings')).dx, 16);
         final backs = find.byType(RaftPanelAction);
         expect(backs, findsNWidgets(3));
-        // PanelAction: brutal `border-2 px-1 py-[5px]` + 14px icon = 26x28,
-        // elegant `px-2 py-2` + 16px icon = 32x32.
-        final actionSize = tokens.brutal
-            ? const Size(26, 28)
-            : const Size(32, 32);
+        // PanelAction: `px-2 py-2` + 16px icon = 32x32.
+        const actionSize = Size(32, 32);
         for (var index = 0; index < 3; index++) {
           expect(tester.getSize(backs.at(index)), actionSize);
           // The settings Panel's left edge is desktop-only (owner decision
-          // 2026-10-12): none on the phone; then brutal px-5 / elegant
-          // max-md:pl-5, then half the action width.
+          // 2026-10-12): none on the phone; then max-md:pl-5, then half the
+          // action width.
           expect(
             tester.getCenter(backs.at(index)).dx,
             20 + actionSize.width / 2,
@@ -108,21 +94,9 @@ void main() {
             actionSize.shortestSide,
           );
         }
-        // Web's edge on the channel header: brutal 2px black.
         final channelHeader = find.byType(RaftChannelHeader);
         expect(tester.getSize(channelHeader).height, webHeight);
-        if (tokens.brutal) {
-          final box = tester.widget<Container>(
-            find
-                .descendant(of: channelHeader, matching: find.byType(Container))
-                .first,
-          );
-          final edge =
-              ((box.decoration! as BoxDecoration).border! as Border).bottom;
-          expect(edge.width, 2);
-          expect(edge.color, Colors.black);
-        }
-        // The Back hit area extends beyond the 26x28 / 32x32 visual to >= 44.
+        // The Back hit area extends beyond the 32x32 visual to >= 44.
         final centre = tester.getCenter(backs.first);
         await tester.tapAt(centre + const Offset(0, 20));
         await tester.pump();

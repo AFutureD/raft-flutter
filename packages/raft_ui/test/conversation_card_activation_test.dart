@@ -7,19 +7,15 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'N24 activation $family/$dark first click is immediate; keyboard and nested actions stay distinct',
+      'N24 activation ${dark ? 'dark' : 'light'} first click is immediate; keyboard and nested actions stay distinct',
       (tester) async {
         final activation = <int>[];
         var legacy = 0, nested = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Center(
                 child: SizedBox(
@@ -88,7 +84,7 @@ void main() {
       var opened = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftConversationCard(
               onOpen: () => opened++,
@@ -131,7 +127,7 @@ void main() {
     final key = GlobalKey();
     final details = <int>[];
     Widget host(bool flipped) => MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: Row(
           children: [
@@ -164,7 +160,7 @@ void main() {
       final semantics = tester.ensureSemantics();
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftConversationCard(
               onOpen: () {},

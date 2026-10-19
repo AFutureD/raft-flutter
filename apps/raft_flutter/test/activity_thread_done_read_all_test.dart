@@ -35,7 +35,6 @@ class _MountedDone {
 
   static Future<_MountedDone> mount(
     WidgetTester tester,
-    RaftFamily family,
     bool dark, {
     Map<String, dynamic>? row,
   }) async {
@@ -57,7 +56,7 @@ class _MountedDone {
     final epoch = result.attention.authorityEpoch;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(family, dark: dark),
+        theme: raftTheme(dark: dark),
         home: Scaffold(
           body: ResourceView(
             key: result.viewKey,
@@ -109,15 +108,11 @@ class _MountedDone {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[Activity thread Done persisted read] $family/$dark ACK starts bodyless read-all independently of one owned inbox refresh',
+      '[Activity thread Done persisted read] ${dark ? 'dark' : 'light'} ACK starts bodyless read-all independently of one owned inbox refresh',
       (tester) async {
-        final page = await _MountedDone.mount(tester, family, dark);
+        final page = await _MountedDone.mount(tester, dark);
         try {
           expect(find.byType(RaftConversationCard), findsOneWidget);
           expect(page.attention.totalUnreadCount, 3);
@@ -160,9 +155,9 @@ void main() {
       },
     );
     testWidgets(
-      '[Activity thread Done persisted read] $family/$dark write failure preserves Done and emits no second refresh',
+      '[Activity thread Done persisted read] ${dark ? 'dark' : 'light'} write failure preserves Done and emits no second refresh',
       (tester) async {
-        final page = await _MountedDone.mount(tester, family, dark);
+        final page = await _MountedDone.mount(tester, dark);
         try {
           await page.click(tester);
           page.done.complete({});
@@ -181,9 +176,9 @@ void main() {
       },
     );
     testWidgets(
-      '[Activity thread Done persisted read] $family/$dark failed Done does not persist a successful read',
+      '[Activity thread Done persisted read] ${dark ? 'dark' : 'light'} failed Done does not persist a successful read',
       (tester) async {
-        final page = await _MountedDone.mount(tester, family, dark);
+        final page = await _MountedDone.mount(tester, dark);
         try {
           await page.click(tester);
           page.done.completeError(page.failure(500));
@@ -203,9 +198,9 @@ void main() {
       'Done generation',
     ]) {
       testWidgets(
-        '[Activity thread Done persisted read] $family/$dark obsolete $authority Done ACK cannot write read-all in the new authority',
+        '[Activity thread Done persisted read] ${dark ? 'dark' : 'light'} obsolete $authority Done ACK cannot write read-all in the new authority',
         (tester) async {
-          final page = await _MountedDone.mount(tester, family, dark);
+          final page = await _MountedDone.mount(tester, dark);
           try {
             await page.click(tester);
             switch (authority) {
@@ -255,9 +250,9 @@ void main() {
       );
     }
     testWidgets(
-      '[Activity thread Done persisted read] $family/$dark late persisted response cannot clear or refresh the new server',
+      '[Activity thread Done persisted read] ${dark ? 'dark' : 'light'} late persisted response cannot clear or refresh the new server',
       (tester) async {
-        final page = await _MountedDone.mount(tester, family, dark);
+        final page = await _MountedDone.mount(tester, dark);
         try {
           await page.click(tester);
           page.done.complete({});
@@ -280,11 +275,10 @@ void main() {
       },
     );
     testWidgets(
-      '[Activity thread Done persisted read] $family/$dark channel Done keeps its own exact storage RPC without a thread read-all',
+      '[Activity thread Done persisted read] ${dark ? 'dark' : 'light'} channel Done keeps its own exact storage RPC without a thread read-all',
       (tester) async {
         final page = await _MountedDone.mount(
           tester,
-          family,
           dark,
           row: {
             'kind': 'channel',

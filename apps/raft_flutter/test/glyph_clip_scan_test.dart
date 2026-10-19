@@ -39,29 +39,27 @@ void main() {
     expect(scanGlyphClips(t), isEmpty);
   });
 
-  for (final family in RaftFamily.values) {
-    testWidgets('message header has no clip inside its ink $family', (t) async {
-      await t.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(family),
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(
-                width: 650,
-                child: RaftMessageRow(
-                  author: 'tygg',
-                  timestamp: '23:16',
-                  subtitle: 'Public description',
-                  content: const SizedBox(height: 20, width: 200),
-                ),
+  testWidgets('message header has no clip inside its ink', (t) async {
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(),
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 650,
+              child: RaftMessageRow(
+                author: 'tygg',
+                timestamp: '23:16',
+                subtitle: 'Public description',
+                content: const SizedBox(height: 20, width: 200),
               ),
             ),
           ),
         ),
-      );
-      await t.pump();
-      expect(scanGlyphClips(t).map((f) => f.toJson()), isEmpty);
-    });
-  }
+      ),
+    );
+    await t.pump();
+    expect(scanGlyphClips(t).map((f) => f.toJson()), isEmpty);
+  });
 }

@@ -35,7 +35,7 @@ void main() {
         locale: locale,
         supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: workspace,
       );
       await tester.pumpWidget(application(const Locale('en')));
@@ -47,7 +47,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pumpWidget(application(const Locale('zh', 'CN')));
       await tester.pumpAndSettle();
-      for (final label in ['明暗模式', '浅色', '深色', '系统', '浅色外观']) {
+      for (final label in ['明暗模式', '浅色', '深色', '系统', '跟随系统会随设备切换明暗。']) {
         expect(find.text(label), findsOneWidget);
       }
       expect(find.text('Appearance'), findsNothing);

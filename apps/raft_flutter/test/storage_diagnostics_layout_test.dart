@@ -13,7 +13,6 @@ void main() {
   Future<void> page(
     WidgetTester tester, {
     Size size = const Size(900, 1600),
-    RaftFamily family = RaftFamily.elegant,
     bool dark = false,
     Locale locale = const Locale('en'),
     double scale = 1,
@@ -25,7 +24,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(family, dark: dark, locale: locale),
+        theme: raftTheme(dark: dark, locale: locale),
         locale: locale,
         supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -64,7 +63,7 @@ void main() {
     expect(find.text('Copy diagnostics'), findsNothing);
   });
 
-  for (final theme in ['light', 'dark', 'brutal']) {
+  for (final theme in ['light', 'dark']) {
     for (final locale in [const Locale('en'), const Locale('zh', 'CN')]) {
       testWidgets('narrow large text stays above Copy: $theme/$locale', (
         tester,
@@ -72,7 +71,6 @@ void main() {
         await page(
           tester,
           size: const Size(390, 1200),
-          family: theme == 'brutal' ? RaftFamily.brutal : RaftFamily.elegant,
           dark: theme == 'dark',
           locale: locale,
           scale: 2,

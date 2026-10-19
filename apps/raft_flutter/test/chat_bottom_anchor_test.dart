@@ -9,13 +9,9 @@ import 'chat_focus_receipt_test.dart' show contextRows, paintedMessage;
 import 'message_presentation_test.dart' show fixture;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[P04] $family/$dark channel opens at its latest row with one screen laid out',
+      '[P04] ${dark ? 'dark' : 'light'} channel opens at its latest row with one screen laid out',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1280, 800);
@@ -34,7 +30,7 @@ void main() {
             .toSet();
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );
@@ -58,7 +54,7 @@ void main() {
     );
 
     testWidgets(
-      '[P04] $family/$dark arrival while scrolled up keeps the reading position',
+      '[P04] ${dark ? 'dark' : 'light'} arrival while scrolled up keeps the reading position',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1280, 800);
@@ -78,7 +74,7 @@ void main() {
             .toSet();
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );

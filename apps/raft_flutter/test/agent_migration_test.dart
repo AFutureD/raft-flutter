@@ -188,7 +188,7 @@ void main() {
       addTearDown(w.dispose);
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: AgentMigrationView(controller: w, agentId: 'a1'),
         ),
       );
@@ -220,7 +220,7 @@ void main() {
         locale: locale,
         supportedLocales: const [Locale('en'), Locale('zh')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: AgentMigrationView(controller: w, agentId: 'a1', now: now),
       ),
     );
@@ -298,7 +298,7 @@ void main() {
         expect(w.entityDirectory.agent('a1')?['machineId'], 'c1');
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.elegant),
+            theme: raftTheme(),
             home: AgentMigrationView(controller: w, agentId: 'a1'),
           ),
         );
@@ -330,7 +330,7 @@ void main() {
       reads.add(t.count('GET /agents'));
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: AgentMigrationView(controller: w, agentId: 'a1'),
         ),
       );

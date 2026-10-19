@@ -143,7 +143,7 @@ Rect _window(ParityContext ctx) {
   if (ctx.props['platform'] == 'mobile') {
     return Rect.fromLTWH(0, top, ctx.width, h);
   }
-  final rail = ctx.family == RaftFamily.brutal ? 64.0 : 56.0;
+  final rail = 56.0;
   return switch (ctx.props['surface']) {
     'thread' => Rect.fromLTWH(ctx.width - 400, top, 400, h),
     'inbox' => Rect.fromLTWH(rail, top, 240, h),
@@ -189,7 +189,6 @@ class _HostState extends State<_Host> {
       controller: w,
       appearance: RaftAppearance(
         mode: widget.ctx.dark ? ThemeMode.dark : ThemeMode.light,
-        light: widget.ctx.family,
       ),
       onAppearance: (_) async {},
       onLogout: () async {},

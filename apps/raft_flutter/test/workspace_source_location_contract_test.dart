@@ -93,7 +93,6 @@ Future<(WorkspaceController, MessageAdapter)> pageFixture(
 Future<void> mountPage(
   WidgetTester tester,
   WorkspaceController w,
-  RaftFamily family,
   bool dark, {
   double width = 1440,
 }) async {
@@ -102,11 +101,11 @@ Future<void> mountPage(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: withAppServices(
         WorkspaceView(
           controller: w,
-          appearance: RaftAppearance(light: family),
+          appearance: RaftAppearance(),
           onAppearance: (_) async {},
           onLogout: () async {},
         ),
@@ -138,17 +137,13 @@ Future<void> waitForPainted(WidgetTester tester, String id) async {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     // useAppNavigate.ts:446–464: routeKind is a separate permalink identity.
     // Two accepted-record scenarios deliberately share the same ID. Each actual
     // Activity row publishes its own route kind and preserves slug/msg encoding.
     for (final dm in [false, true]) {
       testWidgets(
-        '[N01] $family/$dark actual ${dm ? 'DM' : 'channel'} with shared ID preserves route and focus',
+        '[N01] ${dark ? 'dark' : 'light'} actual ${dm ? 'DM' : 'channel'} with shared ID preserves route and focus',
         (tester) async {
           final (w, api) = await pageFixture(tester, serverSlug: 'team space');
           const id = 'same:conversation', focus = 'target:one';
@@ -181,7 +176,7 @@ void main() {
           };
           api.routes['GET /messages/context/$focus'] = (_) => response.future;
           api.routes['POST /channels/$id/read'] = (_) => {};
-          await mountPage(tester, w, family, dark, width: 390);
+          await mountPage(tester, w, dark, width: 390);
           final before = w.navigation.entries.length;
           await tester.tap(
             find.byKey(ValueKey('activity-${dm ? 'dm' : 'channel'}-$id')),
@@ -253,7 +248,7 @@ void main() {
     // jump handler while the actual page is mounted; no OS plugin is simulated.
     for (final dm in [false, true]) {
       testWidgets(
-        '[N01] $family/$dark bounded native ${dm ? 'DM' : 'channel'} link with shared ID retains typed route and message',
+        '[N01] ${dark ? 'dark' : 'light'} bounded native ${dm ? 'DM' : 'channel'} link with shared ID retains typed route and message',
         (tester) async {
           final (w, api) = await pageFixture(tester);
           const id = 'shared-id', focus = 'target-1';
@@ -278,7 +273,7 @@ void main() {
           );
           coordinator.bindWorkspace(w);
           addTearDown(coordinator.dispose);
-          await mountPage(tester, w, family, dark, width: 390);
+          await mountPage(tester, w, dark, width: 390);
           final uri = Uri.parse(
             'https://example.invalid/s/demo/${dm ? 'dm' : 'channel'}/$id?msg=$focus',
           );
@@ -328,7 +323,7 @@ void main() {
     // branch (MessageSearchPage1318–1333), search input and replace history.
     for (final dm in [false, true]) {
       testWidgets(
-        '[N01] $family/$dark actual Search ${dm ? 'DM' : 'channel'} result keeps ordinary typed content and query',
+        '[N01] ${dark ? 'dark' : 'light'} actual Search ${dm ? 'DM' : 'channel'} result keeps ordinary typed content and query',
         (tester) async {
           final (w, api) = await pageFixture(tester, section: 'search');
           const id = 'shared-id', focus = 'target-1';
@@ -358,7 +353,7 @@ void main() {
           };
           api.routes['GET /messages/context/$focus'] = (_) => context.future;
           api.routes['POST /channels/$id/read'] = (_) => {};
-          await mountPage(tester, w, family, dark);
+          await mountPage(tester, w, dark);
           await tester.enterText(find.byType(TextField).first, 'Actual');
           await tester.pump(const Duration(milliseconds: 210));
           await frames(tester, () {});
@@ -412,7 +407,7 @@ void main() {
     // Parent metadata, thread resolution and reply context are independent.
     for (final activity in [false, true]) {
       testWidgets(
-        '[N02a] $family/$dark actual ${activity ? 'Activity' : 'Search'} click separates thread, parent and focused reply',
+        '[N02a] ${dark ? 'dark' : 'light'} actual ${activity ? 'Activity' : 'Search'} click separates thread, parent and focused reply',
         (tester) async {
           final (w, api) = await pageFixture(
             tester,
@@ -450,7 +445,7 @@ void main() {
             ],
             'hasMore': false,
           };
-          await mountPage(tester, w, family, dark);
+          await mountPage(tester, w, dark);
           if (activity) {
             await tester.tap(find.byKey(const ValueKey('activity-thread-t1')));
             await tester.pump(const Duration(milliseconds: 220));
@@ -537,7 +532,7 @@ void main() {
     // MessageSearchPage1319–1331 closes the old thread when selecting a real
     // parent-channel hit. The parent focus belongs to the channel surface only.
     testWidgets(
-      '[N02b] $family/$dark actual Search parent click never requests or highlights parent as a reply',
+      '[N02b] ${dark ? 'dark' : 'light'} actual Search parent click never requests or highlights parent as a reply',
       (tester) async {
         final (w, api) = await pageFixture(tester, section: 'search');
         final heldReply = Completer<Map<String, dynamic>>();
@@ -565,7 +560,7 @@ void main() {
           ],
           'hasMore': false,
         };
-        await mountPage(tester, w, family, dark);
+        await mountPage(tester, w, dark);
         await tester.enterText(find.byType(TextField).first, 'Accepted');
         await tester.pump(const Duration(milliseconds: 210));
         await frames(tester, () {});
@@ -613,7 +608,7 @@ void main() {
     // the real replies badge opens a side thread without a reply focus, as in
     // rightPanelUrlSync283–310; the accepted parent cannot become a reply target.
     testWidgets(
-      '[N02b] $family/$dark actual Activity parent then replies badge retains parent focus outside reply window',
+      '[N02b] ${dark ? 'dark' : 'light'} actual Activity parent then replies badge retains parent focus outside reply window',
       (tester) async {
         final (w, api) = await pageFixture(tester);
         final resolution = Completer<Map<String, dynamic>>(),
@@ -647,7 +642,7 @@ void main() {
         api.routes['GET /channels/c1/threads/parent'] = (_) =>
             resolution.future;
         api.routes['GET /messages/channel/t1'] = (_) => replies.future;
-        await mountPage(tester, w, family, dark, width: 390);
+        await mountPage(tester, w, dark, width: 390);
         await tester.tap(find.byKey(const ValueKey('activity-channel-c1')));
         await frames(tester, () {});
         expect(w.location.messageId, 'parent');
@@ -702,7 +697,7 @@ void main() {
     // page is mounted, with a retained channel window that must remain hidden.
     for (final activity in [false, true]) {
       testWidgets(
-        '[N03] $family/$dark actual ${activity ? 'Activity' : 'Search'} ignores malformed and missing content parameters',
+        '[N03] ${dark ? 'dark' : 'light'} actual ${activity ? 'Activity' : 'Search'} ignores malformed and missing content parameters',
         (tester) async {
           final (w, api) = await pageFixture(
             tester,
@@ -715,7 +710,7 @@ void main() {
             },
           ], expectedGeneration: w.messageDomain.ledger.generation);
           w.messageDomain.visibleIds['c1'] = {'hidden'};
-          await mountPage(tester, w, family, dark);
+          await mountPage(tester, w, dark);
           for (final open in ['wrong:x', ':x', 'channel:', 'channel', null]) {
             w.navigation.navigate(
               w.location.withQuery({'open': open, 'msg': 'must-not-open'}),
@@ -752,7 +747,7 @@ void main() {
     // authority reset clears the foreign observed history; mounted Back applies
     // the current server's cold semantic parent, never the retired server.
     testWidgets(
-      '[N13] $family/$dark actual server switch then cold mobile Back stays inside the new server',
+      '[N13] ${dark ? 'dark' : 'light'} actual server switch then cold mobile Back stays inside the new server',
       (tester) async {
         final (w, api) = await pageFixture(tester, section: 'home');
         final alpha = w.server!,
@@ -795,7 +790,7 @@ void main() {
           'surface': 'complete',
           'blocksChat': false,
         };
-        await mountPage(tester, w, family, dark, width: 390);
+        await mountPage(tester, w, dark, width: 390);
         await tester.tap(find.byKey(const Key('mobile-server-selector')));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Bravo'));

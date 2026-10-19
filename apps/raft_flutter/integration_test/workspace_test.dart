@@ -221,7 +221,7 @@ Future<void> captureMobileThemes(WidgetTester tester) async {
   final initial = tester
       .widget<WorkspaceView>(find.byType(WorkspaceView))
       .appearance;
-  Future<void> choose(ThemeMode mode, RaftFamily family) async {
+  Future<void> choose(ThemeMode mode) async {
     await section(tester, 'settings');
     await settingsTab(tester, 'appearance');
     final modeControl = find.byKey(const Key('appearance-mode'));
@@ -237,28 +237,19 @@ Future<void> captureMobileThemes(WidgetTester tester) async {
     await tester.ensureVisible(modeButton);
     await tester.tap(modeButton);
     await tester.pumpAndSettle();
-    if (mode != ThemeMode.dark) {
-      final familyButton = find.byKey(
-        ValueKey('appearance-light-theme-${family.name}'),
-      );
-      await tester.ensureVisible(familyButton);
-      await tester.tap(familyButton);
-      await tester.pumpAndSettle();
-    }
     await mobileHome(tester);
   }
 
   try {
     for (final entry in [
-      (ThemeMode.light, RaftFamily.brutal, 'brutal-light'),
-      (ThemeMode.light, RaftFamily.elegant, 'elegant-light'),
-      (ThemeMode.dark, RaftFamily.elegant, 'elegant-dark'),
+      (ThemeMode.light, 'elegant-light'),
+      (ThemeMode.dark, 'elegant-dark'),
     ]) {
-      await choose(entry.$1, entry.$2);
+      await choose(entry.$1);
       final t = RaftTokens.of(
         tester.element(find.byKey(const Key('workspace-mobile-home'))),
       );
-      expect(t.family, entry.$2);
+      expect(t.dark, entry.$1 == ThemeMode.dark);
       expect(t.dark, entry.$1 == ThemeMode.dark);
       expect(
         find.byKey(const Key('workspace-mobile-navigation')),
@@ -282,10 +273,8 @@ Future<void> captureMobileThemes(WidgetTester tester) async {
         final faceRect = tester.getRect(face);
         final glyphRect = tester.getRect(glyph);
         expect(glyphRect.center.dx, closeTo(faceRect.center.dx, .1));
-        if (!t.brutal) {
-          expect(faceRect.size, const Size(44, 44));
-          expect(glyphRect.center.dy, closeTo(faceRect.center.dy, .1));
-        }
+        expect(faceRect.size, const Size(44, 44));
+        expect(glyphRect.center.dy, closeTo(faceRect.center.dy, .1));
         Map<String, double> rect(Rect r) => {
           'x': r.left,
           'y': r.top,
@@ -302,13 +291,13 @@ Future<void> captureMobileThemes(WidgetTester tester) async {
       final logicalSize =
           tester.view.physicalSize / tester.view.devicePixelRatio;
       await File(
-        '$nativeReportFolder/$nativePlatform-mobile-home-${entry.$3}.geometry.json',
+        '$nativeReportFolder/$nativePlatform-mobile-home-${entry.$2}.geometry.json',
       ).writeAsString(
         jsonEncode({
           'runId': nativeRunId,
           'sourceHash': const String.fromEnvironment('RAFT_TEST_SOURCE_HASH'),
           'platform': nativePlatform,
-          'theme': entry.$3,
+          'theme': entry.$2,
           'logicalViewport': {
             'width': logicalSize.width,
             'height': logicalSize.height,
@@ -318,7 +307,7 @@ Future<void> captureMobileThemes(WidgetTester tester) async {
           'nav': navGeometry,
         }),
       );
-      await screenshot(tester, 'linux-mobile-home-${entry.$3}');
+      await screenshot(tester, 'linux-mobile-home-${entry.$2}');
       // The mounted Bell is a system NotificationCenter, distinct from Activity.
       final bell = find.byKey(const Key('mobile-home-notifications'));
       expect(bell, findsOneWidget);
@@ -336,7 +325,7 @@ Future<void> captureMobileThemes(WidgetTester tester) async {
           .widget<WorkspaceView>(find.byType(WorkspaceView))
           .controller;
       expect(workspace.section, 'home');
-      await screenshot(tester, 'linux-mobile-notifications-${entry.$3}');
+      await screenshot(tester, 'linux-mobile-notifications-${entry.$2}');
       // Source outside interaction dismisses without intercepting the actual tab.
       await tester.tap(find.byKey(const Key('mobile-tab-home')));
       await until(
@@ -350,7 +339,7 @@ Future<void> captureMobileThemes(WidgetTester tester) async {
       );
     }
   } finally {
-    await choose(initial.mode, initial.light);
+    await choose(initial.mode);
   }
 }
 
@@ -359,7 +348,7 @@ Future<void> captureDesktopNotificationThemes(WidgetTester tester) async {
   final initial = workspace.appearance;
   final controller = workspace.controller;
   final channelId = controller.channel?.id;
-  Future<void> choose(ThemeMode mode, RaftFamily family) async {
+  Future<void> choose(ThemeMode mode) async {
     await openAccountSettings(tester);
     await settingsTab(tester, 'appearance');
     final modeControl = find.byKey(const Key('appearance-mode'));
@@ -375,14 +364,6 @@ Future<void> captureDesktopNotificationThemes(WidgetTester tester) async {
     await tester.ensureVisible(modeButton);
     await tester.tap(modeButton);
     await tester.pumpAndSettle();
-    if (mode != ThemeMode.dark) {
-      final familyButton = find.byKey(
-        ValueKey('appearance-light-theme-${family.name}'),
-      );
-      await tester.ensureVisible(familyButton);
-      await tester.tap(familyButton);
-      await tester.pumpAndSettle();
-    }
     await section(tester, 'chat');
   }
 
@@ -390,17 +371,15 @@ Future<void> captureDesktopNotificationThemes(WidgetTester tester) async {
   await mouse.addPointer(location: Offset.zero);
   try {
     for (final entry in [
-      (ThemeMode.light, RaftFamily.brutal, 'brutal-light'),
-      (ThemeMode.light, RaftFamily.elegant, 'elegant-light'),
-      (ThemeMode.dark, RaftFamily.elegant, 'elegant-dark'),
+      (ThemeMode.light, 'elegant-light'),
+      (ThemeMode.dark, 'elegant-dark'),
     ]) {
-      await choose(entry.$1, entry.$2);
+      await choose(entry.$1);
       final bell = find.byWidgetPredicate(
         (widget) => widget is SystemNotificationBell && !widget.mobile,
       );
       expect(bell, findsOneWidget);
       final tokens = RaftTokens.of(tester.element(bell));
-      expect(tokens.family, entry.$2);
       expect(tokens.dark, entry.$1 == ThemeMode.dark);
       await mouse.moveTo(tester.getCenter(bell));
       await until(
@@ -414,13 +393,13 @@ Future<void> captureDesktopNotificationThemes(WidgetTester tester) async {
       final logicalSize =
           tester.view.physicalSize / tester.view.devicePixelRatio;
       await File(
-        '$nativeReportFolder/$nativePlatform-desktop-notifications-${entry.$3}.geometry.json',
+        '$nativeReportFolder/$nativePlatform-desktop-notifications-${entry.$2}.geometry.json',
       ).writeAsString(
         jsonEncode({
           'runId': nativeRunId,
           'sourceHash': const String.fromEnvironment('RAFT_TEST_SOURCE_HASH'),
           'platform': nativePlatform,
-          'theme': entry.$3,
+          'theme': entry.$2,
           'logicalViewport': {
             'width': logicalSize.width,
             'height': logicalSize.height,
@@ -439,7 +418,7 @@ Future<void> captureDesktopNotificationThemes(WidgetTester tester) async {
       );
       expect(controller.section, 'chat');
       expect(controller.channel?.id, channelId);
-      await screenshot(tester, 'linux-desktop-notifications-${entry.$3}');
+      await screenshot(tester, 'linux-desktop-notifications-${entry.$2}');
       // Real hover opening must support Escape without a manual focus transfer.
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await until(
@@ -451,7 +430,7 @@ Future<void> captureDesktopNotificationThemes(WidgetTester tester) async {
     }
   } finally {
     await mouse.removePointer();
-    await choose(initial.mode, initial.light);
+    await choose(initial.mode);
   }
 }
 
@@ -2415,17 +2394,10 @@ void main() {
       await screenshot(tester, 'linux-elegant-dark');
       await tester.tap(find.text('Light'));
       await tester.pump(const Duration(milliseconds: 300));
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('appearance-light-theme-elegant')),
-      );
-      await tester.tap(
-        find.byKey(const ValueKey('appearance-light-theme-elegant')),
-      );
-      await tester.pump(const Duration(milliseconds: 300));
       expect(
         RaftTokens.of(tester.element(find.byKey(const Key('appearance-mode'))))
-            .family,
-        RaftFamily.elegant,
+            .dark,
+        false,
       );
       await screenshot(tester, 'linux-elegant-light');
       await settingsTab(tester, 'account');

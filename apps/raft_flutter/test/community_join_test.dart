@@ -57,7 +57,7 @@ void main() {
       final held = Completer<dynamic>();
       final community = _Community(f, needsAgreement: false);
       f.holds['POST /servers/join-community'] = held;
-      await f.mount(t, 'brutal', 390, uri: Uri(path: '/s/community'));
+      await f.mount(t, 'light', 390, uri: Uri(path: '/s/community'));
       expect(find.byKey(const ValueKey('joining-community')), findsOneWidget);
       expect(find.text('Joining community…'), findsOneWidget);
       expect(find.byType(GlobalServerSelector), findsNothing);
@@ -78,7 +78,7 @@ void main() {
     (t) async {
       final f = RootFixture();
       final community = _Community(f, needsAgreement: true);
-      await f.mount(t, 'brutal', 1280, uri: Uri(path: '/s/community'));
+      await f.mount(t, 'light', 1280, uri: Uri(path: '/s/community'));
       expect(find.byType(RaftCommunityAgreementDialog), findsOneWidget);
       expect(find.byType(RaftServerAccessDeniedPage), findsOneWidget);
       expect(find.text('Community agreement'), findsOneWidget);
@@ -105,7 +105,7 @@ void main() {
   ) async {
     final f = RootFixture();
     _Community(f, needsAgreement: true);
-    await f.mount(t, 'brutal', 1280, uri: Uri(path: '/s/community'));
+    await f.mount(t, 'light', 1280, uri: Uri(path: '/s/community'));
     await f.flush(t);
     await t.tap(find.byKey(const ValueKey('community-agreement-cancel')));
     await f.flush(t);
@@ -121,7 +121,7 @@ void main() {
   testWidgets('the redirect closes an open agreement dialog', (t) async {
     final f = RootFixture();
     _Community(f, needsAgreement: true);
-    await f.mount(t, 'brutal', 1280, uri: Uri(path: '/s/community'));
+    await f.mount(t, 'light', 1280, uri: Uri(path: '/s/community'));
     await f.flush(t);
     expect(find.byType(RaftCommunityAgreementDialog), findsOneWidget);
     await t.pump(const Duration(seconds: 3));
@@ -139,7 +139,7 @@ void main() {
       f.adapter.statuses['POST /servers/join-community'] = 403;
       return {'error': 'Server seat limit reached'};
     };
-    await f.mount(t, 'brutal', 390, uri: Uri(path: '/s/community'));
+    await f.mount(t, 'light', 390, uri: Uri(path: '/s/community'));
     expect(find.byType(RaftCommunityAgreementDialog), findsNothing);
     expect(find.byType(RaftServerAccessDeniedPage), findsOneWidget);
     await f.close(t);
@@ -195,7 +195,7 @@ void main() {
       addTearDown(t.view.reset);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           locale: locale,
           supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,

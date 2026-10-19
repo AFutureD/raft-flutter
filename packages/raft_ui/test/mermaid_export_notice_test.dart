@@ -16,7 +16,7 @@ void main() {
       final exported = <String>[];
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftMermaidBlock(
               source: 'flowchart LR\n A[Draft] --> B[Review]',

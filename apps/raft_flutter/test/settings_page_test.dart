@@ -57,7 +57,7 @@ void main() {
       RaftAppearance? accepted;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftSettingsPage(
               destinations: [
@@ -90,11 +90,13 @@ void main() {
       await tester.tap(find.text('Dark').first);
       await tester.pumpAndSettle();
       expect(accepted?.mode, ThemeMode.dark);
-      await tester.tap(
-        find.byKey(const ValueKey('appearance-light-theme-elegant')),
-      );
+      await tester.tap(find.text('System').first);
       await tester.pumpAndSettle();
-      expect(accepted?.light, RaftFamily.elegant);
+      expect(accepted?.mode, ThemeMode.system);
+      // One look in two modes: no theme cards, only the Light / Dark / System
+      // control.
+      expect(find.text('Brutal'), findsNothing);
+      expect(find.text('Elegant'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -115,7 +117,7 @@ void main() {
     client.acknowledgement = Completer<dynamic>();
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: SingleChildScrollView(child: AccountSettings(controller: w)),
         ),
@@ -145,7 +147,7 @@ void main() {
       client.acknowledgement = Completer<dynamic>();
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Scaffold(
             body: SingleChildScrollView(child: AccountSettings(controller: w)),
           ),

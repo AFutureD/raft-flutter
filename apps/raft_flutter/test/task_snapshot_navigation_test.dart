@@ -81,7 +81,7 @@ void main() {
   });
 
   Widget page() => MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     home: RaftDensityScope(
       density: RaftDensity.desktop,
       child: Scaffold(
@@ -94,7 +94,7 @@ void main() {
     ),
   );
   Widget away() => MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     home: const Scaffold(body: SizedBox.expand()),
   );
   List lane(dynamic state, String status) => state.lanes[status] as List;

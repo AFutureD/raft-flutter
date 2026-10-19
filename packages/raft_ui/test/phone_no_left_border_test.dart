@@ -23,78 +23,62 @@ bool _fullHeightLeftEdge(WidgetTester t, Finder scope) {
 }
 
 void main() {
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-  ]) {
-    Future<void> pumpAt(WidgetTester t, double width, Widget home) async {
-      t.view.physicalSize = Size(width, 844);
-      t.view.devicePixelRatio = 1;
-      addTearDown(t.view.reset);
-      await t.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(family, dark: dark),
-          home: Scaffold(body: home),
-        ),
-      );
-      await t.pumpAndSettle();
-    }
-
-    final frame = RaftSettingsPanelFrame(
-      header: const SizedBox(height: 56),
-      child: const SizedBox.expand(),
+  Future<void> pumpAt(WidgetTester t, double width, Widget home) async {
+    t.view.physicalSize = Size(width, 844);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(),
+        home: Scaffold(body: home),
+      ),
     );
+    await t.pumpAndSettle();
+  }
 
-    testWidgets('settings sub-page frame: no left edge on phone $family', (
+  final frame = RaftSettingsPanelFrame(
+    header: const SizedBox(height: 56),
+    child: const SizedBox.expand(),
+  );
+
+  testWidgets('settings sub-page frame: no left edge on phone', (t) async {
+    await pumpAt(t, 390, frame);
+    expect(
+      _fullHeightLeftEdge(t, find.byType(RaftSettingsPanelFrame)),
+      isFalse,
+    );
+  });
+
+  testWidgets('settings sub-page frame: left edge on desktop', (t) async {
+    await pumpAt(t, 1024, frame);
+    expect(_fullHeightLeftEdge(t, find.byType(RaftSettingsPanelFrame)), isTrue);
+  });
+
+  testWidgets('channel members page: no left edge on phone', (t) async {
+    await pumpAt(t, 390, channelMembersPagePreview());
+    expect(find.byKey(const ValueKey('member-page')), findsOneWidget);
+    expect(_fullHeightLeftEdge(t, find.byType(Scaffold)), isFalse);
+  });
+
+  testWidgets('members page in the bare phone sheet: no left edge', (t) async {
+    await pumpAt(
       t,
-    ) async {
-      await pumpAt(t, 390, frame);
-      expect(
-        _fullHeightLeftEdge(t, find.byType(RaftSettingsPanelFrame)),
-        isFalse,
-      );
-    });
+      390,
+      RaftOverflowBareSheet(page: true, child: channelMembersPagePreview()),
+    );
+    expect(find.byKey(const ValueKey('member-page')), findsOneWidget);
+    expect(_fullHeightLeftEdge(t, find.byType(Scaffold)), isFalse);
+  });
 
-    testWidgets('settings sub-page frame: left edge on desktop $family', (
-      t,
-    ) async {
-      await pumpAt(t, 1024, frame);
-      expect(
-        _fullHeightLeftEdge(t, find.byType(RaftSettingsPanelFrame)),
-        isTrue,
-      );
-    });
+  testWidgets('channel settings page: no left edge on phone', (t) async {
+    await pumpAt(t, 390, channelSettingsPagePreview());
+    expect(find.byType(RaftOverflowSheet), findsOneWidget);
+    expect(_fullHeightLeftEdge(t, find.byType(Scaffold)), isFalse);
+  });
 
-    testWidgets('channel members page: no left edge on phone $family', (
-      t,
-    ) async {
-      await pumpAt(t, 390, channelMembersPagePreview());
-      expect(find.byKey(const ValueKey('member-page')), findsOneWidget);
-      expect(_fullHeightLeftEdge(t, find.byType(Scaffold)), isFalse);
-    });
-
-    testWidgets('members page in the bare phone sheet: no left edge $family', (
-      t,
-    ) async {
-      await pumpAt(
-        t,
-        390,
-        RaftOverflowBareSheet(page: true, child: channelMembersPagePreview()),
-      );
-      expect(find.byKey(const ValueKey('member-page')), findsOneWidget);
-      expect(_fullHeightLeftEdge(t, find.byType(Scaffold)), isFalse);
-    });
-
-    testWidgets('channel settings page: no left edge on phone $family', (
-      t,
-    ) async {
-      await pumpAt(t, 390, channelSettingsPagePreview());
-      expect(find.byType(RaftOverflowSheet), findsOneWidget);
-      expect(_fullHeightLeftEdge(t, find.byType(Scaffold)), isFalse);
-    });
-
-    testWidgets('phone page frame keeps no edge, desktop drawer keeps it '
-        '$family', (t) async {
+  testWidgets(
+    'phone page frame keeps no edge, desktop drawer has none either',
+    (t) async {
       Widget sheet({required bool page}) => RaftOverflowSheet(
         title: '#general',
         onClose: () {},
@@ -106,8 +90,8 @@ void main() {
         t,
         find.byKey(const ValueKey('channel-overflow-sheet')),
       );
-      // The Brutal drawer keeps `border-l-2`; Elegant never had one.
-      expect(desktopEdge, family == RaftFamily.brutal);
+      // The drawer never had a left edge.
+      expect(desktopEdge, isFalse);
       await pumpAt(t, 390, sheet(page: true));
       expect(
         _fullHeightLeftEdge(
@@ -116,6 +100,6 @@ void main() {
         ),
         isFalse,
       );
-    });
-  }
+    },
+  );
 }

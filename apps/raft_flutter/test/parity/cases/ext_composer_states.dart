@@ -98,7 +98,6 @@ class _HostState extends State<_Host> {
       presentation: presentation,
       appearance: RaftAppearance(
         mode: widget.ctx.dark ? ThemeMode.dark : ThemeMode.light,
-        light: widget.ctx.family,
       ),
       onAppearance: (_) async {},
       onLogout: () async {},
@@ -112,7 +111,7 @@ Rect _window(ParityContext ctx) {
   if (ctx.props['platform'] == 'mobile') {
     return Rect.fromLTWH(0, ctx.height - height, ctx.width, height);
   }
-  final rail = ctx.family == RaftFamily.brutal ? 64.0 : 56.0;
+  final rail = 56.0;
   return Rect.fromLTWH(
     rail + 240,
     ctx.height - height,

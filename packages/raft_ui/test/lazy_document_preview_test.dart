@@ -6,18 +6,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/src/lazy_markdown_document.dart';
 
-Future<void> pump(
-  WidgetTester tester,
-  Widget child, {
-  RaftFamily? family,
-}) async {
+Future<void> pump(WidgetTester tester, Widget child) async {
   tester.view.physicalSize = const Size(900, 700);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family ?? RaftFamily.values.first),
+      theme: raftTheme(),
       home: Scaffold(body: child),
     ),
   );

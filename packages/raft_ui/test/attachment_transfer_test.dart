@@ -6,24 +6,23 @@ import 'package:raft_ui/test_themes.dart';
 
 const mib = 1024 * 1024;
 
-Widget host(RaftFamily family, bool dark, Widget child, {Locale? locale}) =>
-    MaterialApp(
-      theme: raftTheme(family, dark: dark),
-      home: Builder(
-        builder: (context) {
-          final body = Scaffold(
-            body: Align(alignment: Alignment.topLeft, child: child),
-          );
-          return locale == null
-              ? body
-              : Localizations.override(
-                  context: context,
-                  locale: locale,
-                  child: body,
-                );
-        },
-      ),
-    );
+Widget host(bool dark, Widget child, {Locale? locale}) => MaterialApp(
+  theme: raftTheme(dark: dark),
+  home: Builder(
+    builder: (context) {
+      final body = Scaffold(
+        body: Align(alignment: Alignment.topLeft, child: child),
+      );
+      return locale == null
+          ? body
+          : Localizations.override(
+              context: context,
+              locale: locale,
+              child: body,
+            );
+    },
+  ),
+);
 
 void main() {
   group('RaftTransferProgress', () {
@@ -82,16 +81,11 @@ void main() {
     });
   });
 
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    group('$family/$dark', () {
+  for (final dark in raftThemeMatrix([false, true])) {
+    group('${dark ? 'dark' : 'light'}', () {
       testWidgets('bar paints edge strip at the recipe height', (tester) async {
         await tester.pumpWidget(
           host(
-            family,
             dark,
             const SizedBox(width: 200, child: RaftTransferBar(value: .4)),
           ),
@@ -103,25 +97,20 @@ void main() {
           tester.getSize(find.byType(RaftTransferBar)),
           Size(200, recipe.edgeHeight),
         );
-        expect(recipe.edgeHeight, family == RaftFamily.brutal ? 10 : 4);
+        expect(recipe.edgeHeight, 4);
       });
 
       testWidgets('indeterminate bar animates; reduced motion freezes it', (
         tester,
       ) async {
         await tester.pumpWidget(
-          host(
-            family,
-            dark,
-            const SizedBox(width: 200, child: RaftTransferBar()),
-          ),
+          host(dark, const SizedBox(width: 200, child: RaftTransferBar())),
         );
         expect(tester.hasRunningAnimations, isTrue);
         await tester.pumpWidget(
           MediaQuery(
             data: const MediaQueryData(disableAnimations: true),
             child: host(
-              family,
               dark,
               const SizedBox(width: 200, child: RaftTransferBar()),
             ),
@@ -136,7 +125,6 @@ void main() {
       ) async {
         await tester.pumpWidget(
           host(
-            family,
             dark,
             const Column(
               children: [
@@ -157,7 +145,6 @@ void main() {
           var taps = 0;
           await tester.pumpWidget(
             host(
-              family,
               dark,
               SizedBox(
                 width: 300,
@@ -202,7 +189,6 @@ void main() {
       testWidgets('chip sits above the bar; labels localize', (tester) async {
         await tester.pumpWidget(
           host(
-            family,
             dark,
             const SizedBox(
               width: 300,
@@ -228,7 +214,6 @@ void main() {
           var retries = 0, opens = 0;
           await tester.pumpWidget(
             host(
-              family,
               dark,
               Column(
                 children: [
@@ -275,7 +260,6 @@ void main() {
         var retries = 0;
         await tester.pumpWidget(
           host(
-            family,
             dark,
             RaftAttachmentCard(
               filename: 'b.jpg',
@@ -329,7 +313,6 @@ void main() {
         );
         var cancels = 0, retries = 0;
         Widget panel({bool failed = false}) => host(
-          family,
           dark,
           RaftFileTransferPanel(
             filename: '2026Q3-report.pdf',

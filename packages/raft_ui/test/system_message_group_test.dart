@@ -4,7 +4,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 Widget _host(Widget child, RaftAppearance appearance) => MaterialApp(
-  theme: raftTheme(appearance.light, dark: appearance.mode == ThemeMode.dark),
+  theme: raftTheme(dark: appearance.mode == ThemeMode.dark),
   home: Scaffold(
     body: Align(
       alignment: Alignment.topLeft,
@@ -15,12 +15,11 @@ Widget _host(Widget child, RaftAppearance appearance) => MaterialApp(
 
 void main() {
   for (final appearance in raftThemeMatrix([
-    const RaftAppearance(light: RaftFamily.brutal),
-    const RaftAppearance(light: RaftFamily.elegant),
-    const RaftAppearance(light: RaftFamily.elegant, mode: ThemeMode.dark),
+    const RaftAppearance(),
+    const RaftAppearance(mode: ThemeMode.dark),
   ])) {
     testWidgets(
-      'system group shows the summary, hides rows until expanded ${appearance.light} ${appearance.mode}',
+      'system group shows the summary, hides rows until expanded ${appearance.mode}',
       (t) async {
         var expanded = false;
         late StateSetter set;
@@ -69,7 +68,7 @@ void main() {
               'Message history is limited to 30 days on the Free plan.',
           descriptionTail: (label: 'View Billing', onPressed: () => taps++),
         ),
-        const RaftAppearance(light: RaftFamily.elegant),
+        const RaftAppearance(),
       ),
     );
     await t.tap(find.text('View Billing'));

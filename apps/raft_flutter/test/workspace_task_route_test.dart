@@ -16,14 +16,10 @@ import 'workspace_source_location_contract_test.dart' show pageFixture;
 import 'support/app_services_fixture.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
-        '[K10b URL] cold modern real bucket, independent side and narrow Back $family/$dark/$width',
+        '[K10b URL] cold modern real bucket, independent side and narrow Back ${dark ? 'dark' : 'light'}/$width',
         (t) async {
           t.view.physicalSize = Size(width, 844);
           t.view.devicePixelRatio = 1;
@@ -60,11 +56,11 @@ void main() {
           final mainRevision = w.navigationRevision;
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),
@@ -132,7 +128,7 @@ void main() {
       );
     }
     testWidgets(
-      '[K10b URL] pending legacy preserves URI, hydrates only explicit legacy and never requests a thread $family/$dark',
+      '[K10b URL] pending legacy preserves URI, hydrates only explicit legacy and never requests a thread ${dark ? 'dark' : 'light'}',
       (t) async {
         t.view.physicalSize = const Size(390, 844);
         t.view.devicePixelRatio = 1;
@@ -147,11 +143,11 @@ void main() {
         );
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),
@@ -196,7 +192,7 @@ void main() {
       },
     );
     testWidgets(
-      '[K10b URL] role revocation retires real cold task and rejects late bucket $family/$dark',
+      '[K10b URL] role revocation retires real cold task and rejects late bucket ${dark ? 'dark' : 'light'}',
       (t) async {
         t.view.physicalSize = const Size(390, 844);
         t.view.devicePixelRatio = 1;
@@ -211,11 +207,11 @@ void main() {
         );
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),
@@ -252,7 +248,7 @@ void main() {
     );
     for (final lateFails in [false, true]) {
       testWidgets(
-        '[K10b URL] actual board activation then Back/new task rejects old ${lateFails ? 'error' : 'success'} without retiring main pending context $family/$dark',
+        '[K10b URL] actual board activation then Back/new task rejects old ${lateFails ? 'error' : 'success'} without retiring main pending context ${dark ? 'dark' : 'light'}',
         (t) async {
           t.view.physicalSize = const Size(390, 844);
           t.view.devicePixelRatio = 1;
@@ -294,11 +290,11 @@ void main() {
           );
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),

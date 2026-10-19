@@ -136,7 +136,7 @@ class _Header {
 }
 
 Widget _host(WorkspaceController w, {Key? key}) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(
     body: RaftChatView(key: key, controller: w),
   ),

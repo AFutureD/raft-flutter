@@ -177,11 +177,11 @@ Future<(WorkspaceController, dynamic)> _openThreadWithImage(
   };
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.brutal),
+      theme: raftTheme(),
       home: withAppServices(
         WorkspaceView(
           controller: w,
-          appearance: RaftAppearance(light: RaftFamily.brutal),
+          appearance: RaftAppearance(),
           onAppearance: (_) async {},
           onLogout: () async {},
         ),

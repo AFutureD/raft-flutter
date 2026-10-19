@@ -5,13 +5,9 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'scroll retires only the hovered row and leaves idle rows untouched $family/$dark',
+      'scroll retires only the hovered row and leaves idle rows untouched ${dark ? 'dark' : 'light'}',
       (t) async {
         final scroll = ScrollController();
         addTearDown(scroll.dispose);
@@ -24,7 +20,7 @@ void main() {
         addTearDown(() => debugOnRebuildDirtyWidget = previous);
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: SizedBox(
                 height: 500,

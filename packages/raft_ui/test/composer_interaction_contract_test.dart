@@ -55,13 +55,12 @@ _Store _store(WidgetTester tester, {String draft = ''}) {
 
 Widget _app(
   _Store s, {
-  RaftFamily family = RaftFamily.elegant,
   bool dark = false,
   TargetPlatform platform = TargetPlatform.macOS,
   bool clearOnSubmit = false,
   double keyboard = 0,
 }) => MaterialApp(
-  theme: raftTheme(family, dark: dark).copyWith(platform: platform),
+  theme: raftTheme(dark: dark).copyWith(platform: platform),
   builder: (context, home) => MediaQuery(
     data: MediaQuery.of(context)
         .copyWith(viewInsets: EdgeInsets.only(bottom: keyboard)),

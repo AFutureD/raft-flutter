@@ -99,7 +99,7 @@ void main() {
       addTearDown(t.view.reset);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           locale: locale,
           supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -464,7 +464,7 @@ void main() {
       (t) async {
         final f = RootFixture();
         routes(f);
-        await f.mount(t, 'brutal', 390, uri: Uri(path: '/join/tok-1'));
+        await f.mount(t, 'light', 390, uri: Uri(path: '/join/tok-1'));
         expect(find.byType(RaftInviteAcceptPage), findsOneWidget);
         expect(find.byType(WorkspaceView), findsNothing);
         expect(
@@ -499,7 +499,7 @@ void main() {
       routes(f);
       f.adapter.statuses['GET /auth/invite-info'] = 404;
       f.overrides['GET /auth/invite-info'] = (_) => {'error': 'Not found'};
-      await f.mount(t, 'brutal', 390, uri: Uri(path: '/join/dead'));
+      await f.mount(t, 'light', 390, uri: Uri(path: '/join/dead'));
       expect(
         find.text('This invite link is invalid or has expired.'),
         findsOneWidget,
@@ -514,7 +514,7 @@ void main() {
     testWidgets('the Join workspace dialog opens the same page', (t) async {
       final f = RootFixture();
       routes(f);
-      await f.mount(t, 'brutal', 1280);
+      await f.mount(t, 'light', 1280);
       await t.tap(find.byKey(const ValueKey('global-server-a')));
       await f.flush(t);
       expect(find.byType(WorkspaceView), findsOneWidget);
@@ -555,7 +555,7 @@ void main() {
             'emailVerified': true,
           },
         };
-        await f.mount(t, 'brutal', 390, uri: Uri(path: '/join/tok-2'));
+        await f.mount(t, 'light', 390, uri: Uri(path: '/join/tok-2'));
         expect(find.byType(RaftInviteAcceptPage), findsOneWidget);
         expect(find.byKey(const ValueKey('invite-join')), findsNothing);
         await t.tap(find.byKey(const ValueKey('invite-sign-in')));
@@ -599,7 +599,7 @@ void main() {
       routes(f);
       f.adapter.statuses['GET /auth/me'] = 401;
       f.overrides['GET /auth/me'] = (_) => {'error': 'Unauthorized'};
-      await f.mount(t, 'brutal', 390, uri: Uri(path: '/join/tok-3'));
+      await f.mount(t, 'light', 390, uri: Uri(path: '/join/tok-3'));
       await t.tap(find.byKey(const ValueKey('invite-create-account')));
       await f.flush(t);
       expect(find.byType(AuthView), findsOneWidget);

@@ -28,9 +28,7 @@ void main() {
               body: RaftControl(
                 key: const Key('control'),
                 focusNode: node,
-                recipe: _FocusRecipe(
-                  raftTheme(RaftFamily.elegant).extension<RaftTokens>()!,
-                ),
+                recipe: _FocusRecipe(raftTheme().extension<RaftTokens>()!),
                 onPressed: () => count++,
                 child: const Text('Action'),
               ),

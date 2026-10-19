@@ -91,16 +91,12 @@ class _Workspace extends WorkspaceController {
 /// accepted store at once; it never invents defaults and a changed target never
 /// shows the previous entity's facts.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final computers in [false, true]) {
       final kind = computers ? 'computer' : 'agent';
       final rows = computers ? _computers : _agents;
       testWidgets(
-        '[L09] $family/$dark desktop $kind detail opens from the accepted store and switching target hides the previous entity at once',
+        '[L09] ${dark ? 'dark' : 'light'} desktop $kind detail opens from the accepted store and switching target hides the previous entity at once',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           tester.view.physicalSize = const Size(1440, 900);
@@ -120,11 +116,11 @@ void main() {
           });
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),
@@ -210,7 +206,7 @@ void main() {
       );
 
       testWidgets(
-        '[L09] $family/$dark $kind detail with only an id shows no invented defaults',
+        '[L09] ${dark ? 'dark' : 'light'} $kind detail with only an id shows no invented defaults',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           tester.view.physicalSize = const Size(900, 800);
@@ -231,7 +227,7 @@ void main() {
           w.holdLists = true;
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: Scaffold(
                 body: FleetDetail(
                   controller: w,

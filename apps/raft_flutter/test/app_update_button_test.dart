@@ -150,7 +150,6 @@ Future<List<String>> _mount(
   TargetPlatform platform, {
   bool start = true,
   Size size = const Size(1000, 900),
-  RaftFamily family = RaftFamily.elegant,
   bool dark = false,
 }) async {
   final launched = <String>[];
@@ -179,7 +178,7 @@ Future<List<String>> _mount(
       key: _shotKey,
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: raftTheme(family, dark: dark).copyWith(platform: platform),
+        theme: raftTheme(dark: dark).copyWith(platform: platform),
         home: Scaffold(
           body: SingleChildScrollView(
             child: WorkspaceAboutSection(
@@ -727,7 +726,7 @@ void _updatesCardTests() {
       final (w, _) = await pageFixture(t, section: 'chat');
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(body: WorkspaceAboutSection(controller: w)),
         ),
       );
@@ -836,11 +835,7 @@ void _screenshots() {
         ),
       ];
 
-  for (final (family, dark, suffix) in [
-    (RaftFamily.elegant, false, 'elegant-light'),
-    (RaftFamily.elegant, true, 'elegant-dark'),
-    (RaftFamily.brutal, false, 'brutal-light'),
-  ]) {
+  for (final (dark, suffix) in [(false, 'light'), (true, 'dark')]) {
     for (final (name, platform, script, updater, _) in cases) {
       testWidgets('screenshot $name $suffix', (t) async {
         await loadTaskFonts(t);
@@ -852,7 +847,6 @@ void _screenshots() {
           updater(),
           platform,
           size: const Size(520, 360),
-          family: family,
           dark: dark,
         );
         await shot(t, '$name-$suffix');
@@ -871,7 +865,6 @@ void _screenshots() {
         TargetPlatform.android,
         start: false,
         size: const Size(520, 360),
-        family: family,
         dark: dark,
       );
       unawaited(s.service.start());

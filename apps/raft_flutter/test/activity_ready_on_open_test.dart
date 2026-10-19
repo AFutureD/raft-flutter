@@ -33,14 +33,11 @@ void main() {
     w.dispose();
     await client.dispose();
   });
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, true),
-  ]) {
+  for (final (dark) in [(true)]) {
     for (final mobile in [false, true]) {
       for (final revisit in [false, true]) {
         final label =
-            '$family/$dark ${mobile ? 'mobile' : 'desktop'} '
+            '${dark ? 'dark' : 'light'} ${mobile ? 'mobile' : 'desktop'} '
             '${revisit ? 'revisit with a retained snapshot' : 'first open'}';
         testWidgets(
           '$label: a realtime arrival lights the badge and opens in the list on the first frame',
@@ -59,11 +56,11 @@ void main() {
             w.inbox = [for (var i = 0; i < 5; i++) channelRow(i)];
             await tester.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 home: withAppServices(
                   WorkspaceView(
                     controller: w,
-                    appearance: RaftAppearance(light: family),
+                    appearance: RaftAppearance(),
                     onAppearance: (_) async {},
                     onLogout: () async {},
                   ),

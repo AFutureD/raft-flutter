@@ -218,13 +218,9 @@ void main() {
       expect(directory.people.where((p) => p.type == 'external'), isEmpty);
     },
   );
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
     testWidgets(
-      'external selection and deletion preserve the projection $family/$dark',
+      'external selection and deletion preserve the projection ${dark ? 'dark' : 'light'}',
       (t) async {
         final (w, api) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -237,7 +233,7 @@ void main() {
         final sends = <List<Map<String, dynamic>>>[];
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Column(
                 children: [
@@ -297,7 +293,7 @@ void main() {
       },
     );
     testWidgets(
-      'external mention navigation and safe plain fallbacks $family/$dark',
+      'external mention navigation and safe plain fallbacks ${dark ? 'dark' : 'light'}',
       (t) async {
         final (w, api) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -344,7 +340,7 @@ void main() {
         expect(view(sender: 'external_projection').references, isEmpty);
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: presentation),
           ),
         );

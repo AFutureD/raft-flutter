@@ -46,16 +46,19 @@ void main() {
         .setMockMethodCallHandler(channel, null),
   );
 
-  test('Android receives the stored mode and family by their names', () async {
-    final launch = NativeLaunchTheme(platformOverride: TargetPlatform.android);
-    await launch.set(
-      const RaftAppearance(mode: ThemeMode.dark, light: RaftFamily.elegant),
-    );
-    await launch.set(const RaftAppearance());
-    expect(calls.map((c) => c.method), ['set', 'set']);
-    expect(calls[0].arguments, {'mode': 'dark', 'light': 'elegant'});
-    expect(calls[1].arguments, {'mode': 'system', 'light': 'brutal'});
-  });
+  test(
+    'Android receives the stored mode; the retired family is null',
+    () async {
+      final launch = NativeLaunchTheme(
+        platformOverride: TargetPlatform.android,
+      );
+      await launch.set(const RaftAppearance(mode: ThemeMode.dark));
+      await launch.set(const RaftAppearance());
+      expect(calls.map((c) => c.method), ['set', 'set']);
+      expect(calls[0].arguments, {'mode': 'dark', 'light': null});
+      expect(calls[1].arguments, {'mode': 'system', 'light': null});
+    },
+  );
 
   test('other platforms never touch the channel', () async {
     for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {

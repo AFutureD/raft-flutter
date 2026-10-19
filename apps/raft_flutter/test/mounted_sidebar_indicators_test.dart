@@ -7,13 +7,9 @@ import 'package:raft_ui/test_themes.dart';
 import 'mounted_message_navigation_test.dart' show pageFixture, mountPage;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark actual sidebar reflects mute, membership and drafts',
+      '${dark ? 'dark' : 'light'} actual sidebar reflects mute, membership and drafts',
       (t) async {
         final (w, api) = await pageFixture(t);
         w.channels.addAll([
@@ -39,7 +35,7 @@ void main() {
         ]);
         w.conversationReads.unread.addAll({'quiet': 104, 'public': 3});
         w.drafts.addAll({'draft': 'unsent channel', 'dm': 'unsent DM'});
-        await mountPage(t, w, family, dark);
+        await mountPage(t, w, dark);
         expect(find.byType(RaftSidebarQuietUnreadCount), findsNWidgets(2));
         expect(find.byType(RaftSidebarMutedIcon), findsOneWidget);
         expect(find.byType(RaftSidebarDraftIcon), findsNWidgets(2));

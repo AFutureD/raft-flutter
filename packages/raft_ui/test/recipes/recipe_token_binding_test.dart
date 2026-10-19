@@ -101,13 +101,9 @@ const _colors = [
   'warningSoft',
   'warningStrong',
 ];
-const _shadows = [
-  'themeShadowLg',
-  'themeShadowMd',
-  'themeShadowSm',
-  'themeShadowXl',
-  'themeShadowXs',
-];
+// Raft controls cast no shadow: xs/sm/md are empty, lg/xl are elevation-float.
+const _shadows = ['themeShadowLg', 'themeShadowXl'];
+const _noShadows = ['themeShadowMd', 'themeShadowSm', 'themeShadowXs'];
 const _numbers = [
   'cardTitleFontSize',
   'cardTitleFontWeight',
@@ -122,9 +118,8 @@ const _fonts = ['headingFont', 'monoFont', 'sansFont'];
 // package:raft_ui/test_themes.dart.
 void main() {
   final themes = {
-    'brutal': RaftTokens.theme(RaftFamily.brutal),
-    'elegant-light': RaftTokens.theme(RaftFamily.elegant),
-    'elegant-dark': RaftTokens.theme(RaftFamily.elegant, dark: true),
+    'light': RaftTokens.theme(),
+    'dark': RaftTokens.theme(dark: true),
   };
   for (final MapEntry(key: id, value: tokens) in themes.entries) {
     test('recipe tokens resolve in $id', () {
@@ -134,6 +129,9 @@ void main() {
       }
       for (final n in _shadows) {
         expect(r.shadow(n), isNotEmpty, reason: n);
+      }
+      for (final n in _noShadows) {
+        expect(r.shadow(n), isEmpty, reason: n);
       }
       for (final n in _numbers) {
         expect(r.number(n), isNotNull, reason: n);
@@ -145,7 +143,7 @@ void main() {
   }
 
   test('brutal md primary button resolves to source values', () {
-    final tokens = RaftRecipeTokens(RaftTokens.theme(RaftFamily.brutal));
+    final tokens = RaftRecipeTokens(RaftTokens.theme());
     final s = RaftButtonRecipe.resolve(
       theme: RaftRecipeTheme.brutal,
       variant: RaftButtonRecipeVariant.primary,

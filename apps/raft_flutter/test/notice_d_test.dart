@@ -174,7 +174,7 @@ void main() {
       Map<String, dynamic> agent,
     ) => tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: AgentDetailPanel(
             controller: w,
@@ -297,7 +297,7 @@ void main() {
             : null;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.brutal),
+            theme: raftTheme(),
             home: Scaffold(
               body: FleetDetail(
                 controller: w,

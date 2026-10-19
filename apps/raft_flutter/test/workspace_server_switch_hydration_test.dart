@@ -19,11 +19,7 @@ Future<void> openMenu(WidgetTester t, double width) async {
 }
 
 void main() {
-  for (final theme in raftThemeMatrix([
-    'brutal',
-    'elegant-light',
-    'elegant-dark',
-  ])) {
+  for (final theme in raftThemeMatrix(['light', 'dark'])) {
     testWidgets(
       '[K08m] actual RaftApp $theme invalid server memory PUSHes accepted desktop root then REPLACEs the first real channel',
       (t) async {

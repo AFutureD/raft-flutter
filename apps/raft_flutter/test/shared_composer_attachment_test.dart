@@ -9,13 +9,9 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'queued shared file remains sendable in new composer $family/$dark',
+      'queued shared file remains sendable in new composer ${dark ? 'dark' : 'light'}',
       (tester) async {
         final shared = UploadDraft.shared(
           SharedDraftAttachment(
@@ -31,7 +27,7 @@ void main() {
         final uploading = UploadDraft('file.txt', Uint8List(3), key: 1);
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Builder(
               builder: (context) {
                 final item = composerAttachmentFor(context, shared);

@@ -10,13 +10,9 @@ import 'workspace_source_location_contract_test.dart' show pageFixture;
 // Source Sidebar.tsx987–1001 and AvatarSlot.tsx90–95/126/229–230.
 // The avatar's occupied box and its placeholder glyph are separate sizes.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[K08g] $family/$dark actual mobile human DM keeps Source 18px avatar and 10px placeholder',
+      '[K08g] ${dark ? 'dark' : 'light'} actual mobile human DM keeps Source 18px avatar and 10px placeholder',
       (t) async {
         final (w, api) = await pageFixture(t, section: 'home');
         w.dms = [
@@ -31,7 +27,7 @@ void main() {
         ];
         api.routes['GET /agents'] = (_) => [];
         api.routes['GET /servers/s1/members'] = (_) => [];
-        await mountShell(t, w, family, dark, width: 390);
+        await mountShell(t, w, dark, width: 390);
         final row = find.byKey(const ValueKey('sidebar-channel-dm-human'));
         final avatar = find.descendant(
           of: row,

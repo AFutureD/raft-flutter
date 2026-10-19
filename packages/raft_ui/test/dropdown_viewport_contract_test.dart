@@ -11,7 +11,7 @@ void main() {
     addTearDown(() => t.binding.setSurfaceSize(null));
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: const Scaffold(body: DropdownViewportPreview()),
       ),
     );
@@ -43,7 +43,7 @@ void main() {
       addTearDown(scroll.dispose);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: ListView(
               controller: scroll,
@@ -102,7 +102,7 @@ void main() {
           var selected = '0';
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(RaftFamily.elegant, dark: true),
+              theme: raftTheme(dark: true),
               home: Scaffold(
                 body: StatefulBuilder(
                   builder: (context, setState) {

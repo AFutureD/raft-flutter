@@ -43,16 +43,8 @@ List<Object?> _look(WidgetTester t, Finder target) {
 }
 
 void main() {
-  for (final theme in raftThemeMatrix([
-    'brutal',
-    'elegant-light',
-    'elegant-dark',
-  ], full: true)) {
-    final (family, dark) = switch (theme) {
-      'brutal' => (RaftFamily.brutal, false),
-      'elegant-light' => (RaftFamily.elegant, false),
-      _ => (RaftFamily.elegant, true),
-    };
+  for (final theme in raftThemeMatrix(['light', 'dark'], full: true)) {
+    final dark = theme == 'dark';
     Future<_Taps> pump(WidgetTester t) async {
       final taps = _Taps();
       t.view.physicalSize = const Size(390, 844);
@@ -61,7 +53,7 @@ void main() {
       addTearDown(t.view.resetDevicePixelRatio);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: RaftDensityScope(
             density: RaftDensity.touch,
             child: _selector(taps),

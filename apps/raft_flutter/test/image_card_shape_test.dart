@@ -36,9 +36,8 @@ void main() {
     WorkspaceController w,
     CountingFiles files,
     Map<String, dynamic> metadata,
-    RaftFamily family,
   ) => MaterialApp(
-    theme: raftTheme(family),
+    theme: raftTheme(),
     home: Scaffold(
       body: Align(
         alignment: Alignment.topLeft,
@@ -83,14 +82,14 @@ void main() {
     WidgetTester tester,
     Map<String, dynamic> metadata,
     CountingFiles files,
-    RaftFamily family, {
+    {
     AttachmentDiskCache? store,
   }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final (client, w) = workspace(store ?? AttachmentDiskCache(root), metadata);
-    await tester.pumpWidget(host(w, files, metadata, family));
+    await tester.pumpWidget(host(w, files, metadata));
     return (client, w);
   }
 
@@ -104,13 +103,13 @@ void main() {
     await client.dispose();
   }
 
-  for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
-    testWidgets('portrait picture, no size in the message: the card takes its shape after the decode ($family)', (
+  
+    testWidgets('portrait picture, no size in the message: the card takes its shape after the decode', (
       tester,
     ) async {
       final bytes = (await tester.runAsync(() => png(360, 780)))!;
       final files = CountingFiles(bytes);
-      final (client, w) = await mount(tester, image(), files, family);
+      final (client, w) = await mount(tester, image(), files);
       final first = cardSize(tester);
       expect(first.width / first.height, closeTo(4 / 3, .05), reason: 'the reserved box until it is known');
       await settle(tester, () => pictures().evaluate().isNotEmpty);
@@ -131,7 +130,7 @@ void main() {
       expect(files.urls, hasLength(1), reason: 'the decode that was needed anyway: no extra download');
       await finish(tester, client, w);
     });
-  }
+  
 
   testWidgets('a message with a size has its box in the first frame and keeps it', (
     tester,
@@ -141,9 +140,7 @@ void main() {
     final (client, w) = await mount(
       tester,
       image(width: 360, height: 780),
-      files,
-      RaftFamily.elegant,
-    );
+      files);
     final first = cardSize(tester);
     expect(first.width / first.height, closeTo(360 / 780, .02));
     await settle(tester, () => pictures().evaluate().isNotEmpty);
@@ -159,9 +156,7 @@ void main() {
     final (client, w) = await mount(
       tester,
       image(),
-      CountingFiles(bytes),
-      RaftFamily.elegant,
-    );
+      CountingFiles(bytes));
     await settle(tester, () => pictures().evaluate().isNotEmpty);
     await settle(tester, () {
       final box = cardSize(tester);
@@ -182,9 +177,7 @@ void main() {
       tester,
       image(),
       CountingFiles(bytes),
-      RaftFamily.elegant,
-      store: store,
-    );
+      store: store);
     await settle(tester, () => pictures().evaluate().isNotEmpty);
     await settle(tester, () {
       final box = cardSize(tester);
@@ -203,7 +196,7 @@ void main() {
     }
     // Second view in the session: the first frame is final.
     await tester.pumpWidget(const SizedBox());
-    await tester.pumpWidget(host(w, CountingFiles(bytes), image(), RaftFamily.elegant));
+    await tester.pumpWidget(host(w, CountingFiles(bytes), image()));
     expect(cardSize(tester), settled);
     await finish(tester, client, w);
 
@@ -213,9 +206,7 @@ void main() {
       tester,
       image(),
       files,
-      RaftFamily.elegant,
-      store: AttachmentDiskCache(root),
-    );
+      store: AttachmentDiskCache(root));
     await settle(tester, () {
       final box = cardSize(tester);
       return (box.width / box.height - 360 / 780).abs() < .02;

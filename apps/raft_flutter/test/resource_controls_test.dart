@@ -119,7 +119,7 @@ void main() {
   Future<void> mount(WidgetTester t, String section) async {
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: RaftDensityScope(
           density: RaftDensity.touch,
           child: Scaffold(
@@ -418,7 +418,7 @@ void main() {
     w.people = Completer<dynamic>();
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: ResourceView(
             controller: w,

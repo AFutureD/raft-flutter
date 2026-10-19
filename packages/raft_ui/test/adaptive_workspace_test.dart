@@ -7,7 +7,7 @@ import 'package:raft_ui/raft_ui.dart';
 void main() {
   Widget shell({Widget? thread, void Function(double, double)? onWidths}) =>
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftAdaptiveWorkspace(
             sidebar: const Text('Sidebar'),
@@ -38,7 +38,7 @@ void main() {
         child: const SizedBox.expand(key: ValueKey('floating-body')),
       );
       Widget layout(bool floating) => MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftAdaptiveWorkspace(
             content: body,
@@ -232,7 +232,7 @@ void main() {
       String selected = 'chat';
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: SizedBox(
               width: 64,

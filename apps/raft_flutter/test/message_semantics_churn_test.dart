@@ -196,7 +196,7 @@ void main() {
       );
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Scaffold(
             body: Builder(
               builder: (context) => Column(
@@ -284,7 +284,7 @@ void main() {
       binding.orphans.clear();
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: w,
@@ -353,7 +353,7 @@ void main() {
       binding.orphans.clear();
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Scaffold(
             body: Column(
               children: [
@@ -465,7 +465,7 @@ void main() {
     addTearDown(t.view.reset);
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(body: RaftChatView(controller: w)),
       ),
     );

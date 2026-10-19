@@ -28,7 +28,7 @@ Future<void> _open(
   w.channels = [channel];
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: ChannelSettings(controller: w, channel: channel, isPanel: true),
       ),

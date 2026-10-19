@@ -33,14 +33,10 @@ const navItems = [
 ];
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final density in RaftDensity.values) {
       testWidgets(
-        'pointer selected shadow survives; keyboard separate outline recipe is2px+2px: $family/$dark/$density',
+        'pointer selected shadow survives; keyboard separate outline recipe is2px+2px: ${dark ? 'dark' : 'light'}/$density',
         (tester) async {
           final semantics = tester.ensureSemantics();
           try {
@@ -48,7 +44,7 @@ void main() {
             var activations = 0;
             await tester.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 home: Scaffold(
                   body: RaftDensityScope(
                     density: density,

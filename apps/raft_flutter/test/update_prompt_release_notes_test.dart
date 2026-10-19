@@ -19,11 +19,6 @@ import 'workspace_source_location_contract_test.dart' show pageFixture;
 /// shows what the offered release changes before the user updates.
 
 const _sizes = [Size(412, 915), Size(1280, 800)];
-const _themes = [
-  ('brutal', RaftFamily.brutal),
-  ('elegant', RaftFamily.elegant),
-];
-
 String _note(String tag, String text, {String state = 'published'}) =>
     jsonEncode({
       'releaseId': tag,
@@ -92,7 +87,6 @@ Future<List<String>> _mount(
   WidgetTester t,
   AppUpdateService service, {
   Size size = const Size(412, 915),
-  RaftFamily family = RaftFamily.elegant,
   Locale? locale,
 }) async {
   final launched = <String>[];
@@ -121,7 +115,7 @@ Future<List<String>> _mount(
       locale: locale,
       supportedLocales: const [Locale('en'), Locale('zh')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: raftTheme(family).copyWith(platform: TargetPlatform.android),
+      theme: raftTheme().copyWith(platform: TargetPlatform.android),
       home: Scaffold(
         body: SingleChildScrollView(
           child: WorkspaceAboutSection(
@@ -148,112 +142,110 @@ double _top(WidgetTester t, String text) => t.getTopLeft(find.text(text)).dy;
 void main() {
   leakDebt(const ['ValueNotifier<bool>']);
   for (final size in _sizes) {
-    for (final (name, family) in _themes) {
-      final on = '${size.width.toInt()}x${size.height.toInt()} $name';
+    final on = '${size.width.toInt()}x${size.height.toInt()}';
 
-      testWidgets('$on: the offered version in full, older skipped versions '
-          'behind one toggle, newest first', (t) async {
-        final notes = _Notes();
-        final service = _service(notes);
-        addTearDown(service.dispose);
-        await _mount(t, service, size: size, family: family);
-        expect(find.text("What's new in this update"), findsOneWidget);
-        // Collapsed: the newest only, and the row says how many are folded.
-        expect(find.text('Nine notes'), findsOneWidget);
-        for (final text in ['Eight notes', 'Seven notes', 'Six notes']) {
-          expect(find.text(text), findsNothing, reason: text);
-        }
-        expect(_toggle, findsOneWidget);
-        expect(find.text('3 more updates'), findsOneWidget);
-        // The notes come before the buttons: readable before updating.
-        expect(_top(t, 'Nine notes'), lessThan(t.getTopLeft(_action).dy));
-        await t.ensureVisible(_toggle);
-        await t.tap(_toggle);
-        await t.pumpAndSettle();
+    testWidgets('$on: the offered version in full, older skipped versions '
+        'behind one toggle, newest first', (t) async {
+      final notes = _Notes();
+      final service = _service(notes);
+      addTearDown(service.dispose);
+      await _mount(t, service, size: size);
+      expect(find.text("What's new in this update"), findsOneWidget);
+      // Collapsed: the newest only, and the row says how many are folded.
+      expect(find.text('Nine notes'), findsOneWidget);
+      for (final text in ['Eight notes', 'Seven notes', 'Six notes']) {
+        expect(find.text(text), findsNothing, reason: text);
+      }
+      expect(_toggle, findsOneWidget);
+      expect(find.text('3 more updates'), findsOneWidget);
+      // The notes come before the buttons: readable before updating.
+      expect(_top(t, 'Nine notes'), lessThan(t.getTopLeft(_action).dy));
+      await t.ensureVisible(_toggle);
+      await t.tap(_toggle);
+      await t.pumpAndSettle();
+      for (final text in [
+        'Nine notes',
+        'Eight notes',
+        'Seven notes',
+        'Six notes',
+      ]) {
+        expect(find.text(text), findsOneWidget, reason: text);
+      }
+      // The installed version's own notes are never listed.
+      expect(find.text('Five notes'), findsNothing);
+      final order = [
         for (final text in [
           'Nine notes',
           'Eight notes',
           'Seven notes',
           'Six notes',
-        ]) {
-          expect(find.text(text), findsOneWidget, reason: text);
-        }
-        // The installed version's own notes are never listed.
-        expect(find.text('Five notes'), findsNothing);
-        final order = [
-          for (final text in [
-            'Nine notes',
-            'Eight notes',
-            'Seven notes',
-            'Six notes',
-          ])
-            _top(t, text),
-        ];
-        expect(order, orderedEquals([...order]..sort()));
-        expect(_top(t, 'Six notes'), lessThan(t.getTopLeft(_action).dy));
-        expect(find.text('Show fewer'), findsOneWidget);
-        await t.tap(_toggle);
-        await t.pumpAndSettle();
-        expect(find.text('Eight notes'), findsNothing);
-        expect(find.text('3 more updates'), findsOneWidget);
-        expect(notes.requests, hasLength(1));
-        expect(t.takeException(), isNull);
-        await t.pumpWidget(const SizedBox());
-      });
+        ])
+          _top(t, text),
+      ];
+      expect(order, orderedEquals([...order]..sort()));
+      expect(_top(t, 'Six notes'), lessThan(t.getTopLeft(_action).dy));
+      expect(find.text('Show fewer'), findsOneWidget);
+      await t.tap(_toggle);
+      await t.pumpAndSettle();
+      expect(find.text('Eight notes'), findsNothing);
+      expect(find.text('3 more updates'), findsOneWidget);
+      expect(notes.requests, hasLength(1));
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+    });
 
-      testWidgets('$on: one version has no toggle', (t) async {
-        final notes = _Notes();
-        final service = _service(notes, installed: 'v0.1.0+8');
-        addTearDown(service.dispose);
-        await _mount(t, service, size: size, family: family);
-        expect(find.text('Nine notes'), findsOneWidget);
-        expect(find.text('Eight notes'), findsNothing);
-        expect(_toggle, findsNothing);
-        expect(t.takeException(), isNull);
-        await t.pumpWidget(const SizedBox());
-      });
+    testWidgets('$on: one version has no toggle', (t) async {
+      final notes = _Notes();
+      final service = _service(notes, installed: 'v0.1.0+8');
+      addTearDown(service.dispose);
+      await _mount(t, service, size: size);
+      expect(find.text('Nine notes'), findsOneWidget);
+      expect(find.text('Eight notes'), findsNothing);
+      expect(_toggle, findsNothing);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+    });
 
-      testWidgets('$on: while loading the update stays available; a '
-          'failure keeps it and offers a retry', (t) async {
-        final gate = Completer<String?>();
-        final notes = _Notes(() => gate.future);
-        final service = _service(notes);
-        addTearDown(service.dispose);
-        final launched = await _mount(t, service, size: size, family: family);
-        expect(find.text('Loading what\'s new…'), findsOneWidget);
-        expect(_action, findsOneWidget);
-        gate.completeError(StateError('offline'));
-        await t.pumpAndSettle();
-        expect(find.text('Loading what\'s new…'), findsNothing);
-        expect(find.text('Couldn\'t load what\'s new.'), findsOneWidget);
-        expect(_retry, findsOneWidget);
-        // A failed read never blocks the update.
-        await t.tap(_action);
-        await t.pumpAndSettle();
-        expect(launched, hasLength(1));
-        notes.respond = () async => _all;
-        await t.ensureVisible(_retry);
-        await t.tap(_retry);
-        await t.pumpAndSettle();
-        expect(find.text('Nine notes'), findsOneWidget);
-        expect(_retry, findsNothing);
-        expect(notes.requests, hasLength(2));
-        expect(t.takeException(), isNull);
-        await t.pumpWidget(const SizedBox());
-      });
+    testWidgets('$on: while loading the update stays available; a '
+        'failure keeps it and offers a retry', (t) async {
+      final gate = Completer<String?>();
+      final notes = _Notes(() => gate.future);
+      final service = _service(notes);
+      addTearDown(service.dispose);
+      final launched = await _mount(t, service, size: size);
+      expect(find.text('Loading what\'s new…'), findsOneWidget);
+      expect(_action, findsOneWidget);
+      gate.completeError(StateError('offline'));
+      await t.pumpAndSettle();
+      expect(find.text('Loading what\'s new…'), findsNothing);
+      expect(find.text('Couldn\'t load what\'s new.'), findsOneWidget);
+      expect(_retry, findsOneWidget);
+      // A failed read never blocks the update.
+      await t.tap(_action);
+      await t.pumpAndSettle();
+      expect(launched, hasLength(1));
+      notes.respond = () async => _all;
+      await t.ensureVisible(_retry);
+      await t.tap(_retry);
+      await t.pumpAndSettle();
+      expect(find.text('Nine notes'), findsOneWidget);
+      expect(_retry, findsNothing);
+      expect(notes.requests, hasLength(2));
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+    });
 
-      testWidgets('$on: a release without notes says so', (t) async {
-        final notes = _Notes(() async => _page([('v0.1.0+5', 'Five notes')]));
-        final service = _service(notes);
-        addTearDown(service.dispose);
-        await _mount(t, service, size: size, family: family);
-        expect(find.text('No release notes for this update.'), findsOneWidget);
-        expect(find.text('Five notes'), findsNothing);
-        expect(_action, findsOneWidget);
-        expect(t.takeException(), isNull);
-        await t.pumpWidget(const SizedBox());
-      });
-    }
+    testWidgets('$on: a release without notes says so', (t) async {
+      final notes = _Notes(() async => _page([('v0.1.0+5', 'Five notes')]));
+      final service = _service(notes);
+      addTearDown(service.dispose);
+      await _mount(t, service, size: size);
+      expect(find.text('No release notes for this update.'), findsOneWidget);
+      expect(find.text('Five notes'), findsNothing);
+      expect(_action, findsOneWidget);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+    });
   }
 
   testWidgets('rebuilds and a repeated check do not refetch the notes', (

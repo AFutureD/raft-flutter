@@ -235,7 +235,7 @@ void main() {
     await store.bind('https://fixture.invalid', 'u');
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: SingleChildScrollView(
             child: RaftAppearanceSection(
@@ -311,7 +311,7 @@ void main() {
       );
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: Align(
               alignment: Alignment.topRight,

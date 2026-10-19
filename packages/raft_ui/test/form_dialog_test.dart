@@ -12,7 +12,7 @@ void main() {
       Completer<void>? pending;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Builder(
             builder: (context) => Scaffold(
               body: TextButton(
@@ -110,7 +110,7 @@ void main() {
     Object? error = const RaftUserError('Plain failure', suffix: ' (SOME_CODE)');
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftFormDialog(
             title: 'Create',

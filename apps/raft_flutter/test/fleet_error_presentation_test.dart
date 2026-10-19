@@ -22,7 +22,7 @@ RaftApiException _api(int status, {String? error, String? code}) =>
     );
 
 Widget _host(Widget child) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(body: child),
 );
 
@@ -316,7 +316,7 @@ void main() {
         api.routes['PUT /agents/a1/scopes'] = (_) => {};
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.elegant),
+            theme: raftTheme(),
             home: RaftToastHost(
               child: AgentScopesView(controller: w, agentId: 'a1'),
             ),

@@ -38,7 +38,7 @@ Future<void> main() async {
   );
   runApp(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: const Scaffold(
         body: SafeArea(
           child: SingleChildScrollView(

@@ -29,7 +29,7 @@ void main() {
     await boot;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: ResourceView(
             controller: workspace,
@@ -110,7 +110,7 @@ void main() {
         await boot;
         workspace.inbox = [channelRow(10, unread: 4)];
         Widget page() => MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: workspace,
@@ -159,7 +159,7 @@ void main() {
     final store = workspace.activityUnread..start();
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: ResourceView(
             controller: workspace,

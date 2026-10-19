@@ -10,7 +10,7 @@ void main() {
   ) async {
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: SizedBox(
             width: 390,
@@ -41,18 +41,14 @@ void main() {
     expect(find.byType(RaftInteractive), findsNothing);
     expect(t.takeException(), isNull);
   });
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family dark=$dark comments own jump, pending anchor, write gate and loading recipe',
+      'dark=$dark comments own jump, pending anchor, write gate and loading recipe',
       (t) async {
         var jumps = 0, removes = 0;
         Widget host({bool loading = false, bool blocked = false}) =>
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: Scaffold(
                 body: SizedBox(
                   width: 390,

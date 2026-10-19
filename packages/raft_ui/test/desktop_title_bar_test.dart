@@ -7,72 +7,67 @@ import 'package:raft_ui/test_themes.dart';
 /// (Brutal: 2 px black; Elegant: 1 px divider), no text, a drag area, and gone
 /// in fullscreen.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
-    testWidgets('$family/$dark strip wears the rail colours and rule', (
-      tester,
-    ) async {
-      final theme = raftTheme(family, dark: dark);
-      final tokens = theme.extension<RaftTokens>()!;
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: theme,
-          home: const RaftDesktopTitleBar(
-            height: 28,
-            child: SizedBox.expand(key: Key('content')),
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
+    testWidgets(
+      '${dark ? 'dark' : 'light'} strip wears the rail colours and rule',
+      (tester) async {
+        final theme = raftTheme(dark: dark);
+        final tokens = theme.extension<RaftTokens>()!;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: const RaftDesktopTitleBar(
+              height: 28,
+              child: SizedBox.expand(key: Key('content')),
+            ),
           ),
-        ),
-      );
-      final strip = tester.widget<DecoratedBox>(
-        find.byKey(const Key('desktop-title-strip')),
-      );
-      final decoration = strip.decoration as BoxDecoration;
-      final border = decoration.border! as Border;
-      final rail = RaftRailRecipe(tokens, viewportHeight: 800);
-      expect(decoration.color, rail.background);
-      expect(border.bottom.color, rail.border.color);
-      expect(border.bottom.width, family == RaftFamily.brutal ? 2 : 1);
-      expect(border.top, BorderSide.none);
-      expect(border.left, BorderSide.none);
-      expect(border.right, BorderSide.none);
-      if (family == RaftFamily.brutal) {
-        expect(border.bottom.color, Colors.black);
-      }
-      // Whole strip is the native bar's height; the content gets the rest.
-      expect(
-        tester.getSize(find.byKey(const Key('desktop-title-strip'))),
-        const Size(800, 28),
-      );
-      final content = tester.getRect(find.byKey(const Key('content')));
-      expect(content.top, 28);
-      expect(content.height, 600 - 28);
-      // No title text, no buttons.
-      expect(
-        find.descendant(
-          of: find.byType(RaftDesktopTitleStrip),
-          matching: find.byType(Text),
-        ),
-        findsNothing,
-      );
-      expect(
-        find.descendant(
-          of: find.byType(RaftDesktopTitleStrip),
-          matching: find.byType(ButtonStyleButton),
-        ),
-        findsNothing,
-      );
-      expect(find.byType(RaftDesktopTitleStrip), findsOneWidget);
-    });
+        );
+        final strip = tester.widget<DecoratedBox>(
+          find.byKey(const Key('desktop-title-strip')),
+        );
+        final decoration = strip.decoration as BoxDecoration;
+        final border = decoration.border! as Border;
+        final rail = RaftRailRecipe(tokens, viewportHeight: 800);
+        expect(decoration.color, rail.background);
+        expect(border.bottom.color, rail.border.color);
+        expect(border.bottom.width, 1);
+        expect(border.top, BorderSide.none);
+        expect(border.left, BorderSide.none);
+        expect(border.right, BorderSide.none);
+
+        // Whole strip is the native bar's height; the content gets the rest.
+        expect(
+          tester.getSize(find.byKey(const Key('desktop-title-strip'))),
+          const Size(800, 28),
+        );
+        final content = tester.getRect(find.byKey(const Key('content')));
+        expect(content.top, 28);
+        expect(content.height, 600 - 28);
+        // No title text, no buttons.
+        expect(
+          find.descendant(
+            of: find.byType(RaftDesktopTitleStrip),
+            matching: find.byType(Text),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: find.byType(RaftDesktopTitleStrip),
+            matching: find.byType(ButtonStyleButton),
+          ),
+          findsNothing,
+        );
+        expect(find.byType(RaftDesktopTitleStrip), findsOneWidget);
+      },
+    );
   }
 
   testWidgets('strip follows a live theme change', (tester) async {
-    Future<void> pump(RaftFamily family, bool dark) async {
+    Future<void> pump(bool dark) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: const RaftDesktopTitleBar(height: 28, child: SizedBox.expand()),
         ),
       );
@@ -87,13 +82,15 @@ void main() {
                     .decoration)
                 as BoxDecoration)
             .color!;
-    await pump(RaftFamily.brutal, false);
-    final brutal = colour();
-    await pump(RaftFamily.elegant, false);
+    await pump(false);
     final light = colour();
-    await pump(RaftFamily.elegant, true);
+    await pump(true);
     final night = colour();
-    expect({brutal, light, night}.length, 3);
+    await pump(false);
+    final lightAgain = colour();
+    // Only light and dark remain (Brutal/Elegant collapsed into Raft).
+    expect(light, isNot(night));
+    expect(lightAgain, light);
   });
 
   testWidgets('drag area starts a window move and double tap is forwarded', (
@@ -102,7 +99,7 @@ void main() {
     var drags = 0, doubles = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: RaftDesktopTitleBar(
           height: 28,
           onDragStart: () => drags++,
@@ -134,7 +131,7 @@ void main() {
   ) async {
     Widget host({required double height, bool fullscreen = false}) =>
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: RaftDesktopTitleBar(
             height: height,
             fullscreen: fullscreen,
@@ -156,7 +153,7 @@ void main() {
     double? seen;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: RaftDesktopTitleBar(
           height: 28,
           child: Builder(
@@ -175,7 +172,7 @@ void main() {
     final semantics = tester.ensureSemantics();
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: const RaftDesktopTitleBar(height: 28, child: SizedBox.expand()),
       ),
     );

@@ -137,15 +137,12 @@ void main() {
         });
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.elegant),
+            theme: raftTheme(),
             builder: (context, child) => RaftToastHost(child: child!),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: const RaftAppearance(
-                  mode: ThemeMode.light,
-                  light: RaftFamily.elegant,
-                ),
+                appearance: const RaftAppearance(mode: ThemeMode.light),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),

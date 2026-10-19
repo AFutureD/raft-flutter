@@ -298,14 +298,10 @@ void main() {
     });
   }
 
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final revokeParent in [true, false]) {
       testWidgets(
-        '[N24a] $family/$dark held-parent private rows retire only on parent revocation=$revokeParent',
+        '[N24a] ${dark ? 'dark' : 'light'} held-parent private rows retire only on parent revocation=$revokeParent',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           tester.view.physicalSize = const Size(390, 844);
@@ -360,7 +356,7 @@ void main() {
           });
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: Scaffold(body: RaftChatView(controller: w, thread: true)),
             ),
           );

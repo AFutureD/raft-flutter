@@ -20,7 +20,6 @@ import 'support/app_services_fixture.dart';
 Future<void> mountShell(
   WidgetTester t,
   WorkspaceController w,
-  RaftFamily family,
   bool dark, {
   double width = 1280,
   PersonalPresentationStore? presentation,
@@ -30,11 +29,11 @@ Future<void> mountShell(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: withAppServices(
         WorkspaceView(
           controller: w,
-          appearance: RaftAppearance(light: family),
+          appearance: RaftAppearance(),
           onAppearance: (_) async {},
           onLogout: () async {},
           presentation: presentation,
@@ -61,18 +60,14 @@ Future<void> retire(WidgetTester t) async {
 void main() {
   // Leak debt (other): see docs/development.md, Leak tracking.
   leakDebt(const ['ValueNotifier<bool>']);
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[K08a] $family/$dark classic owner keeps six entries, guest hides directory, and one sidebar heading',
+      '[K08a] ${dark ? 'dark' : 'light'} classic owner keeps six entries, guest hides directory, and one sidebar heading',
       (t) async {
         final (w, api) = await pageFixture(t, section: 'chat');
         api.routes['GET /agents'] = (_) => [];
         api.routes['GET /servers/s1/members'] = (_) => [];
-        await mountShell(t, w, family, dark);
+        await mountShell(t, w, dark);
         for (final id in [
           'search',
           'chat',
@@ -84,17 +79,14 @@ void main() {
           expect(find.byKey(ValueKey('rail-$id')), findsOneWidget);
         }
         expect(find.byType(RaftChatSidebarHeading), findsOneWidget);
-        expect(
-          t.getSize(find.byType(RaftChatSidebarHeading)).height,
-          family == RaftFamily.brutal ? 62 : 56,
-        );
+        expect(t.getSize(find.byType(RaftChatSidebarHeading)).height, 56);
         expect(find.byKey(const Key('rail-workspace')), findsOneWidget);
         expect(find.byKey(const Key('account-navigation')), findsNothing);
         expect(find.byType(PopupMenuButton<String>), findsNothing);
         final search = t.getRect(find.byKey(const ValueKey('rail-search'))),
             chat = t.getRect(find.byKey(const ValueKey('rail-chat')));
         expect(chat.top - search.top, 46);
-        expect(search.top, family == RaftFamily.brutal ? 70 : 72);
+        expect(search.top, 72);
         w.server = RaftRecord({...w.server!.json, 'role': 'guest'});
         w.notifyListeners();
         await frames(t, () {});
@@ -108,12 +100,12 @@ void main() {
       variant: TargetPlatformVariant({TargetPlatform.linux}),
     );
     testWidgets(
-      '[K08b] $family/$dark real Help opens resources and Feedback/About publish scoped settings paths',
+      '[K08b] ${dark ? 'dark' : 'light'} real Help opens resources and Feedback/About publish scoped settings paths',
       (t) async {
         final (w, api) = await pageFixture(t, section: 'chat');
         api.routes['GET /agents'] = (_) => [];
         api.routes['GET /servers/s1/members'] = (_) => [];
-        await mountShell(t, w, family, dark);
+        await mountShell(t, w, dark);
         final before = w.navigation.entries.length;
         final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: const Offset(1200, 20));
@@ -189,7 +181,7 @@ void main() {
       variant: TargetPlatformVariant({TargetPlatform.linux}),
     );
     testWidgets(
-      '[K08f] $family/$dark Help in already joined Community pushes Home without joining or clearing its draft',
+      '[K08f] ${dark ? 'dark' : 'light'} Help in already joined Community pushes Home without joining or clearing its draft',
       (t) async {
         final (w, api) = await pageFixture(
           t,
@@ -200,7 +192,7 @@ void main() {
         w.drafts['c1'] = 'Retain joined community editor';
         api.routes['GET /agents'] = (_) => [];
         api.routes['GET /servers/s1/members'] = (_) => [];
-        await mountShell(t, w, family, dark);
+        await mountShell(t, w, dark);
         final before = w.navigation.entries.length;
         await openHelp(t);
         await t.tap(
@@ -223,14 +215,14 @@ void main() {
       variant: TargetPlatformVariant({TargetPlatform.linux}),
     );
     testWidgets(
-      '[K08d] $family/$dark browser/native empty-section defaults are off and persisted choice wins',
+      '[K08d] ${dark ? 'dark' : 'light'} browser/native empty-section defaults are off and persisted choice wins',
       (t) async {
         final (w, api) = await pageFixture(t, section: 'chat');
         api.routes['GET /agents'] = (_) => [];
         api.routes['GET /servers/s1/members'] = (_) => [];
         final presentation = PersonalPresentationStore(desktop: false);
         addTearDown(presentation.dispose);
-        await mountShell(t, w, family, dark, presentation: presentation);
+        await mountShell(t, w, dark, presentation: presentation);
         expect(presentation.value.hideEmptySections, isFalse);
         expect(find.text('Drag channels or DMs here to pin'), findsOneWidget);
         expect(find.text('No joint channels yet'), findsOneWidget);
@@ -255,7 +247,7 @@ void main() {
       variant: TargetPlatformVariant({TargetPlatform.linux}),
     );
     testWidgets(
-      '[K08e] $family/$dark actual DM row has Source avatar, description, typography and input route',
+      '[K08e] ${dark ? 'dark' : 'light'} actual DM row has Source avatar, description, typography and input route',
       (t) async {
         final (w, api) = await pageFixture(t, section: 'chat');
         final dm = RaftChannel({
@@ -279,7 +271,7 @@ void main() {
           'hasMore': false,
         };
         api.routes['POST /channels/dm1/read'] = (_) => {};
-        await mountShell(t, w, family, dark);
+        await mountShell(t, w, dark);
         final row = find.byKey(const ValueKey('sidebar-channel-dm1'));
         final avatar = find.descendant(
           of: row,
@@ -295,8 +287,8 @@ void main() {
           of: row,
           matching: find.byType(RaftControl),
         );
-        final controlHeight = family == RaftFamily.brutal ? 32.0 : 34.0;
-        final trailingMargin = family == RaftFamily.brutal ? 4.0 : 2.0;
+        final controlHeight = 34.0;
+        final trailingMargin = 2.0;
         expect(t.getSize(control).height, controlHeight);
         expect(t.getSize(row).height, controlHeight + trailingMargin);
         expect(t.getRect(control).top, t.getRect(row).top);
@@ -307,9 +299,7 @@ void main() {
         expect(title.style!.fontWeight, FontWeight.w700);
         expect(
           title.style!.color,
-          family == RaftFamily.brutal
-              ? Colors.black
-              : RaftTokens.of(t.element(row)).colors['foreground-muted'],
+          RaftTokens.of(t.element(row)).colors['foreground-muted'],
         );
         final desc = t.widget<Text>(
           find.descendant(

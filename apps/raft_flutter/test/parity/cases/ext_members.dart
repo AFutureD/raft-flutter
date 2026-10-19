@@ -108,7 +108,6 @@ class _ShellState extends State<_Shell> {
       controller: w,
       appearance: RaftAppearance(
         mode: widget.ctx.dark ? ThemeMode.dark : ThemeMode.light,
-        light: widget.ctx.family,
       ),
       onAppearance: (_) async {},
       onLogout: () async {},

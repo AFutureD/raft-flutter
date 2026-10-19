@@ -43,10 +43,9 @@ Widget _app({
   double keyboard = 0,
   bool fills = false,
   double initialSize = RaftSheetMetrics.largeDetent,
-  RaftFamily family = RaftFamily.elegant,
   bool dark = false,
 }) => MaterialApp(
-  theme: raftTheme(family, dark: dark),
+  theme: raftTheme(dark: dark),
   builder: (context, home) => MediaQuery(
     data: MediaQuery.of(context)
         .copyWith(viewInsets: EdgeInsets.only(bottom: keyboard)),
@@ -675,18 +674,10 @@ void main() {
 
     testWidgets('brutal and elegant dark draw a handle and stay in the '
         'window', (tester) async {
-      for (final (family, dark) in raftThemeMatrix([
-        (RaftFamily.brutal, false),
-        (RaftFamily.elegant, true),
-      ])) {
+      for (final (dark) in raftThemeMatrix([(true)])) {
         _size(tester, phone);
         await tester.pumpWidget(
-          _app(
-            policy: RaftPresentationPolicy.form,
-            content: tall,
-            family: family,
-            dark: dark,
-          ),
+          _app(policy: RaftPresentationPolicy.form, content: tall, dark: dark),
         );
         await _open(tester);
         expect(_handle, findsOneWidget);

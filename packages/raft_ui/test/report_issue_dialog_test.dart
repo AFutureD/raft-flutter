@@ -32,7 +32,7 @@ Future<void> _pump(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.brutal),
+      theme: raftTheme(),
       home: Scaffold(
         body: Builder(
           builder: (context) => Localizations.override(

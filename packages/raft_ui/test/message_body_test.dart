@@ -90,13 +90,9 @@ void main() {
     );
     expect(known, contains('\u{E000}raft-ref://task/1487'));
   });
-  for (final theme in raftThemeMatrix([
-    raftTheme(RaftFamily.brutal),
-    raftTheme(RaftFamily.elegant),
-    raftTheme(RaftFamily.elegant, dark: true),
-  ])) {
+  for (final theme in raftThemeMatrix([raftTheme(), raftTheme(dark: true)])) {
     testWidgets(
-      'native Mermaid source, copy and fullscreen in ${theme.brightness} ${theme.extension<RaftTokens>()!.family}',
+      'native Mermaid source, copy and fullscreen in ${theme.brightness}',
       (tester) async {
         String? clipboard;
         tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -147,98 +143,91 @@ void main() {
       },
     );
   }
-  for (final family in RaftFamily.values) {
-    testWidgets('narrow touch Mermaid preserves all actions in $family', (
-      tester,
-    ) async {
-      await tester.binding.setSurfaceSize(const Size(412, 915));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      String? clipboard;
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+  testWidgets('narrow touch Mermaid preserves all actions', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    String? clipboard;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboard = (call.arguments as Map)['text'];
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
         SystemChannels.platform,
-        (call) async {
-          if (call.method == 'Clipboard.setData') {
-            clipboard = (call.arguments as Map)['text'];
-          }
-          return null;
-        },
-      );
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          SystemChannels.platform,
-          null,
-        ),
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(family),
-          home: Scaffold(
-            body: Center(
-              child: RaftDensityScope(
-                density: RaftDensity.touch,
-                child: SizedBox(
-                  width: 227.4,
-                  child: RaftMermaidBlock(
-                    source: 'flowchart LR\n A[Draft] --> B[Review]',
-                    onExport: (_, _) async {},
-                  ),
+        null,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(),
+        home: Scaffold(
+          body: Center(
+            child: RaftDensityScope(
+              density: RaftDensity.touch,
+              child: SizedBox(
+                width: 227.4,
+                child: RaftMermaidBlock(
+                  source: 'flowchart LR\n A[Draft] --> B[Review]',
+                  onExport: (_, _) async {},
                 ),
               ),
             ),
           ),
         ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final toolbar = find.byKey(const ValueKey('mermaid-toolbar'));
+    final bounds = tester.getRect(toolbar);
+    for (final label in [
+      'Show diagram',
+      'Show source',
+      'Copy code',
+      'Download Mermaid diagram',
+      'Expand diagram',
+    ]) {
+      final target = find.descendant(
+        of: toolbar,
+        matching: find.byTooltip(label),
       );
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      final toolbar = find.byKey(const ValueKey('mermaid-toolbar'));
-      final bounds = tester.getRect(toolbar);
-      for (final label in [
-        'Show diagram',
-        'Show source',
-        'Copy code',
-        'Download Mermaid diagram',
-        'Expand diagram',
-      ]) {
-        final target = find.descendant(
-          of: toolbar,
-          matching: find.byTooltip(label),
-        );
-        expect(target, findsOneWidget);
-        expect(bounds.contains(tester.getCenter(target)), isTrue);
-      }
-      await tester.tap(find.byTooltip('Show source'));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(
-        find.text('flowchart LR\n A[Draft] --> B[Review]'),
-        findsOneWidget,
-      );
-      await tester.tap(find.byTooltip('Copy code'));
-      await tester.pumpAndSettle();
-      expect(clipboard, 'flowchart LR\n A[Draft] --> B[Review]');
-      await tester.tap(find.byTooltip('Show diagram'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Download Mermaid diagram'));
-      await tester.pumpAndSettle();
-      expect(find.text('Download source'), findsOneWidget);
-      expect(find.text('Download PNG'), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Expand diagram'));
-      await tester.pumpAndSettle();
-      expect(find.byType(InteractiveViewer), findsOneWidget);
-      await tester.tap(find.byTooltip('Close fullscreen'));
-      await tester.pumpAndSettle();
-      expect(find.byType(InteractiveViewer), findsNothing);
-      expect(tester.takeException(), isNull);
-    });
-  }
+      expect(target, findsOneWidget);
+      expect(bounds.contains(tester.getCenter(target)), isTrue);
+    }
+    await tester.tap(find.byTooltip('Show source'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('flowchart LR\n A[Draft] --> B[Review]'), findsOneWidget);
+    await tester.tap(find.byTooltip('Copy code'));
+    await tester.pumpAndSettle();
+    expect(clipboard, 'flowchart LR\n A[Draft] --> B[Review]');
+    await tester.tap(find.byTooltip('Show diagram'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Download Mermaid diagram'));
+    await tester.pumpAndSettle();
+    expect(find.text('Download source'), findsOneWidget);
+    expect(find.text('Download PNG'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Expand diagram'));
+    await tester.pumpAndSettle();
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    await tester.tap(find.byTooltip('Close fullscreen'));
+    await tester.pumpAndSettle();
+    expect(find.byType(InteractiveViewer), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'invalid Mermaid is an error with explicit source tab, never a stale scene',
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: const Scaffold(
             body: RaftMermaidBlock(source: 'invalid family hello'),
           ),
@@ -260,7 +249,7 @@ void main() {
       final semantics = tester.ensureSemantics();
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftMessageBody(
               content: 'Ask @Cody.',
@@ -317,7 +306,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: const Scaffold(
           body: RaftMessageBody(
             content: '````text\n```mermaid\nflowchart LR\n A --> B\n```\n````',

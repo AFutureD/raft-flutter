@@ -34,7 +34,7 @@ Future<void> pumpDocument(
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.values.first),
+      theme: raftTheme(),
       home: Scaffold(
         body: RaftDocumentPreview(
           truncated: truncated,

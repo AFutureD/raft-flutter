@@ -151,11 +151,7 @@ class _Client extends RaftClient {
   }
 }
 
-Future<(WorkspaceController, _Client)> _mount(
-  WidgetTester t,
-  RaftFamily family,
-  bool dark,
-) async {
+Future<(WorkspaceController, _Client)> _mount(WidgetTester t, bool dark) async {
   SharedPreferences.setMockInitialValues({});
   t.view.physicalSize = const Size(1440, 900);
   t.view.devicePixelRatio = 1;
@@ -178,13 +174,12 @@ Future<(WorkspaceController, _Client)> _mount(
   });
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: withAppServices(
         WorkspaceView(
           controller: w,
           appearance: RaftAppearance(
             mode: dark ? ThemeMode.dark : ThemeMode.light,
-            light: family,
           ),
           onAppearance: (_) async {},
           onLogout: () async {},
@@ -205,16 +200,12 @@ Future<void> _rail(WidgetTester t, String id) async {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[N27] $family/$dark Activity/Search channel preview: title, rail, master, detail and Back follow one location; hidden channel stays unread',
+      '[N27] ${dark ? 'dark' : 'light'} Activity/Search channel preview: title, rail, master, detail and Back follow one location; hidden channel stays unread',
       (t) async {
         final semantics = t.ensureSemantics();
-        final (w, client) = await _mount(t, family, dark);
+        final (w, client) = await _mount(t, dark);
         w.setForeground(true);
         await t.tap(
           find.descendant(

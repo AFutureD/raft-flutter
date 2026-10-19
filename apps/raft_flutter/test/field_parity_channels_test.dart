@@ -611,7 +611,7 @@ void main() {
     addTearDown(t.view.reset);
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: ChannelMembers(controller: w, channel: joint, page: true),
         ),
@@ -686,7 +686,7 @@ void main() {
     });
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: JointChannelManagementView(controller: w, channelId: id),
         ),

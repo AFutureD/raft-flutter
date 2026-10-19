@@ -6,121 +6,121 @@ import 'package:raft_ui/src/recipes/toast_styles.g.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final scale in [1.0, 2.0]) {
-      testWidgets('$family/$dark/$scale action precedes trailing close', (
-        t,
-      ) async {
-        t.view
-          ..physicalSize = const Size(390, 900)
-          ..devicePixelRatio = 1;
-        addTearDown(t.view.reset);
+      testWidgets(
+        '${dark ? 'dark' : 'light'}/$scale action precedes trailing close',
+        (t) async {
+          t.view
+            ..physicalSize = const Size(390, 900)
+            ..devicePixelRatio = 1;
+          addTearDown(t.view.reset);
+          final controller = RaftToastController();
+          addTearDown(controller.dispose);
+          var copied = 0;
+          await t.pumpWidget(
+            MaterialApp(
+              theme: raftTheme(dark: dark),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+              home: Scaffold(body: RaftToastPortal(controller: controller)),
+            ),
+          );
+          void show() => controller.show(
+            'Local save failed',
+            actionLabel: 'Copy',
+            onAction: () => copied++,
+          );
+          show();
+          await t.pump();
+          final action = find.byKey(const Key('toast-action'));
+          final close = find.byKey(const Key('toast-close'));
+          expect(t.getRect(close).left, greaterThan(t.getRect(action).right));
+          expect(t.takeException(), isNull);
+          await t.tap(action);
+          await t.pump();
+          expect(copied, 1);
+          expect(find.byType(RaftToast), findsNothing);
+          show();
+          await t.pump();
+          await t.tap(close);
+          await t.pump();
+          expect(copied, 1);
+          expect(find.byType(RaftToast), findsNothing);
+        },
+      );
+    }
+    testWidgets(
+      '${dark ? 'dark' : 'light'} title-only source recipe and bounded portal',
+      (t) async {
+        t.view.physicalSize = const Size(320, 720);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.resetPhysicalSize);
+        addTearDown(t.view.resetDevicePixelRatio);
         final controller = RaftToastController();
         addTearDown(controller.dispose);
-        var copied = 0;
+        final focus = FocusNode();
+        addTearDown(focus.dispose);
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(context)
-                  .copyWith(textScaler: TextScaler.linear(scale)),
-              child: child!,
+            theme: raftTheme(dark: dark),
+            home: Scaffold(
+              body: Column(
+                children: [
+                  TextField(focusNode: focus),
+                  RaftToastPortal(controller: controller),
+                ],
+              ),
             ),
-            home: Scaffold(body: RaftToastPortal(controller: controller)),
           ),
         );
-        void show() => controller.show(
-          'Local save failed',
-          actionLabel: 'Copy',
-          onAction: () => copied++,
-        );
-        show();
+        focus.requestFocus();
         await t.pump();
-        final action = find.byKey(const Key('toast-action'));
-        final close = find.byKey(const Key('toast-close'));
-        expect(t.getRect(close).left, greaterThan(t.getRect(action).right));
+        controller.show('Copied', dismissible: false);
+        await t.pump();
+        expect(
+          focus.hasFocus,
+          isTrue,
+          reason: 'Feedback must not capture input focus.',
+        );
+        final toast = find.byType(RaftToast);
+        expect(toast, findsOneWidget);
+        final title = t.widget<Text>(find.text('Copied'));
+        expect(title.style!.fontSize, 14);
+        expect(title.style!.height, 20 / 14);
+        expect(title.style!.fontWeight, FontWeight.w400);
+        final tokens = RaftTokens.theme(dark: dark);
+        final root = t.widget<RaftRecipeBox>(
+          find
+              .descendant(of: toast, matching: find.byType(RaftRecipeBox))
+              .first,
+        );
+        final expected = RaftToastRecipe.resolve(
+          theme: tokens.recipeTheme,
+          layout: RaftToastRecipeLayout.inline,
+          tone: RaftToastRecipeTone.success,
+          tokens: tokens.recipeTokens,
+          states: tokens.recipeStates(),
+        );
+        expect(root.style.classes, expected.root.classes);
+        expect(root.style.borderWidth.top, 0);
+        expect(t.getRect(toast).left, greaterThanOrEqualTo(16));
+        expect(t.getRect(toast).right, lessThanOrEqualTo(304));
+        expect(t.getRect(toast).bottom, 704);
+        final live = t.widget<Semantics>(
+          find.descendant(of: toast, matching: find.byType(Semantics)).first,
+        );
+        expect(live.properties.liveRegion, isTrue);
+        await t.pump(const Duration(milliseconds: 4999));
+        expect(toast, findsOneWidget);
+        await t.pump(const Duration(milliseconds: 1));
+        expect(toast, findsNothing);
         expect(t.takeException(), isNull);
-        await t.tap(action);
-        await t.pump();
-        expect(copied, 1);
-        expect(find.byType(RaftToast), findsNothing);
-        show();
-        await t.pump();
-        await t.tap(close);
-        await t.pump();
-        expect(copied, 1);
-        expect(find.byType(RaftToast), findsNothing);
-      });
-    }
-    testWidgets('$family/$dark title-only source recipe and bounded portal', (
-      t,
-    ) async {
-      t.view.physicalSize = const Size(320, 720);
-      t.view.devicePixelRatio = 1;
-      addTearDown(t.view.resetPhysicalSize);
-      addTearDown(t.view.resetDevicePixelRatio);
-      final controller = RaftToastController();
-      addTearDown(controller.dispose);
-      final focus = FocusNode();
-      addTearDown(focus.dispose);
-      await t.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(family, dark: dark),
-          home: Scaffold(
-            body: Column(
-              children: [
-                TextField(focusNode: focus),
-                RaftToastPortal(controller: controller),
-              ],
-            ),
-          ),
-        ),
-      );
-      focus.requestFocus();
-      await t.pump();
-      controller.show('Copied', dismissible: false);
-      await t.pump();
-      expect(
-        focus.hasFocus,
-        isTrue,
-        reason: 'Feedback must not capture input focus.',
-      );
-      final toast = find.byType(RaftToast);
-      expect(toast, findsOneWidget);
-      final title = t.widget<Text>(find.text('Copied'));
-      expect(title.style!.fontSize, 14);
-      expect(title.style!.height, 20 / 14);
-      expect(title.style!.fontWeight, FontWeight.w400);
-      final tokens = RaftTokens.theme(family, dark: dark);
-      final root = t.widget<RaftRecipeBox>(
-        find.descendant(of: toast, matching: find.byType(RaftRecipeBox)).first,
-      );
-      final expected = RaftToastRecipe.resolve(
-        theme: tokens.recipeTheme,
-        layout: RaftToastRecipeLayout.inline,
-        tone: RaftToastRecipeTone.success,
-        tokens: tokens.recipeTokens,
-        states: tokens.recipeStates(),
-      );
-      expect(root.style.classes, expected.root.classes);
-      expect(root.style.borderWidth.top, family == RaftFamily.brutal ? 2 : 0);
-      expect(t.getRect(toast).left, greaterThanOrEqualTo(16));
-      expect(t.getRect(toast).right, lessThanOrEqualTo(304));
-      expect(t.getRect(toast).bottom, 704);
-      final live = t.widget<Semantics>(
-        find.descendant(of: toast, matching: find.byType(Semantics)).first,
-      );
-      expect(live.properties.liveRegion, isTrue);
-      await t.pump(const Duration(milliseconds: 4999));
-      expect(toast, findsOneWidget);
-      await t.pump(const Duration(milliseconds: 1));
-      expect(toast, findsNothing);
-      expect(t.takeException(), isNull);
-    });
+      },
+    );
   }
 
   testWidgets(
@@ -184,7 +184,7 @@ void main() {
     var undone = 0;
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(body: RaftToastPortal(controller: controller)),
       ),
     );
@@ -218,7 +218,7 @@ void main() {
       addTearDown(controller.dispose);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           builder: (context, child) =>
               RaftToastHost(controller: controller, child: child!),
           home: const Scaffold(body: SizedBox.expand()),
@@ -273,7 +273,7 @@ void main() {
       addTearDown(t.view.reset);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           builder: (context, child) => RaftToastHost(child: child!),
           home: Scaffold(
             body: Column(

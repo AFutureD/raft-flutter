@@ -7,18 +7,14 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final theme in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'Menu items paint and activate with and without a separator $theme',
+      'Menu items paint and activate with and without a separator ${dark ? 'dark' : 'light'}',
       (tester) async {
         var activations = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(theme.$1, dark: theme.$2),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: SizedBox(
                 width: 300,

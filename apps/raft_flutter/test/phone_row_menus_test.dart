@@ -128,14 +128,14 @@ void main() {
     };
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         // main.dart installs the app error mapper above every route.
         builder: (_, child) =>
             RaftErrorScope(format: raftAppErrorFormatter, child: child!),
         home: withAppServices(
           WorkspaceView(
             controller: w,
-            appearance: RaftAppearance(light: RaftFamily.brutal),
+            appearance: RaftAppearance(),
             onAppearance: (_) async {},
             onLogout: () async {},
           ),
@@ -764,7 +764,7 @@ void main() {
       await setup(tester);
       final list = find.byKey(const Key('workspace-sidebar'));
       await tester.longPressAt(
-        tester.getBottomLeft(list) + const Offset(120, -30),
+        tester.getBottomLeft(list) + const Offset(24, -30),
       );
       await tester.pumpAndSettle();
       expect(find.text('New section…'), findsOneWidget);
@@ -776,7 +776,7 @@ void main() {
       await setup(tester);
       final list = find.byKey(const Key('workspace-sidebar'));
       await tester.tapAt(
-        tester.getBottomLeft(list) + const Offset(120, -30),
+        tester.getBottomLeft(list) + const Offset(24, -30),
         kind: PointerDeviceKind.mouse,
         buttons: kSecondaryMouseButton,
       );

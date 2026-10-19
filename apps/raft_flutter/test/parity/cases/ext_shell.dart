@@ -184,7 +184,6 @@ class _HostState extends State<_Host> {
       presentation: presentation,
       appearance: RaftAppearance(
         mode: widget.ctx.dark ? ThemeMode.dark : ThemeMode.light,
-        light: widget.ctx.family,
       ),
       onAppearance: (_) async {},
       onLogout: () async {},
@@ -193,8 +192,7 @@ class _HostState extends State<_Host> {
 }
 
 /// The rail + sidebar rectangle of the desktop shell (rail 64 / 56, sidebar 240).
-double _railSidebarWidth(ParityContext ctx) =>
-    (ctx.family == RaftFamily.brutal ? 64 : 56) + 240;
+double _railSidebarWidth(ParityContext ctx) => (56) + 240;
 
 Rect _railSidebar(ParityContext ctx) => Rect.fromLTWH(
   0,
@@ -207,12 +205,7 @@ Widget _desktop(ParityContext ctx) {
   final activity = ctx.props['route'] == 'activity';
   // The Activity frame crops the rail plus the 560px master column.
   final region = activity
-      ? Rect.fromLTWH(
-          0,
-          0,
-          (ctx.family == RaftFamily.brutal ? 64 : 56) + 560,
-          ctx.height,
-        )
+      ? Rect.fromLTWH(0, 0, (56) + 560, ctx.height)
       : _railSidebar(ctx);
   return Stack(
     children: [

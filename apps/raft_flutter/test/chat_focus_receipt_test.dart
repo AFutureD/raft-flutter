@@ -46,13 +46,9 @@ Rect? paintedMessage(WidgetTester tester, String id) {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[L02][L06] $family/$dark context keeps old paint, centers once and returns to latest through its actual button',
+      '[L02][L06] ${dark ? 'dark' : 'light'} context keeps old paint, centers once and returns to latest through its actual button',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(390, 844);
@@ -77,7 +73,7 @@ void main() {
         };
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );

@@ -4,20 +4,16 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
     for (final scale in [1.0, 1.3, 2.0, 3.1]) {
       testWidgets(
-        '$family/$dark/$scale textarea stays bounded in a scrolling form',
+        '${dark ? 'dark' : 'light'}/$scale textarea stays bounded in a scrolling form',
         (tester) async {
           final controller = TextEditingController();
           try {
             await tester.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 builder: (context, child) => MediaQuery(
                   data: MediaQuery.of(context)
                       .copyWith(textScaler: TextScaler.linear(scale)),

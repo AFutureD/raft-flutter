@@ -17,13 +17,9 @@ const _dpr = 2.625;
 const _gesturePx = 48.0;
 
 void main() {
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ]) {
+  for (final (dark) in [(false), (true)]) {
     testWidgets(
-      'members page clears the gesture bar $family/$dark',
+      'members page clears the gesture bar ${dark ? 'dark' : 'light'}',
       (t) async {
         t.view.physicalSize = const Size(1081, 2402);
         t.view.devicePixelRatio = _dpr;
@@ -54,12 +50,12 @@ void main() {
         ];
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             navigatorObservers: [PrivateRouteGuard()],
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),

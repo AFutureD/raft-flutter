@@ -51,11 +51,7 @@ Future<void> loadFonts(WidgetTester t) => t.runAsync(() async {
   if (any) await loader.load();
 });
 
-final _themes = [
-  ('brutal', RaftFamily.brutal, false),
-  ('elegant', RaftFamily.elegant, false),
-  ('elegant-dark', RaftFamily.elegant, true),
-];
+final _themes = [('elegant', false), ('elegant-dark', true)];
 
 /// The default (English) Material strings for any locale: the test only
 /// needs the Material widgets to build under `zh`.
@@ -79,29 +75,24 @@ final _delegates = <LocalizationsDelegate<dynamic>>[
   ),
 ];
 
-Widget host(
-  RaftFamily family,
-  bool dark,
-  Locale locale,
-  GlobalKey capture,
-  Widget child,
-) => MaterialApp(
-  debugShowCheckedModeBanner: false,
-  theme: raftTheme(family, dark: dark),
-  home: Scaffold(
-    body: RepaintBoundary(
-      key: capture,
-      child: Builder(
-        builder: (context) => Localizations.override(
-          context: context,
-          locale: locale,
-          delegates: _delegates,
-          child: child,
+Widget host(bool dark, Locale locale, GlobalKey capture, Widget child) =>
+    MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: raftTheme(dark: dark),
+      home: Scaffold(
+        body: RepaintBoundary(
+          key: capture,
+          child: Builder(
+            builder: (context) => Localizations.override(
+              context: context,
+              locale: locale,
+              delegates: _delegates,
+              child: child,
+            ),
+          ),
         ),
       ),
-    ),
-  ),
-);
+    );
 
 Future<void> shot(WidgetTester t, GlobalKey capture, String name) =>
     t.runAsync(() async {
@@ -131,7 +122,7 @@ bool anyTruncated(WidgetTester t, Finder root) {
 
 void main() {
   const zh = Locale('zh'), en = Locale('en');
-  for (final (name, family, dark) in raftThemeMatrix(_themes)) {
+  for (final (name, dark) in raftThemeMatrix(_themes)) {
     for (final (loc, locale) in [('zh', zh), ('en', en)]) {
       if (loc == 'en' && dark) continue;
       for (final (page, build) in <(String, Widget Function())>[
@@ -155,7 +146,7 @@ void main() {
           addTearDown(t.view.reset);
           await loadFonts(t);
           final capture = GlobalKey();
-          await t.pumpWidget(host(family, dark, locale, capture, build()));
+          await t.pumpWidget(host(dark, locale, capture, build()));
           await t.pump(const Duration(milliseconds: 300));
           expect(t.takeException(), isNull);
           expect(anyTruncated(t, find.byType(Scaffold)), isFalse);
@@ -176,7 +167,7 @@ void main() {
         await loadFonts(t);
         final capture = GlobalKey();
         await t.pumpWidget(
-          host(family, dark, locale, capture, mobileTabbarFiveItemsPreview()),
+          host(dark, locale, capture, mobileTabbarFiveItemsPreview()),
         );
         await t.pump(const Duration(milliseconds: 300));
         expect(t.takeException(), isNull);
@@ -194,21 +185,16 @@ void main() {
     await loadFonts(t);
     final capture = GlobalKey();
     await t.pumpWidget(
-      host(
-        RaftFamily.brutal,
-        false,
-        en,
-        capture,
-        mobileTabbarConfigDefaultPreview(),
-      ),
+      host(false, en, capture, mobileTabbarConfigDefaultPreview()),
     );
     await t.pump(const Duration(milliseconds: 300));
     RaftSwitch sw(String id) =>
         t.widget<RaftSwitch>(find.byKey(ValueKey('mobile-tabbar-switch-$id')));
     int navItems() => t.widgetList(find.byType(RaftMobileNavItem)).length;
+    // The Raft bar is icon-only: an item's label is its tooltip.
     Finder preview(String id) => find.descendant(
       of: find.byKey(const Key('mobile-tabbar-preview')),
-      matching: find.text(id),
+      matching: find.byTooltip(id),
     );
 
     // Default: Home, Tasks, Members + Settings -> 4 of 5; nothing disabled.

@@ -4,11 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
-const _themes = [
-  (RaftFamily.brutal, false),
-  (RaftFamily.elegant, false),
-  (RaftFamily.elegant, true),
-];
+const _themes = [(false), (true)];
 
 Finder _action(String id, String label) =>
     find.byKey(ValueKey('notification-action-$id-$label'));
@@ -93,7 +89,6 @@ class _FixtureState extends State<_Fixture> {
 
 Future<_FixtureState> _mount(
   WidgetTester tester,
-  RaftFamily family,
   bool dark,
   List<RaftNotificationEntry> entries, {
   bool autofocusOnOpen = true,
@@ -101,7 +96,7 @@ Future<_FixtureState> _mount(
   final key = GlobalKey<_FixtureState>();
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: Scaffold(
         body: RaftDensityScope(
           density: RaftDensity.desktop,
@@ -131,13 +126,13 @@ Future<void> _keyboardOpen(WidgetTester tester, _FixtureState fixture) async {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix(_themes)) {
-    final theme = '$family/$dark';
+  for (final (dark) in raftThemeMatrix(_themes)) {
+    final theme = '${dark ? 'dark' : 'light'}';
     testWidgets(
       'keyboard opening focuses first action before another Tab $theme',
       (tester) async {
         var views = 0;
-        final fixture = await _mount(tester, family, dark, [
+        final fixture = await _mount(tester, dark, [
           _entry('computer', [
             RaftNotificationAction(label: 'View', onPressed: () => views++),
             RaftNotificationAction(label: 'Dismiss', onPressed: () {}),
@@ -165,7 +160,7 @@ void main() {
       'opening skips disabled and callback-less actions in supplied order $theme',
       (tester) async {
         var first = 0, disabled = 0, primary = 0;
-        final fixture = await _mount(tester, family, dark, [
+        final fixture = await _mount(tester, dark, [
           _entry('first', [
             RaftNotificationAction(
               label: 'Disabled',
@@ -199,7 +194,6 @@ void main() {
           var forbidden = 0;
           final fixture = await _mount(
             tester,
-            family,
             dark,
             empty
                 ? []
@@ -234,7 +228,7 @@ void main() {
     testWidgets(
       'pointer opening leaves trigger focus instead of moving to first action $theme',
       (tester) async {
-        final fixture = await _mount(tester, family, dark, [
+        final fixture = await _mount(tester, dark, [
           _entry('computer', [
             RaftNotificationAction(label: 'View', onPressed: () {}),
           ]),
@@ -259,7 +253,7 @@ void main() {
             onPressed: () => secondary++,
           ),
         ]);
-        final fixture = await _mount(tester, family, dark, [original]);
+        final fixture = await _mount(tester, dark, [original]);
         await _keyboardOpen(tester, fixture);
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pumpAndSettle();
@@ -285,7 +279,7 @@ void main() {
       'data arriving after empty keyboard opening does not steal fallback focus $theme',
       (tester) async {
         var views = 0;
-        final fixture = await _mount(tester, family, dark, []);
+        final fixture = await _mount(tester, dark, []);
         await _keyboardOpen(tester, fixture);
         final fallback = _fallbackFocus(tester);
         fixture.updateEntries([
@@ -314,7 +308,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: Scaffold(
             body: RaftNotificationCenter(
               entries: [

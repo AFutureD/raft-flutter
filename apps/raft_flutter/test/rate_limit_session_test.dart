@@ -144,7 +144,7 @@ void main() {
           };
         }
       }
-      await f.mount(t, 'elegant-light', 1280, settle: false);
+      await f.mount(t, 'light', 1280, settle: false);
       void install() {
         for (final key in f.adapter.routes.keys.toList()) {
           final route = f.adapter.routes[key]!;

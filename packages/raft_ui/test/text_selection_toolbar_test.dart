@@ -7,178 +7,170 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/src/recipes/message_text_selection_toolbar.g.dart';
 
 void main() {
-  testWidgets(
-    'Android input Copy uses Brutal menu typography and copies text',
-    (tester) async {
-      addTearDown(() async {
-        await tester.pumpWidget(const SizedBox.shrink());
-        await tester.pump();
-      });
-      var clipboard = '';
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        (call) async {
-          if (call.method == 'Clipboard.setData') {
-            clipboard = (call.arguments as Map)['text'] as String;
-          }
-          if (call.method == 'Clipboard.hasStrings') return {'value': false};
-          return null;
-        },
-      );
-      final controller = TextEditingController(text: 'Raft selection');
-      addTearDown(controller.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(RaftFamily.brutal)
-              .copyWith(platform: TargetPlatform.android),
-          home: Scaffold(
-            body: Center(child: RaftTextInput(controller: controller)),
-          ),
-        ),
-      );
-      await tester.tap(find.byType(TextField));
-      controller.selection = const TextSelection(
-        baseOffset: 0,
-        extentOffset: 4,
-      );
-      final editor = tester.state<EditableTextState>(find.byType(EditableText));
-      editor.showToolbar();
-      await tester.pumpAndSettle();
-      final copy = find.text('Copy');
-      expect(copy, findsOneWidget);
-      expect(
-        DefaultTextStyle.of(tester.element(copy)).style.fontWeight,
-        FontWeight.w600,
-      );
-      await tester.tap(copy);
-      await tester.pumpAndSettle();
-      expect(clipboard, 'Raft');
-      expect(find.text('Copy'), findsNothing);
+  testWidgets('Android input Copy uses Raft menu typography and copies text', (
+    tester,
+  ) async {
+    addTearDown(() async {
       await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ]) {
+      await tester.pump();
+    });
+    var clipboard = '';
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboard = (call.arguments as Map)['text'] as String;
+        }
+        if (call.method == 'Clipboard.hasStrings') return {'value': false};
+        return null;
+      },
+    );
+    final controller = TextEditingController(text: 'Raft selection');
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme().copyWith(platform: TargetPlatform.android),
+        home: Scaffold(
+          body: Center(child: RaftTextInput(controller: controller)),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(TextField));
+    controller.selection = const TextSelection(baseOffset: 0, extentOffset: 4);
+    final editor = tester.state<EditableTextState>(find.byType(EditableText));
+    editor.showToolbar();
+    await tester.pumpAndSettle();
+    final copy = find.text('Copy');
+    expect(copy, findsOneWidget);
+    expect(
+      DefaultTextStyle.of(tester.element(copy)).style.fontWeight,
+      // Raft menu items are medium (the Brutal skin used semibold).
+      FontWeight.w500,
+    );
+    await tester.tap(copy);
+    await tester.pumpAndSettle();
+    expect(clipboard, 'Raft');
+    expect(find.text('Copy'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+  for (final (dark) in [(false), (true)]) {
     for (final scale in [1.0, 1.3, 2.0, 3.1]) {
-      testWidgets('$family/$dark/$scale overflow keeps labels and actions', (
-        tester,
-      ) async {
-        addTearDown(() async {
-          await tester.pumpWidget(const SizedBox.shrink());
-          await tester.pump();
-        });
-        tester.view.physicalSize = const Size(320, 640);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        final theme = raftTheme(
-          family,
-          dark: dark,
-        ).copyWith(platform: TargetPlatform.android);
-        final tokens = theme.extension<RaftTokens>()!;
-        final recipe = RaftMessageTextSelectionToolbarRecipe.resolve(
-          theme: tokens.recipeTheme,
-          states: tokens.recipeStates(),
-          tokens: tokens.recipeTokens,
-        );
-        final actions = <int>[];
-        const labels = [
-          'Copy',
-          'Cut',
-          'Paste',
-          'Select all',
-          'Share selected text',
-        ];
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: theme,
-            home: Scaffold(
-              body: MediaQuery(
-                data: MediaQueryData(
-                  size: const Size(320, 640),
-                  textScaler: TextScaler.linear(scale),
-                  viewInsets: const EdgeInsets.only(bottom: 160),
-                ),
-                child: RaftTextSelectionToolbar.buttonItems(
-                  anchors: const TextSelectionToolbarAnchors(
-                    primaryAnchor: Offset(160, 260),
-                    secondaryAnchor: Offset(160, 300),
+      testWidgets(
+        '${dark ? 'dark' : 'light'}/$scale overflow keeps labels and actions',
+        (tester) async {
+          addTearDown(() async {
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pump();
+          });
+          tester.view.physicalSize = const Size(320, 640);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final theme = raftTheme(dark: dark)
+              .copyWith(platform: TargetPlatform.android);
+          final tokens = theme.extension<RaftTokens>()!;
+          final recipe = RaftMessageTextSelectionToolbarRecipe.resolve(
+            theme: tokens.recipeTheme,
+            states: tokens.recipeStates(),
+            tokens: tokens.recipeTokens,
+          );
+          final actions = <int>[];
+          const labels = [
+            'Copy',
+            'Cut',
+            'Paste',
+            'Select all',
+            'Share selected text',
+          ];
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: theme,
+              home: Scaffold(
+                body: MediaQuery(
+                  data: MediaQueryData(
+                    size: const Size(320, 640),
+                    textScaler: TextScaler.linear(scale),
+                    viewInsets: const EdgeInsets.only(bottom: 160),
                   ),
-                  buttonItems: [
-                    for (var i = 0; i < labels.length; i++)
-                      ContextMenuButtonItem(
-                        label: labels[i],
-                        onPressed: () => actions.add(i),
-                      ),
-                  ],
+                  child: RaftTextSelectionToolbar.buttonItems(
+                    anchors: const TextSelectionToolbarAnchors(
+                      primaryAnchor: Offset(160, 260),
+                      secondaryAnchor: Offset(160, 300),
+                    ),
+                    buttonItems: [
+                      for (var i = 0; i < labels.length; i++)
+                        ContextMenuButtonItem(
+                          label: labels[i],
+                          onPressed: () => actions.add(i),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        final menu = find.byType(RaftTextSelectionToolbar);
-        var copy = find.text('Copy');
-        expect(copy, findsOneWidget);
-        final style = DefaultTextStyle.of(tester.element(copy)).style;
-        expect(
-          style.fontWeight,
-          recipe.toolbar.textStyle(tokens.recipeTokens).fontWeight,
-        );
-        expect(style.fontFamily, tokens.bodyFont);
-        expect(
-          MediaQuery.textScalerOf(tester.element(copy)).scale(style.fontSize!) *
-              (tester
-                          .renderObject<RenderBox>(copy)
-                          .localToGlobal(const Offset(1, 0)) -
-                      tester
-                          .renderObject<RenderBox>(copy)
-                          .localToGlobal(Offset.zero))
-                  .distance,
-          closeTo(style.fontSize! * scale, .01),
-        );
-        await tester.tap(copy);
-        expect(actions, [0]);
-        final more = find.byWidgetPredicate(
-          (w) =>
-              w is IconButton &&
-              w.tooltip ==
-                  MaterialLocalizations.of(tester.element(menu))
-                      .moreButtonTooltip,
-        );
-        expect(more, findsOneWidget);
-        await tester.tap(more);
-        await tester.pumpAndSettle();
-        final share = find.text('Share selected text');
-        await tester.ensureVisible(share);
-        await tester.pumpAndSettle();
-        expect(share.hitTestable(), findsOneWidget);
-        final paragraph = tester.renderObject<RenderParagraph>(
-          find.descendant(of: share, matching: find.byType(RichText)),
-        );
-        expect(paragraph.didExceedMaxLines, isFalse);
-        final rect = tester.getRect(share);
-        expect(rect.left, greaterThanOrEqualTo(8));
-        expect(rect.right, lessThanOrEqualTo(312));
-        expect(rect.bottom, lessThanOrEqualTo(472));
-        await tester.tap(share);
-        expect(actions, [0, 4]);
-        expect(
-          find.descendant(
-            of: menu,
-            matching: find.byType(TextSelectionToolbar),
-          ),
-          findsOneWidget,
-        );
-        expect(tester.takeException(), isNull);
-      });
+          );
+          await tester.pumpAndSettle();
+          final menu = find.byType(RaftTextSelectionToolbar);
+          var copy = find.text('Copy');
+          expect(copy, findsOneWidget);
+          final style = DefaultTextStyle.of(tester.element(copy)).style;
+          expect(
+            style.fontWeight,
+            recipe.toolbar.textStyle(tokens.recipeTokens).fontWeight,
+          );
+          expect(style.fontFamily, tokens.bodyFont);
+          expect(
+            MediaQuery.textScalerOf(tester.element(copy))
+                    .scale(style.fontSize!) *
+                (tester
+                            .renderObject<RenderBox>(copy)
+                            .localToGlobal(const Offset(1, 0)) -
+                        tester
+                            .renderObject<RenderBox>(copy)
+                            .localToGlobal(Offset.zero))
+                    .distance,
+            closeTo(style.fontSize! * scale, .01),
+          );
+          await tester.tap(copy);
+          expect(actions, [0]);
+          final more = find.byWidgetPredicate(
+            (w) =>
+                w is IconButton &&
+                w.tooltip ==
+                    MaterialLocalizations.of(tester.element(menu))
+                        .moreButtonTooltip,
+          );
+          expect(more, findsOneWidget);
+          await tester.tap(more);
+          await tester.pumpAndSettle();
+          final share = find.text('Share selected text');
+          await tester.ensureVisible(share);
+          await tester.pumpAndSettle();
+          expect(share.hitTestable(), findsOneWidget);
+          final paragraph = tester.renderObject<RenderParagraph>(
+            find.descendant(of: share, matching: find.byType(RichText)),
+          );
+          expect(paragraph.didExceedMaxLines, isFalse);
+          final rect = tester.getRect(share);
+          expect(rect.left, greaterThanOrEqualTo(8));
+          expect(rect.right, lessThanOrEqualTo(312));
+          expect(rect.bottom, lessThanOrEqualTo(472));
+          await tester.tap(share);
+          expect(actions, [0, 4]);
+          expect(
+            find.descendant(
+              of: menu,
+              matching: find.byType(TextSelectionToolbar),
+            ),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
 
     testWidgets(
-      '$family/$dark message long-press Copy reaches clipboard and clears',
+      '${dark ? 'dark' : 'light'} message long-press Copy reaches clipboard and clears',
       (tester) async {
         addTearDown(() async {
           await tester.pumpWidget(const SizedBox.shrink());
@@ -195,10 +187,8 @@ void main() {
         );
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(
-              family,
-              dark: dark,
-            ).copyWith(platform: TargetPlatform.android),
+            theme: raftTheme(dark: dark)
+                .copyWith(platform: TargetPlatform.android),
             home: const Scaffold(
               body: Center(
                 child: RaftDensityScope(
@@ -252,8 +242,7 @@ void main() {
         var calls = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.elegant)
-                .copyWith(platform: TargetPlatform.android),
+            theme: raftTheme().copyWith(platform: TargetPlatform.android),
             home: Scaffold(
               body: RaftComposer(
                 onSend: (_) async => false,
@@ -304,8 +293,7 @@ void main() {
       addTearDown(controller.dispose);
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant)
-              .copyWith(platform: TargetPlatform.android),
+          theme: raftTheme().copyWith(platform: TargetPlatform.android),
           home: Scaffold(
             body: Center(child: RaftTextInput(controller: controller)),
           ),
@@ -347,8 +335,7 @@ void main() {
       var copies = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant)
-              .copyWith(platform: TargetPlatform.android),
+          theme: raftTheme().copyWith(platform: TargetPlatform.android),
           home: Scaffold(
             body: RaftTextSelectionToolbar.buttonItems(
               anchors: const TextSelectionToolbarAnchors(
@@ -400,7 +387,7 @@ void main() {
       var copies = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant).copyWith(platform: platform),
+          theme: raftTheme().copyWith(platform: platform),
           home: Scaffold(
             body: RaftTextSelectionToolbar.buttonItems(
               anchors: const TextSelectionToolbarAnchors(
@@ -430,8 +417,7 @@ void main() {
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();
       });
-      final theme = raftTheme(RaftFamily.brutal)
-          .copyWith(platform: TargetPlatform.android);
+      final theme = raftTheme().copyWith(platform: TargetPlatform.android);
       await tester.pumpWidget(
         MaterialApp(
           theme: theme,
@@ -478,8 +464,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant)
-              .copyWith(platform: TargetPlatform.android),
+          theme: raftTheme().copyWith(platform: TargetPlatform.android),
           home: Scaffold(
             body: RaftTextSelectionToolbar.buttonItems(
               anchors: const TextSelectionToolbarAnchors(

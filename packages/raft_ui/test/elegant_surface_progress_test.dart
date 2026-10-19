@@ -19,16 +19,12 @@ Widget host(ThemeData theme, Widget child) => MaterialApp(
 );
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark real surface preserves caller text, selection and hover',
+      '${dark ? 'dark' : 'light'} real surface preserves caller text, selection and hover',
       (tester) async {
         var taps = 0;
-        final theme = raftTheme(family, dark: dark);
+        final theme = raftTheme(dark: dark);
         await tester.pumpWidget(
           host(
             theme,
@@ -44,17 +40,16 @@ void main() {
         );
         final box = tester.widget<RaftRecipeBox>(find.byType(RaftRecipeBox));
         final tokens = theme.extension<RaftTokens>()!;
-        if (family == RaftFamily.elegant) {
-          expect(box.style.borderWidth, const EdgeInsets.all(1));
-          expect(box.style.borderRadius, BorderRadius.circular(8));
-          expect(
-            box.style.border(tokens.recipeTokens)!.top.color,
-            dark ? Colors.transparent : tokens.semantic.info,
-          );
-          expect(box.style.classes, contains('shadow-raft-sm'));
-          expect(box.style.classes, isNot(contains('shadow-raft-xs')));
-          expect(box.decorationOverride, isNull);
-        }
+        expect(box.style.borderWidth, const EdgeInsets.all(1));
+        expect(box.style.borderRadius, BorderRadius.circular(8));
+        expect(
+          box.style.border(tokens.recipeTokens)!.top.color,
+          dark ? Colors.transparent : tokens.semantic.info,
+        );
+        expect(box.style.classes, contains('shadow-raft-sm'));
+        expect(box.style.classes, isNot(contains('shadow-raft-xs')));
+        expect(box.decorationOverride, isNull);
+
         expect(
           tester.widget<Text>(find.text('Actual caller text')).style!.color,
           Colors.black,
@@ -73,9 +68,9 @@ void main() {
     );
 
     testWidgets(
-      '$family/$dark real progress paints inherited variable shadows and clamps',
+      '${dark ? 'dark' : 'light'} real progress paints inherited variable shadows and clamps',
       (tester) async {
-        final theme = raftTheme(family, dark: dark);
+        final theme = raftTheme(dark: dark);
         await tester.pumpWidget(
           host(
             theme,
@@ -121,14 +116,11 @@ void main() {
     );
 
     testWidgets(
-      '$family/$dark autofocus ring retains live editing across focus and theme',
+      '${dark ? 'dark' : 'light'} autofocus ring retains live editing across focus and theme',
       (tester) async {
         final controller = TextEditingController();
         final focus = FocusNode();
-        final themes = [
-          raftTheme(family, dark: dark),
-          raftTheme(RaftFamily.elegant, dark: !dark),
-        ];
+        final themes = [raftTheme(dark: dark), raftTheme(dark: !dark)];
         Widget input(ThemeData theme) => host(
           theme,
           RaftTextInput(
@@ -145,21 +137,20 @@ void main() {
         final initial = tester.widget<RaftRecipeBox>(
           find.byType(RaftRecipeBox),
         );
-        if (family == RaftFamily.elegant) {
-          final layers = initial.style.cssShadows(
-            themes.first.extension<RaftTokens>()!.recipeTokens,
-          );
-          expect(
-            layers.any(
-              (layer) =>
-                  !layer.inset &&
-                  layer.spread == (dark ? 2 : 1) &&
-                  layer.color.a > 0,
-            ),
-            true,
-            reason: 'Source editable inputs match :focus-visible on autofocus.',
-          );
-        }
+        final layers = initial.style.cssShadows(
+          themes.first.extension<RaftTokens>()!.recipeTokens,
+        );
+        expect(
+          layers.any(
+            (layer) =>
+                !layer.inset &&
+                layer.spread == (dark ? 2 : 1) &&
+                layer.color.a > 0,
+          ),
+          true,
+          reason: 'Source editable inputs match :focus-visible on autofocus.',
+        );
+
         await tester.showKeyboard(find.byType(TextField));
         tester.testTextInput.updateEditingValue(
           const TextEditingValue(

@@ -62,30 +62,25 @@ void taskRoutes(MessageAdapter api, Map<String, dynamic> task) {
   api.routes['POST /channels/task-thread/read'] = (_) => {};
 }
 
-Widget taskHost(WorkspaceController w, RaftFamily family, bool dark) =>
-    MaterialApp(
-      theme: raftTheme(family, dark: dark),
-      home: Scaffold(
-        body: ResourceView(
-          controller: w,
-          section: 'tasks',
-          onMessage: (_, _) async {
-            fail('No main redirect');
-          },
-        ),
-      ),
-    );
+Widget taskHost(WorkspaceController w, bool dark) => MaterialApp(
+  theme: raftTheme(dark: dark),
+  home: Scaffold(
+    body: ResourceView(
+      controller: w,
+      section: 'tasks',
+      onMessage: (_, _) async {
+        fail('No main redirect');
+      },
+    ),
+  ),
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[K10b] legacy accepted metadata remains read-only without discussion/history $family/$dark',
+      '[K10b] legacy accepted metadata remains read-only without discussion/history ${dark ? 'dark' : 'light'}',
       (t) async {
         t.view.physicalSize = const Size(390, 844);
         t.view.devicePixelRatio = 1;
@@ -93,7 +88,7 @@ void main() {
         final (w, api) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
         taskRoutes(api, {...modernTask, 'isLegacy': true});
-        await t.pumpWidget(taskHost(w, family, dark));
+        await t.pumpWidget(taskHost(w, dark));
         await flush(t);
         await t.tap(find.text('Scoped actual task'));
         await flush(t);
@@ -132,7 +127,7 @@ void main() {
       },
     );
     testWidgets(
-      '[K10c] real task reply/parent late completion cannot reopen or read a retired modal $family/$dark',
+      '[K10c] real task reply/parent late completion cannot reopen or read a retired modal ${dark ? 'dark' : 'light'}',
       (t) async {
         final (w, api) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -143,7 +138,7 @@ void main() {
         api.routes['GET /messages/context/task-parent'] = (_) => parent.future;
         api.routes['GET /messages/channel/task-thread'] = (_) => replies.future;
         api.routes['GET /tasks/channel/c1/number/8'] = (_) => details.future;
-        await t.pumpWidget(taskHost(w, family, dark));
+        await t.pumpWidget(taskHost(w, dark));
         await flush(t);
         await t.tap(find.text('Scoped actual task'));
         await flush(t);
@@ -175,7 +170,7 @@ void main() {
       },
     );
     testWidgets(
-      '[K10b] actual task property writes preserve actor type and done assignee lock $family/$dark',
+      '[K10b] actual task property writes preserve actor type and done assignee lock ${dark ? 'dark' : 'light'}',
       (t) async {
         final (w, api) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -216,7 +211,7 @@ void main() {
             },
           };
         };
-        await t.pumpWidget(taskHost(w, family, dark));
+        await t.pumpWidget(taskHost(w, dark));
         await flush(t);
         await t.tap(find.text('Scoped actual task'));
         await flush(t);
@@ -271,7 +266,7 @@ void main() {
     );
     for (final width in [390.0, 1280.0]) {
       testWidgets(
-        '[K10b] card task owns discussion, properties and history $family/$dark/$width',
+        '[K10b] card task owns discussion, properties and history ${dark ? 'dark' : 'light'}/$width',
         (t) async {
           t.view.physicalSize = Size(width, 844);
           t.view.devicePixelRatio = 1;
@@ -317,7 +312,7 @@ void main() {
           api.routes['POST /channels/task-thread/read'] = (_) => {};
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: Scaffold(
                 body: ResourceView(
                   controller: w,
@@ -349,7 +344,7 @@ void main() {
           expect(find.text('Delete'), findsNothing);
           final bar = t.getRect(find.byKey(const ValueKey('task-modal-bar')));
           final composer = t.getRect(find.byType(RaftComposer));
-          expect(bar.height, family == RaftFamily.brutal ? 54 : 53);
+          expect(bar.height, 53);
           for (var i = 0; i < 4; i++) {
             await t.pump(const Duration(milliseconds: 16));
             expect(

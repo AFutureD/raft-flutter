@@ -16,21 +16,16 @@ const tabs = [
     glyph: RaftGlyph.settings,
   ),
 ];
-Widget host(Widget child, RaftFamily family, {bool dark = false}) =>
-    MaterialApp(
-      theme: raftTheme(family, dark: dark),
-      home: Scaffold(
-        body: RaftDensityScope(density: RaftDensity.desktop, child: child),
-      ),
-    );
+Widget host(Widget child, {bool dark = false}) => MaterialApp(
+  theme: raftTheme(dark: dark),
+  home: Scaffold(
+    body: RaftDensityScope(density: RaftDensity.desktop, child: child),
+  ),
+);
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family dark=$dark Bell keeps 32px layout with a 48px touch target',
+      '${dark ? 'dark' : 'light'} Bell keeps 32px layout with a 48px touch target',
       (tester) async {
         var opened = 0;
         final semantics = tester.ensureSemantics();
@@ -42,7 +37,6 @@ void main() {
                 child: RaftMobileNotificationButton(onPressed: () => opened++),
               ),
             ),
-            family,
             dark: dark,
           ),
         );
@@ -62,7 +56,7 @@ void main() {
       },
     );
     testWidgets(
-      '$family dark=$dark nav selects actual tab even when already active',
+      '${dark ? 'dark' : 'light'} nav selects actual tab even when already active',
       (tester) async {
         final ids = <String>[];
         await tester.pumpWidget(
@@ -80,16 +74,12 @@ void main() {
                 ),
               ),
             ),
-            family,
             dark: dark,
           ),
         );
-        final home = find.widgetWithText(RaftControl, 'Home');
-        final homeControl = family == RaftFamily.brutal
-            ? home
-            : find.byWidgetPredicate(
-                (w) => w is RaftControl && w.semanticLabel == 'Home',
-              );
+        final homeControl = find.byWidgetPredicate(
+          (w) => w is RaftControl && w.semanticLabel == 'Home',
+        );
         await tester.tap(homeControl);
         expect(ids, ['chat']);
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -102,7 +92,7 @@ void main() {
   }
   for (final dark in [false, true]) {
     testWidgets(
-      'Elegant touch keeps source capsule and distinct48px targets dark=$dark',
+      'Touch keeps source capsule and distinct48px targets dark=$dark',
       (tester) async {
         final selected = <String>[];
         await tester.pumpWidget(
@@ -123,7 +113,6 @@ void main() {
                 ),
               ),
             ),
-            RaftFamily.elegant,
             dark: dark,
           ),
         );
@@ -179,45 +168,30 @@ void main() {
       },
     );
   }
-  testWidgets(
-    'compact Brutal hides icons; Elegant never becomes a blank capsule',
-    (tester) async {
-      for (final family in RaftFamily.values) {
-        await tester.pumpWidget(
-          host(
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: SizedBox(
-                width: 390,
-                child: RaftMobileNav(
-                  items: tabs,
-                  selectedId: 'chat',
-                  onSelected: (_) {},
-                  viewportHeight: 560,
-                  bottomInset: 0,
-                ),
-              ),
+  testWidgets('compact nav never becomes a blank capsule', (tester) async {
+    await tester.pumpWidget(
+      host(
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: SizedBox(
+            width: 390,
+            child: RaftMobileNav(
+              items: tabs,
+              selectedId: 'chat',
+              onSelected: (_) {},
+              viewportHeight: 560,
+              bottomInset: 0,
             ),
-            family,
           ),
-        );
-        // AnimatedTheme must reach the requested family before testing its recipe.
-        await tester.pumpAndSettle();
-        expect(
-          find.byType(RaftIcon),
-          family == RaftFamily.brutal ? findsNothing : findsNWidgets(4),
-        );
-        if (family == RaftFamily.brutal) {
-          expect(find.text('Home'), findsOneWidget);
-          expect(tester.getSize(find.byType(RaftMobileNav)).height, 35);
-        } else {
-          expect(tester.getSize(find.byType(RaftMobileNav)).height, 68);
-        }
-      }
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
-  testWidgets('guest composition, disabled item and one capped safe inset', (
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(RaftIcon), findsNWidgets(4));
+    expect(tester.getSize(find.byType(RaftMobileNav)).height, 68);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+  testWidgets('guest composition, disabled item and one safe inset', (
     tester,
   ) async {
     var selected = 0;
@@ -246,13 +220,14 @@ void main() {
             ),
           ),
         ),
-        RaftFamily.brutal,
       ),
     );
     expect(find.text('Members'), findsNothing);
-    expect(tester.getSize(find.byType(RaftMobileNav)).height, 89);
+    // 8 top + 52 capsule + the full 100 safe inset (no Brutal 34 cap).
+    expect(tester.getSize(find.byType(RaftMobileNav)).height, 160);
     await tester.tapAt(
-      tester.getCenter(find.widgetWithText(RaftControl, 'Tasks')),
+      // Elegant items are icon-only; the label is the tooltip.
+      tester.getCenter(find.byTooltip('Tasks')),
     );
     expect(selected, 0);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -272,7 +247,6 @@ void main() {
           ),
           actions: [RaftMobileNotificationButton(onPressed: () => opened++)],
         ),
-        RaftFamily.brutal,
       ),
     );
     final bell = find.byWidgetPredicate(
@@ -303,7 +277,6 @@ void main() {
           ),
           actions: [RaftMobileNotificationButton(onPressed: () {})],
         ),
-        RaftFamily.brutal,
       ),
     );
     await tester.pumpAndSettle();
@@ -322,7 +295,7 @@ void main() {
   test(
     'selector vector preserves rotation and shadow offset; compact strips it',
     () {
-      final t = raftTheme(RaftFamily.brutal).extension<RaftTokens>()!;
+      final t = raftTheme().extension<RaftTokens>()!;
       final tall = RaftMobileServerSelectorRecipe(t, viewportHeight: 844);
       final compact = RaftMobileServerSelectorRecipe(t, viewportHeight: 560);
       expect(tall.contentAngle, -2 * math.pi / 180);
@@ -353,7 +326,6 @@ void main() {
               onPressed: () => opened++,
             ),
           ),
-          RaftFamily.brutal,
         ),
       );
       expect(find.byType(RaftIcon), findsOneWidget);

@@ -14,13 +14,10 @@ import 'message_presentation_test.dart' show fixture;
 import 'support/app_services_fixture.dart';
 
 void main() {
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, true),
-  ]) {
+  for (final (dark) in [(true)]) {
     for (final width in [1440.0, 390.0]) {
       testWidgets(
-        '[Activity no activation] $family/$dark ${width.toInt()}px unread indicators stay without a tap, through auto paths and a revisit',
+        '[Activity no activation] ${dark ? 'dark' : 'light'} ${width.toInt()}px unread indicators stay without a tap, through auto paths and a revisit',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           tester.view.physicalSize = Size(width, 900);
@@ -90,11 +87,11 @@ void main() {
 
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),
@@ -158,7 +155,7 @@ void main() {
       };
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: ResourceView(
               controller: w,
@@ -243,11 +240,11 @@ void main() {
       }
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: w,
-              appearance: RaftAppearance(light: RaftFamily.elegant),
+              appearance: RaftAppearance(),
               onAppearance: (_) async {},
               onLogout: () async {},
             ),
@@ -330,11 +327,11 @@ void main() {
       }
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: w,
-              appearance: RaftAppearance(light: RaftFamily.elegant),
+              appearance: RaftAppearance(),
               onAppearance: (_) async {},
               onLogout: () async {},
             ),

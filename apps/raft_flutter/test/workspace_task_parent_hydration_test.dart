@@ -103,14 +103,10 @@ final realTask = {
 };
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
-        '[K10b cold parent] real metadata precedes borrowed discussion and task facts $family/$dark/$width',
+        '[K10b cold parent] real metadata precedes borrowed discussion and task facts ${dark ? 'dark' : 'light'}/$width',
         (t) async {
           t.view.physicalSize = Size(width, 844);
           t.view.devicePixelRatio = 1;
@@ -147,11 +143,11 @@ void main() {
           final revision = w.navigationRevision;
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),
@@ -239,7 +235,7 @@ void main() {
     }
     for (final denial in ['403', '404', 'wrong-server', 'malformed']) {
       testWidgets(
-        '[K10b cold parent] $denial metadata cannot admit task facts or discussion $family/$dark',
+        '[K10b cold parent] $denial metadata cannot admit task facts or discussion ${dark ? 'dark' : 'light'}',
         (t) async {
           t.view.physicalSize = const Size(390, 844);
           t.view.devicePixelRatio = 1;
@@ -261,11 +257,11 @@ void main() {
           );
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),
@@ -311,7 +307,7 @@ void main() {
     }
     for (final lateError in [false, true]) {
       testWidgets(
-        '[K10b cold parent] Back and real new card reject late metadata ${lateError ? 'error' : 'success'} $family/$dark',
+        '[K10b cold parent] Back and real new card reject late metadata ${lateError ? 'error' : 'success'} ${dark ? 'dark' : 'light'}',
         (t) async {
           t.view.physicalSize = const Size(390, 844);
           t.view.devicePixelRatio = 1;
@@ -333,11 +329,11 @@ void main() {
           final revision = w.navigationRevision;
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),
@@ -395,7 +391,7 @@ void main() {
     }
     for (final change in ['principal', 'server', 'role', 'removed']) {
       testWidgets(
-        '[K10b cold parent] held metadata is rejected after $change $family/$dark',
+        '[K10b cold parent] held metadata is rejected after $change ${dark ? 'dark' : 'light'}',
         (t) async {
           t.view.physicalSize = const Size(390, 844);
           t.view.devicePixelRatio = 1;
@@ -414,11 +410,11 @@ void main() {
           );
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),
@@ -500,7 +496,7 @@ void main() {
       );
     }
     testWidgets(
-      '[K10b cold parent] accepted private metadata revokes immediately and renewed denial cannot retain composer $family/$dark',
+      '[K10b cold parent] accepted private metadata revokes immediately and renewed denial cannot retain composer ${dark ? 'dark' : 'light'}',
       (t) async {
         t.view.physicalSize = const Size(390, 844);
         t.view.devicePixelRatio = 1;
@@ -531,11 +527,11 @@ void main() {
         );
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),

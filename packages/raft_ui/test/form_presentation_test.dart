@@ -14,7 +14,7 @@ Widget _app({
   double keyboard = 0,
   void Function(Object? result)? onResult,
 }) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   builder: (context, home) => MediaQuery(
     data: MediaQuery.of(context)
         .copyWith(viewInsets: EdgeInsets.only(bottom: keyboard)),

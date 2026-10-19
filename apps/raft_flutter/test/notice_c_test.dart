@@ -23,7 +23,7 @@ import 'parity/cases/screens/screen_fixture.dart';
 /// Transient-notice audit, slice C (settings / account / auth / onboarding):
 /// every notice below used to outlive its cause.
 Widget _app(Widget home) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
   localizationsDelegates: GlobalMaterialLocalizations.delegates,
   home: Scaffold(body: home),

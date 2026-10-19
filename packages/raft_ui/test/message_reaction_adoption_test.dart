@@ -5,22 +5,15 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final appearance in raftThemeMatrix([
-    const RaftAppearance(light: RaftFamily.brutal, mode: ThemeMode.light),
-    const RaftAppearance(light: RaftFamily.elegant, mode: ThemeMode.light),
-    const RaftAppearance(light: RaftFamily.elegant, mode: ThemeMode.dark),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final density in RaftDensity.values) {
       testWidgets(
-        'MessageTile uses source reaction face, vector and real target $appearance $density',
+        'MessageTile uses source reaction face, vector and real target ${dark ? 'dark' : 'light'} $density',
         (t) async {
           var taps = 0;
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(
-                appearance.light,
-                dark: appearance.mode == ThemeMode.dark,
-              ),
+              theme: raftTheme(dark: dark),
               home: Scaffold(
                 body: RaftDensityScope(
                   density: density,
@@ -88,14 +81,11 @@ void main() {
       );
     }
     testWidgets(
-      'readonly reaction stays a span with source20px and no mutation $appearance',
+      'readonly reaction stays a span with source20px and no mutation ${dark ? 'dark' : 'light'}',
       (t) async {
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(
-              appearance.light,
-              dark: appearance.mode == ThemeMode.dark,
-            ),
+            theme: raftTheme(dark: dark),
             home: const Scaffold(
               body: Center(
                 child: RaftMessageTile(

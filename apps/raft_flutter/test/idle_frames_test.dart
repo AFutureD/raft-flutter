@@ -57,7 +57,7 @@ void main() {
         locale: const Locale('en'),
         supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         builder: (context, child) => RaftTooltipProvider(
           delay: const Duration(milliseconds: 600),
           child: child!,
@@ -66,10 +66,7 @@ void main() {
           WorkspaceView(
             controller: w,
             presentation: PersonalPresentationStore(desktop: false),
-            appearance: const RaftAppearance(
-              mode: ThemeMode.light,
-              light: RaftFamily.elegant,
-            ),
+            appearance: const RaftAppearance(mode: ThemeMode.light),
             onAppearance: (_) async {},
             onLogout: () async {},
             notifications: notifications,

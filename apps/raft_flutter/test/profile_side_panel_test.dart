@@ -65,7 +65,7 @@ void main() {
     addTearDown(w.dispose);
     var closed = 0, back = 0;
     Widget host({VoidCallback? onBack}) => MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: ExternalIdentityDetailPanel(
           controller: w,
@@ -135,7 +135,7 @@ void main() {
     };
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(body: RaftChatView(controller: w)),
       ),
     );

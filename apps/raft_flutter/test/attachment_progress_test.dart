@@ -139,7 +139,6 @@ Future<Mounted> mount(
   FakeServer? server,
   FakeStore? store,
   bool dark = false,
-  RaftFamily family = RaftFamily.elegant,
 }) async {
   final client = FakeClient()..user = RaftRecord({'id': 'alice'});
   client.selectServer('server');
@@ -162,7 +161,7 @@ Future<Mounted> mount(
   });
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: Scaffold(
         body: Align(
           alignment: Alignment.topLeft,
@@ -533,7 +532,7 @@ void main() {
       var closed = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: AttachmentPreviewDialog(
             controller: w,
             metadata: const {
@@ -582,7 +581,7 @@ void main() {
       final files = _PreviewFiles()..failFirst = true;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: AttachmentPreviewDialog(
             controller: w,
             metadata: const {

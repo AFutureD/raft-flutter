@@ -67,11 +67,7 @@ void main() {
     required Locale locale,
     required TargetPlatform platform,
   }) async {
-    final theme = raftTheme(
-      RaftFamily.brutal,
-      locale: locale,
-      platform: platform,
-    );
+    final theme = raftTheme(locale: locale, platform: platform);
     await t.pumpWidget(
       MaterialApp(
         theme: theme.copyWith(platform: platform),

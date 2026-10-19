@@ -57,7 +57,6 @@ class _Transport implements HttpClientAdapter {
 
 Future<(WorkspaceController, _Transport)> _open(
   WidgetTester t, {
-  RaftFamily family = RaftFamily.brutal,
   bool dark = false,
   Locale locale = const Locale('en'),
 }) async {
@@ -110,7 +109,7 @@ Future<(WorkspaceController, _Transport)> _open(
       locale: locale,
       supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: Scaffold(
         body: Builder(
           builder: (context) => TextButton(
@@ -137,16 +136,12 @@ Future<(WorkspaceController, _Transport)> _open(
 }
 
 void main() {
-  for (final (name, family, dark) in [
-    ('brutal', RaftFamily.brutal, false),
-    ('elegant', RaftFamily.elegant, false),
-    ('elegant-dark', RaftFamily.elegant, true),
-  ]) {
+  for (final (name, dark) in [('light', false), ('dark', true)]) {
     group('phone forward page $name', () {
       testWidgets(
         'destinations page: Web header, Recent list in activity order, no checkbox',
         (t) async {
-          await _open(t, family: family, dark: dark);
+          await _open(t, dark: dark);
           expect(find.byType(ForwardComposerPage), findsOneWidget);
           expect(find.text('Select destinations'), findsOneWidget);
           expect(find.text('1 selected from #general'), findsOneWidget);
@@ -167,7 +162,7 @@ void main() {
       testWidgets(
         'single select opens the note page; an empty note forwards once',
         (t) async {
-          final (_, transport) = await _open(t, family: family, dark: dark);
+          final (_, transport) = await _open(t, dark: dark);
           await t.tap(find.byKey(const ValueKey('forward-target-c1')));
           await t.pumpAndSettle();
           expect(find.text('Add a note'), findsWidgets);
@@ -189,7 +184,7 @@ void main() {
       testWidgets('multi select: checkbox rows, Clear, Done opens the note', (
         t,
       ) async {
-        await _open(t, family: family, dark: dark);
+        await _open(t, dark: dark);
         await t.tap(find.text('Select multiple'));
         await t.pumpAndSettle();
         expect(find.text('0 selected'), findsOneWidget);

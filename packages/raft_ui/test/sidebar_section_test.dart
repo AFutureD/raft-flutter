@@ -5,14 +5,10 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final density in RaftDensity.values) {
       testWidgets(
-        '$family dark=$dark $density controlled section geometry and actions',
+        '${dark ? 'dark' : 'light'} $density controlled section geometry and actions',
         (tester) async {
           var expanded = true, sorted = 0, added = 0;
           const disclosureKey = ValueKey('section-disclosure');
@@ -20,7 +16,7 @@ void main() {
           const addKey = ValueKey('section-add');
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: Scaffold(
                 body: RaftDensityScope(
                   density: density,
@@ -100,7 +96,7 @@ void main() {
           expect(
             tester.widget<Text>(find.text('3')).style!.fontFamily,
             RaftSidebarSectionRecipe(
-              raftTheme(family, dark: dark).extension<RaftTokens>()!,
+              raftTheme(dark: dark).extension<RaftTokens>()!,
               density,
             ).count.fontFamily,
           );
@@ -137,7 +133,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: SizedBox(
               width: 320,

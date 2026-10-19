@@ -65,7 +65,7 @@ void main() {
   Widget host(LinuxUriSchemeRegistration s) => MaterialApp(
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
     supportedLocales: const [Locale('en')],
-    theme: raftTheme(RaftFamily.elegant, dark: false),
+    theme: raftTheme(dark: false),
     home: Scaffold(
       body: SingleChildScrollView(child: DesktopLinksSettings(service: s)),
     ),

@@ -4,19 +4,15 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final narrow in [true, false]) {
       testWidgets(
-        '[N24e] $family/$dark unavailable Source selection shell ${narrow ? 'mobile Back' : 'desktop'}',
+        '[N24e] ${dark ? 'dark' : 'light'} unavailable Source selection shell ${narrow ? 'mobile Back' : 'desktop'}',
         (tester) async {
           var backs = 0;
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: Scaffold(
                 body: SizedBox(
                   width: narrow ? 390 : 900,
@@ -49,11 +45,11 @@ void main() {
       );
     }
     testWidgets(
-      '[N24e] $family/$dark actual channel placeholder has Source linebox and no borrowed controls',
+      '[N24e] ${dark ? 'dark' : 'light'} actual channel placeholder has Source linebox and no borrowed controls',
       (tester) async {
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: const Scaffold(
               body: SizedBox(
                 key: Key('surface'),

@@ -5,18 +5,14 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final dark in raftThemeMatrix([false, true], full: true)) {
     testWidgets(
-      '$family dark=$dark source picker density keeps keyboard selection',
+      '${dark ? 'dark' : 'light'} source picker density keeps keyboard selection',
       (tester) async {
         var selected = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: RaftDensityScope(
                 density: RaftDensity.desktop,
@@ -40,10 +36,7 @@ void main() {
           ),
         );
         final trigger = find.widgetWithText(RaftControl, 'Recent');
-        expect(
-          tester.getSize(trigger).height,
-          family == RaftFamily.brutal ? 32 : 28,
-        );
+        expect(tester.getSize(trigger).height, 28);
         final control = tester.widget<RaftControl>(trigger);
         expect(control.recipe, isA<RaftPickerTriggerRecipe>());
         expect(control.recipe!.textStyle.fontSize, 12);
@@ -65,7 +58,7 @@ void main() {
     var picked = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftDensityScope(
             density: RaftDensity.desktop,
@@ -90,7 +83,13 @@ void main() {
     );
     expect(surface.transform!.storage[12], 0);
     expect(surface.transform!.storage[13], 0);
-    expect((surface.decoration! as BoxDecoration).boxShadow, isEmpty);
+    // Controls cast no drop shadow; the only layer is the 1px hairline ring
+    // that stands in for the outline border.
+    for (final shadow
+        in (surface.decoration! as BoxDecoration).boxShadow ?? const []) {
+      expect(shadow.offset, Offset.zero);
+      expect(shadow.blurRadius, 0);
+    }
     await gesture.up();
     expect(picked, 1);
     await tester.pumpWidget(const SizedBox.shrink());

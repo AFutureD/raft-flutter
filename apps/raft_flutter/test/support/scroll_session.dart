@@ -454,7 +454,7 @@ Future<void> withScrollSession(
   w.messageDomain.visibleIds['c1'] = rows.map((r) => r['id'] as String).toSet();
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(body: RaftChatView(controller: w)),
     ),
   );

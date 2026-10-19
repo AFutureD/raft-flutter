@@ -95,7 +95,7 @@ RaftMessage card(
   },
 });
 Widget host(Widget child, {PrivateRouteGuard? guard}) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   navigatorObservers: [?guard],
   home: Scaffold(body: child),
 );
@@ -238,19 +238,15 @@ void main() {
     },
   );
 
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    testWidgets('linked-only task keeps bare label external $family/$dark', (
+  for (final dark in raftThemeMatrix([false, true])) {
+    testWidgets('linked-only task keeps bare label external ${dark ? 'dark' : 'light'}', (
       tester,
     ) async {
       final (w, _) = (await tester.runAsync(() => fixture('owner')))!;
       addTearDown(w.dispose);
       final linked = {'taskNumber': 1487, 'status': 'in_review'};
       Widget body(bool known) => MaterialApp(
-        theme: raftTheme(family, dark: dark),
+        theme: raftTheme(dark: dark),
         home: Scaffold(
           body: MessagePresentation(
             controller: w,

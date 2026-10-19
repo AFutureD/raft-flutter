@@ -33,7 +33,7 @@ void main() {
         ..section = 'activity';
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: workspace,

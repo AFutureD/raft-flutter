@@ -99,7 +99,7 @@ Widget view(
   AttachmentFiles files,
   Map<String, dynamic> metadata,
 ) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(
     body: Align(
       alignment: Alignment.topLeft,

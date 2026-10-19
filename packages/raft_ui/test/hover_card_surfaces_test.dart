@@ -4,11 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 
-Widget surfaceHost(Widget child, {RaftFamily family = RaftFamily.elegant}) =>
-    MaterialApp(
-      theme: raftTheme(family),
-      home: Scaffold(body: Center(child: child)),
-    );
+Widget surfaceHost(Widget child) => MaterialApp(
+  theme: raftTheme(),
+  home: Scaffold(body: Center(child: child)),
+);
 
 Future<TestGesture> hoverAt(WidgetTester tester, Offset at) async {
   final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);

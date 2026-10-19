@@ -151,7 +151,7 @@ void main() {
         (t) async {
           final f = RootFixture();
           page.prepare?.call(f);
-          await f.mount(t, 'elegant-light', size.width, settle: false);
+          await f.mount(t, 'light', size.width, settle: false);
           addTearDown(() {
             t.view.resetViewInsets();
             t.view.resetPadding();
@@ -314,7 +314,7 @@ void main() {
   ) async {
     final f = RootFixture();
     _signedOut(f);
-    await f.mount(t, 'elegant-light', 390, settle: false);
+    await f.mount(t, 'light', 390, settle: false);
     await f.flush(t);
     expect(
       find.ancestor(

@@ -9,13 +9,9 @@ import 'package:raft_ui/test_themes.dart';
 import 'message_presentation_test.dart' show fixture;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark departed senders retain history but cannot be mentioned',
+      '${dark ? 'dark' : 'light'} departed senders retain history but cannot be mentioned',
       (t) async {
         final (w, transport) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -65,7 +61,7 @@ void main() {
         ];
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );
@@ -102,7 +98,7 @@ void main() {
       },
     );
     testWidgets(
-      '$family/$dark protocol user gets scoped Owner and typed mention; foreign same-id stays private',
+      '${dark ? 'dark' : 'light'} protocol user gets scoped Owner and typed mention; foreign same-id stays private',
       (t) async {
         final (w, transport) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -135,7 +131,7 @@ void main() {
         ];
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );
@@ -172,7 +168,7 @@ void main() {
       },
     );
     testWidgets(
-      '$family/$dark actual sender insertion, scoped metadata, pointer picker and save',
+      '${dark ? 'dark' : 'light'} actual sender insertion, scoped metadata, pointer picker and save',
       (t) async {
         final (w, transport) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -224,7 +220,7 @@ void main() {
         };
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: RaftDensityScope(
                 density: RaftDensity.desktop,

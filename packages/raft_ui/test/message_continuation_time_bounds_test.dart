@@ -6,14 +6,10 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
-        '$family/$dark width $width continuation clock stays within its gutter',
+        '${dark ? 'dark' : 'light'} width $width continuation clock stays within its gutter',
         (t) async {
           await t.runAsync(() async {
             ByteData data;
@@ -38,7 +34,7 @@ void main() {
               for (final time in ['16:48', '04:48 PM']) {
                 await t.pumpWidget(
                   MaterialApp(
-                    theme: raftTheme(family, dark: dark),
+                    theme: raftTheme(dark: dark),
                     home: MediaQuery(
                       data: MediaQueryData(
                         size: Size(width, 480),

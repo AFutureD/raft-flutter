@@ -5,12 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 void main() {
-  Future<void> pumpAt(
-    WidgetTester t,
-    double factor,
-    Widget child, {
-    RaftFamily family = RaftFamily.brutal,
-  }) async {
+  Future<void> pumpAt(WidgetTester t, double factor, Widget child) async {
     t.view.physicalSize = const Size(390, 844);
     t.view.devicePixelRatio = 1;
     t.platformDispatcher.textScaleFactorTestValue = factor;
@@ -19,7 +14,7 @@ void main() {
     addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(family),
+        theme: raftTheme(),
         builder: (context, child) => RaftTextScaling(child: child!),
         home: Scaffold(
           body: Align(alignment: Alignment.bottomCenter, child: child),
@@ -148,45 +143,42 @@ void main() {
       ),
     ];
 
-    for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
-      testWidgets(
-        '${family.name}: long press shows the item, slide and release select the other',
-        (t) async {
-          final selected = <String>[];
-          await pumpAt(
-            t,
-            ax5,
-            RaftMobileNav(
-              items: items,
-              selectedId: 'chat',
-              onSelected: selected.add,
-              bottomInset: 0,
-            ),
-            family: family,
-          );
-          final tasks = find.byType(RaftControl).at(1);
-          final members = find.byType(RaftControl).at(2);
-          final g = await t.startGesture(t.getCenter(tasks));
-          await t.pump(const Duration(milliseconds: 700));
-          expect(viewer, findsOneWidget);
-          expect(
-            find.descendant(of: viewer, matching: find.text('Tasks')),
-            findsOneWidget,
-          );
-          await g.moveTo(t.getCenter(members));
-          await t.pump();
-          expect(
-            find.descendant(of: viewer, matching: find.text('Members')),
-            findsOneWidget,
-          );
-          await g.up();
-          await t.pump();
-          expect(viewer, findsNothing);
-          expect(selected, ['members']);
-          expect(t.takeException(), isNull);
-        },
-      );
-    }
+    testWidgets(
+      'long press shows the item, slide and release select the other',
+      (t) async {
+        final selected = <String>[];
+        await pumpAt(
+          t,
+          ax5,
+          RaftMobileNav(
+            items: items,
+            selectedId: 'chat',
+            onSelected: selected.add,
+            bottomInset: 0,
+          ),
+        );
+        final tasks = find.byType(RaftControl).at(1);
+        final members = find.byType(RaftControl).at(2);
+        final g = await t.startGesture(t.getCenter(tasks));
+        await t.pump(const Duration(milliseconds: 700));
+        expect(viewer, findsOneWidget);
+        expect(
+          find.descendant(of: viewer, matching: find.text('Tasks')),
+          findsOneWidget,
+        );
+        await g.moveTo(t.getCenter(members));
+        await t.pump();
+        expect(
+          find.descendant(of: viewer, matching: find.text('Members')),
+          findsOneWidget,
+        );
+        await g.up();
+        await t.pump();
+        expect(viewer, findsNothing);
+        expect(selected, ['members']);
+        expect(t.takeException(), isNull);
+      },
+    );
   });
 
   group('RaftIconButton', () {

@@ -27,7 +27,7 @@ const _startupReads = [
 /// First process: open Alpha's channel so its accepted window is on disk.
 Future<(RootCache, String)> _firstProcess(WidgetTester t) async {
   final f = RootFixture();
-  await f.mount(t, 'elegant-light', 1280);
+  await f.mount(t, 'light', 1280);
   await t.tap(find.byKey(const ValueKey('global-server-a')));
   await f.flush(t);
   expect(find.text('Accepted a'), findsOneWidget);
@@ -55,7 +55,7 @@ Future<RootFixture> _restart(
   before?.call(f);
   await f.mount(
     t,
-    'elegant-light',
+    'light',
     width,
     cachedSession: true,
     principal: principal,
@@ -113,7 +113,7 @@ RootFixture _twoChannelFixture({RootCache? cache}) {
 
 Future<RootCache> _cachedBeta(WidgetTester t) async {
   final first = _twoChannelFixture();
-  await first.mount(t, 'elegant-light', 1280);
+  await first.mount(t, 'light', 1280);
   await t.tap(find.byKey(const ValueKey('global-server-a')));
   await first.flush(t);
   await t.tap(find.text('channel-beta').first);
@@ -144,7 +144,7 @@ void main() {
         try {
           await f.mount(
             t,
-            'elegant-light',
+            'light',
             width,
             cachedSession: true,
             uri: Uri(path: '/s/alpha/channel/alpha'),
@@ -198,7 +198,7 @@ void main() {
           try {
             await f.mount(
               t,
-              'elegant-light',
+              'light',
               width,
               cachedSession: true,
               uri: Uri(path: '/s/alpha/channel/alpha'),
@@ -229,7 +229,7 @@ void main() {
         'cold start routes Alpha over cached Beta $width/cached=$cachedSession',
         (t) async {
           final first = _twoChannelFixture();
-          await first.mount(t, 'elegant-light', 1280);
+          await first.mount(t, 'light', 1280);
           await t.tap(find.byKey(const ValueKey('global-server-a')));
           await first.flush(t);
           await t.tap(find.text('channel-beta').first);
@@ -245,7 +245,7 @@ void main() {
           try {
             await restarted.mount(
               t,
-              'elegant-light',
+              'light',
               width,
               cachedSession: cachedSession,
               uri: Uri(path: '/s/alpha/channel/alpha'),
@@ -289,7 +289,7 @@ void main() {
       final f = RootFixture(cache: cache, sessionOwner: ui);
       await f.mount(
         t,
-        'elegant-light',
+        'light',
         412,
         cachedSession: true,
         preferences: {'$_memory.last': 'alpha', '$_memory.a': '/s/alpha'},
@@ -368,7 +368,7 @@ void main() {
       }
       await f.mount(
         t,
-        'elegant-light',
+        'light',
         412,
         cachedSession: true,
         preferences: {'$_memory.last': 'alpha', '$_memory.a': '/s/alpha'},
@@ -409,7 +409,7 @@ void main() {
       var ready = 0;
       final f = RootFixture(onStartupReady: () => ready++);
       f.holds['GET /auth/me'] = Completer<dynamic>();
-      await f.mount(t, 'elegant-light', 412);
+      await f.mount(t, 'light', 412);
       expect(ready, 1);
       expect(find.text('Restoring session…'), findsOneWidget);
       await _release(t, f);
@@ -424,7 +424,7 @@ void main() {
       var ready = 0;
       final f = RootFixture(onStartupReady: () => ready++);
       f.holds['GET /servers'] = Completer<dynamic>();
-      await f.mount(t, 'elegant-light', 412, cachedSession: true);
+      await f.mount(t, 'light', 412, cachedSession: true);
       expect(ready, 1);
       expect(find.byType(GlobalServerSelector), findsOneWidget);
       await _release(t, f);

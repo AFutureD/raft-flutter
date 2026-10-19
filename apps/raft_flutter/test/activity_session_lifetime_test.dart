@@ -134,7 +134,7 @@ void main() {
         retainChat();
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.brutal),
+            theme: raftTheme(),
             home: withAppServices(
               WorkspaceView(
                 controller: workspace,
@@ -208,7 +208,7 @@ void main() {
           ..section = 'activity'
           ..inbox = [channelRow(9, unread: 3)];
         Widget page() => MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: workspace,

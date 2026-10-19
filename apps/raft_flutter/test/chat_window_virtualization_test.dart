@@ -10,13 +10,9 @@ import 'chat_focus_receipt_test.dart' show contextRows, paintedMessage;
 import 'message_presentation_test.dart' show fixture;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[P01] $family/$dark initial accepted channel releases offscreen rows and stays at latest',
+      '[P01] ${dark ? 'dark' : 'light'} initial accepted channel releases offscreen rows and stays at latest',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1280, 800);
@@ -35,7 +31,7 @@ void main() {
             .toSet();
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );
@@ -59,7 +55,7 @@ void main() {
       },
     );
     testWidgets(
-      '[P01] $family/$dark context focus releases offscreen rows without moving the accepted target',
+      '[P01] ${dark ? 'dark' : 'light'} context focus releases offscreen rows without moving the accepted target',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1280, 800);
@@ -85,7 +81,7 @@ void main() {
         api.routes['POST /channels/c1/read'] = (_) => {};
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );

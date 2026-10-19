@@ -12,7 +12,7 @@ void main() {
       t,
     ) async {
       final f = RootFixture();
-      await f.mount(t, 'brutal', width, uri: Uri(path: '/s/ghost'));
+      await f.mount(t, 'light', width, uri: Uri(path: '/s/ghost'));
       expect(find.byType(RaftServerAccessDeniedPage), findsOneWidget);
       expect(find.text('Server not found'), findsOneWidget);
       expect(find.text('Raft', findRichText: true), findsNothing);
@@ -39,7 +39,7 @@ void main() {
     t,
   ) async {
     final f = RootFixture();
-    await f.mount(t, 'elegant-light', 1280, uri: Uri(path: '/s/ghost'));
+    await f.mount(t, 'light', 1280, uri: Uri(path: '/s/ghost'));
     await t.tap(find.byKey(const ValueKey('server-denied-continue')));
     await f.flush(t);
     expect(find.byType(WorkspaceView), findsOneWidget);
@@ -54,7 +54,7 @@ void main() {
     t,
   ) async {
     final f = RootFixture();
-    await f.mount(t, 'brutal', 1280, uri: Uri(path: '/s/beta'));
+    await f.mount(t, 'light', 1280, uri: Uri(path: '/s/beta'));
     expect(f.workspace(t).server!.id, 'b');
     await f.pushUri(t, '/s/not-mine/channel/x');
     expect(find.byType(RaftServerAccessDeniedPage), findsOneWidget);
@@ -71,7 +71,7 @@ void main() {
 
   testWidgets('an account without servers is not told it was denied', (t) async {
     final f = RootFixture()..servers.clear();
-    await f.mount(t, 'brutal', 390, uri: Uri(path: '/s/ghost'));
+    await f.mount(t, 'light', 390, uri: Uri(path: '/s/ghost'));
     expect(find.byType(RaftServerAccessDeniedPage), findsNothing);
     expect(find.byType(GlobalServerSelector), findsOneWidget);
     await f.close(t);
@@ -86,7 +86,7 @@ void main() {
       'emailVerified': true,
       'displayLanguage': 'zh-cn',
     };
-    await f.mount(t, 'brutal', 390, uri: Uri(path: '/s/ghost'));
+    await f.mount(t, 'light', 390, uri: Uri(path: '/s/ghost'));
     expect(find.text('未找到服务器'), findsOneWidget);
     expect(
       find.textContaining('3 秒后将跳转到 Alpha。', findRichText: true),

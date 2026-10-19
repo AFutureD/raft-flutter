@@ -82,7 +82,7 @@ void main() {
           () => w.messageDomain.threads.openThread(RaftMessage(parent), focusedMessageId: 'reply'),
         );
         Widget application(bool thread) => MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: adaptive
               ? withAppServices(
                 WorkspaceView(

@@ -228,7 +228,7 @@ void main() {
     var reloaded = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftRootErrorFallback(
             message: 'Cannot read properties',

@@ -50,7 +50,7 @@ void main() {
       };
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(body: RaftChatView(controller: w)),
         ),
       );
@@ -104,7 +104,7 @@ void main() {
       };
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(body: RaftChatView(controller: w)),
         ),
       );
@@ -206,7 +206,7 @@ void main() {
       a.routes['GET /messages/context/rich-next'] = (_) => response.future;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(body: RaftChatView(controller: w)),
         ),
       );
@@ -280,7 +280,7 @@ void main() {
       };
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: SizedBox(height: 602, child: RaftChatView(controller: w)),
           ),
@@ -350,7 +350,7 @@ void main() {
       w.messageDomain.visibleIds['c1'] = first.map((r) => r['id'] as String).toSet();
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(body: RaftChatView(controller: w)),
         ),
       );

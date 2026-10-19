@@ -10,14 +10,10 @@ import 'package:raft_ui/test_themes.dart';
 import 'message_presentation_test.dart' show fixture;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
     for (final format in ['24h', '12h']) {
       testWidgets(
-        '$family/$dark $format historical continuation shows only its clock on hover',
+        '${dark ? 'dark' : 'light'} $format historical continuation shows only its clock on hover',
         (t) async {
           final oldNow = sourceTimeNow;
           sourceTimeNow = () => DateTime.utc(2026, 10, 16);
@@ -47,7 +43,7 @@ void main() {
           Future<void> frame() async {
             await t.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 home: Scaffold(body: RaftChatView(controller: w)),
               ),
             );

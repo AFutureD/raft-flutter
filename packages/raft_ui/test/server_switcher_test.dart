@@ -8,13 +8,9 @@ import 'package:raft_ui/test_themes.dart';
 // Source ServerSwitcherMenu.tsx120–185/242–307/363–448. Actual browser
 // geometry/input receipts are in .local/k08-server-menu-v1, not inferred here.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark Source mobile Home menu uses full header anchor, viewport gutters and container keyboard focus',
+      '${dark ? 'dark' : 'light'} Source mobile Home menu uses full header anchor, viewport gutters and container keyboard focus',
       (t) async {
         t.view.physicalSize = const Size(390, 900);
         t.view.devicePixelRatio = 1;
@@ -24,7 +20,7 @@ void main() {
         var selected = 0;
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Align(
                 alignment: Alignment.topLeft,
@@ -63,12 +59,7 @@ void main() {
         await t.pumpAndSettle();
         expect(
           t.getRect(find.byKey(const Key('server-switcher-menu'))),
-          Rect.fromLTWH(
-            8,
-            family == RaftFamily.brutal ? 64 : 59,
-            374,
-            family == RaftFamily.brutal ? 162 : 167,
-          ),
+          Rect.fromLTWH(8, 59, 374, 167),
         );
         expect(FocusManager.instance.primaryFocus!.skipTraversal, isTrue);
         await t.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -81,7 +72,7 @@ void main() {
       },
     );
     testWidgets(
-      '$family/$dark Source pointer server handle requires distance6 then reorders the real list',
+      '${dark ? 'dark' : 'light'} Source pointer server handle requires distance6 then reorders the real list',
       (t) async {
         final controller = RaftMenuController();
         addTearDown(controller.dispose);
@@ -89,7 +80,7 @@ void main() {
         final moves = <(int, int)>[];
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Align(
                 alignment: Alignment.topLeft,
@@ -167,7 +158,7 @@ void main() {
       },
     );
     testWidgets(
-      '$family/$dark Source server menu anchors, focuses, traverses, closes and keeps current unread hidden',
+      '${dark ? 'dark' : 'light'} Source server menu anchors, focuses, traverses, closes and keeps current unread hidden',
       (t) async {
         t.view.physicalSize = const Size(1280, 800);
         t.view.devicePixelRatio = 1;
@@ -177,13 +168,13 @@ void main() {
         var current = 0, global = 0;
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    width: family == RaftFamily.brutal ? 64 : 56,
+                    width: 56,
                     child: RaftServerSwitcher(
                       controller: controller,
                       workspaceName: 'Visual Server',
@@ -227,15 +218,7 @@ void main() {
         await t.tap(find.byKey(const Key('rail-workspace')));
         await t.pumpAndSettle();
         final menu = find.byKey(const Key('server-switcher-menu'));
-        expect(
-          t.getRect(menu),
-          Rect.fromLTWH(
-            family == RaftFamily.brutal ? 70 : 64,
-            4,
-            256,
-            family == RaftFamily.brutal ? 162 : 167,
-          ),
-        );
+        expect(t.getRect(menu), Rect.fromLTWH(64, 4, 256, 167));
         expect(find.text('88'), findsNothing);
         expect(FocusManager.instance.primaryFocus!.skipTraversal, isTrue);
         final invite = find.byWidgetPredicate(
@@ -252,12 +235,7 @@ void main() {
             )
             .firstWhere((w) => w.constraints?.maxHeight == 36)
             .color;
-        expect(
-          actionBackground(),
-          family == RaftFamily.brutal
-              ? tokens.product.brutalPink
-              : tokens.colors['primary-soft'],
-        );
+        expect(actionBackground(), tokens.colors['primary-soft']);
         await mouse.moveTo(const Offset(1000, 700));
         await mouse.removePointer();
         await t.pump();
@@ -305,7 +283,7 @@ void main() {
       },
     );
     testWidgets(
-      '$family/$dark long server list scrolls while Source footer stays reachable and Activity unknown remains absent',
+      '${dark ? 'dark' : 'light'} long server list scrolls while Source footer stays reachable and Activity unknown remains absent',
       (t) async {
         t.view.physicalSize = const Size(1280, 240);
         t.view.devicePixelRatio = 1;
@@ -314,7 +292,7 @@ void main() {
         addTearDown(controller.dispose);
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Align(
                 alignment: Alignment.topLeft,

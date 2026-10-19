@@ -186,7 +186,7 @@ void main() {
       Future<bool?>? result;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant, dark: true),
+          theme: raftTheme(dark: true),
           home: Builder(
             builder: (ctx) => Scaffold(
               body: TextButton(
@@ -279,7 +279,7 @@ void main() {
         Future<bool?>? result;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.elegant),
+            theme: raftTheme(),
             home: Builder(
               builder: (context) => Scaffold(
                 body: TextButton(
@@ -353,7 +353,7 @@ void main() {
       final png = Uint8List.fromList(data!.buffer.asUint8List());
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Builder(
             builder: (ctx) => Scaffold(
               body: TextButton(

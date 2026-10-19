@@ -56,7 +56,6 @@ Future<(WorkspaceController, MessageAdapter)> mountWorkspace(
   WidgetTester t,
   Size size, {
   String section = 'chat',
-  RaftFamily family = RaftFamily.elegant,
   TargetPlatform? platform,
 }) async {
   t.view.physicalSize = size;
@@ -111,11 +110,11 @@ Future<(WorkspaceController, MessageAdapter)> mountWorkspace(
   };
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family).copyWith(platform: platform),
+      theme: raftTheme().copyWith(platform: platform),
       home: withAppServices(
         WorkspaceView(
           controller: w,
-          appearance: RaftAppearance(light: family),
+          appearance: RaftAppearance(),
           onAppearance: (_) async {},
           onLogout: () async {},
         ),

@@ -10,8 +10,8 @@ import 'package:raft_ui/test_themes.dart';
 
 const pad = RaftSpace.x3, gap = RaftSpace.x2;
 
-Widget _app(RaftFamily family, bool dark) => MaterialApp(
-  theme: raftTheme(family, dark: dark),
+Widget _app(bool dark) => MaterialApp(
+  theme: raftTheme(dark: dark),
   home: Scaffold(
     body: Column(
       children: [
@@ -34,12 +34,8 @@ Rect _tool(WidgetTester t, String tooltip) => t.getRect(
 );
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    final theme = '${family.name}${dark ? ' dark' : ''}';
+  for (final dark in raftThemeMatrix([false, true])) {
+    final theme = dark ? 'dark' : 'light';
 
     testWidgets('dialog: every row shares the card padding ($theme)', (
       tester,
@@ -47,7 +43,7 @@ void main() {
       tester.view.physicalSize = const Size(1440, 900);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(_app(family, dark));
+      await tester.pumpWidget(_app(dark));
       await tester.tap(find.byKey(const ValueKey('composer-expand')));
       await tester.pumpAndSettle();
       final card = tester.getRect(
@@ -97,10 +93,7 @@ void main() {
       expect(bold.left - card.left, card.right - eye.right);
       // Around the divider between text and preview: pad, rule, then the
       // preview's own pad (its text column is checked above).
-      expect(
-        preview.left - text.right,
-        pad + (family == RaftFamily.brutal ? 2 : 1),
-      );
+      expect(preview.left - text.right, pad + 1);
       // Vertical beat: card top, toolbar, rule, text, actions, card bottom.
       expect(bold.top, card.top + gap);
       expect(rule.top, bold.bottom + gap);
@@ -115,7 +108,7 @@ void main() {
       tester.view.physicalSize = const Size(412, 915);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(_app(family, dark));
+      await tester.pumpWidget(_app(dark));
       await tester.tap(find.byKey(const ValueKey('composer-expand')));
       await tester.pumpAndSettle();
       final card = tester.getRect(

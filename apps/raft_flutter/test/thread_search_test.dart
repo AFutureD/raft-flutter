@@ -57,7 +57,7 @@ void main() {
     });
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(body: RaftChatView(controller: w, thread: true)),
       ),
     );
@@ -198,7 +198,7 @@ void main() {
     var opened = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: ThreadActions(
             controller: w,

@@ -13,13 +13,9 @@ import 'task_surface_test.dart' show flush;
 import 'support/app_services_fixture.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'Mobile DM settings push a page with no metadata editor $family/$dark',
+      'Mobile DM settings push a page with no metadata editor ${dark ? 'dark' : 'light'}',
       (t) async {
         t.view.physicalSize = const Size(390, 844);
         t.view.devicePixelRatio = 1;
@@ -44,11 +40,11 @@ void main() {
         api.routes['GET /channels/dm'] = (_) => [dm.json];
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),

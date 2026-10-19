@@ -14,7 +14,6 @@ final _png = base64Decode(
 Future<void> _pump(
   WidgetTester tester,
   List<RaftComposerAttachment> items, {
-  RaftFamily family = RaftFamily.elegant,
   bool dark = false,
   TargetPlatform platform = TargetPlatform.linux,
   ValueChanged<RaftComposerAttachment>? onRemove,
@@ -22,7 +21,7 @@ Future<void> _pump(
   ValueChanged<RaftComposerAttachment>? onPreview,
 }) => tester.pumpWidget(
   MaterialApp(
-    theme: raftTheme(family, dark: dark).copyWith(platform: platform),
+    theme: raftTheme(dark: dark).copyWith(platform: platform),
     home: Scaffold(
       body: Stack(
         children: [
@@ -74,30 +73,26 @@ RaftComposerAttachment _file(
 );
 
 void main() {
-  for (final family in RaftFamily.values) {
-    testWidgets('${family.name}: image chips are 64px, files 176x64', (
-      tester,
-    ) async {
-      await _pump(tester, [_image('a'), _file('b')], family: family);
-      expect(
-        tester.getSize(find.byKey(const ValueKey('composer-attachment-box-a'))),
-        const Size(64, 64),
-      );
-      expect(
-        tester.getSize(find.byKey(const ValueKey('composer-attachment-box-b'))),
-        const Size(176, 64),
-      );
-      expect(find.text('application/pdf'), findsOneWidget);
-      // 8px gap between chips (`gap-2`).
-      final a = tester.getRect(
-        find.byKey(const ValueKey('composer-attachment-box-a')),
-      );
-      final b = tester.getRect(
-        find.byKey(const ValueKey('composer-attachment-box-b')),
-      );
-      expect(b.left - a.right, 8);
-    });
-  }
+  testWidgets('image chips are 64px, files 176x64', (tester) async {
+    await _pump(tester, [_image('a'), _file('b')]);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('composer-attachment-box-a'))),
+      const Size(64, 64),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('composer-attachment-box-b'))),
+      const Size(176, 64),
+    );
+    expect(find.text('application/pdf'), findsOneWidget);
+    // 8px gap between chips (`gap-2`).
+    final a = tester.getRect(
+      find.byKey(const ValueKey('composer-attachment-box-a')),
+    );
+    final b = tester.getRect(
+      find.byKey(const ValueKey('composer-attachment-box-b')),
+    );
+    expect(b.left - a.right, 8);
+  });
 
   testWidgets('a file without a type shows the localized fallback', (
     tester,
@@ -250,7 +245,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: Align(
               alignment: Alignment.bottomCenter,
@@ -295,7 +290,7 @@ void main() {
       var blocked = 0, sent = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: Align(
               alignment: Alignment.bottomCenter,
@@ -331,7 +326,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: const SizedBox(
           width: 300,
           height: 100,
@@ -342,6 +337,7 @@ void main() {
     final frame = tester.getRect(
       find.byKey(const ValueKey('composer-drop-overlay')),
     );
-    expect(frame.top, 2);
+    // The composer rule is the 1px hairline border-t (no 2px Brutal rule left).
+    expect(frame.top, 1);
   });
 }

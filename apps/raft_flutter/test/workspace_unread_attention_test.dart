@@ -12,13 +12,9 @@ import 'message_presentation_test.dart' show fixture;
 import 'support/app_services_fixture.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[K09e] $family/$dark mounted Chat/Activity attention owns distinct accepted data and suppresses active',
+      '[K09e] ${dark ? 'dark' : 'light'} mounted Chat/Activity attention owns distinct accepted data and suppresses active',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1440, 900);
@@ -50,11 +46,11 @@ void main() {
         };
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),
@@ -153,7 +149,7 @@ void main() {
     );
 
     testWidgets(
-      '[K09e] $family/$dark actual pinned Agent row uses Source SidebarItemCount',
+      '[K09e] ${dark ? 'dark' : 'light'} actual pinned Agent row uses Source SidebarItemCount',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1440, 900);
@@ -191,11 +187,11 @@ void main() {
         };
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),
@@ -224,10 +220,7 @@ void main() {
           find.descendant(of: badge, matching: find.text('12')),
         );
         expect(text.style!.fontSize, 10);
-        expect(
-          text.style!.fontWeight,
-          family == RaftFamily.brutal ? FontWeight.w700 : FontWeight.w400,
-        );
+        expect(text.style!.fontWeight, FontWeight.w400);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
       },

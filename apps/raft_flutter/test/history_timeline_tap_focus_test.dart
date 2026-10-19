@@ -140,7 +140,7 @@ Future<List<Completer<void>>> _openFirstPage(WidgetTester tester) async {
   );
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(body: RaftChatView(controller: w, thread: false)),
     ),
   );

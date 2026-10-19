@@ -27,19 +27,15 @@ Future<void> shellFonts(WidgetTester t) => t.runAsync(() async {
 void main() {
   // Leak debt (other): see docs/development.md, Leak tracking.
   leakDebt(const ['ValueNotifier<bool>']);
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[K08b] $family/$dark actual three footer entries retain Source slot geometry and unseen Help lifecycle',
+      '[K08b] ${dark ? 'dark' : 'light'} actual three footer entries retain Source slot geometry and unseen Help lifecycle',
       (t) async {
         final (w, api) = await pageFixture(t, section: 'chat');
         api.routes['GET /agents'] = (_) => [];
         api.routes['GET /servers/s1/members'] = (_) => [];
         await shellFonts(t);
-        await mountShell(t, w, family, dark);
+        await mountShell(t, w, dark);
         final help = find.byKey(const Key('rail-help'));
         final settings = find.byKey(const Key('rail-settings'));
         final bell = find.byType(RaftMobileNotificationButton);
@@ -90,7 +86,7 @@ void main() {
     );
 
     testWidgets(
-      '[K08d] $family/$dark actual Pinned and Joint groups reserve measured Source empty drag areas',
+      '[K08d] ${dark ? 'dark' : 'light'} actual Pinned and Joint groups reserve measured Source empty drag areas',
       (t) async {
         final (w, api) = await pageFixture(t, section: 'chat');
         api.routes['GET /agents'] = (_) => [];
@@ -98,7 +94,7 @@ void main() {
         await shellFonts(t);
         final presentation = PersonalPresentationStore(desktop: false);
         addTearDown(presentation.dispose);
-        await mountShell(t, w, family, dark, presentation: presentation);
+        await mountShell(t, w, dark, presentation: presentation);
         final pinned = find.byKey(
           const ValueKey('sidebar-group-system:pinned'),
         );

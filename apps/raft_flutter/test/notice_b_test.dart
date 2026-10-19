@@ -129,7 +129,7 @@ Future<(WorkspaceController, MessageAdapter)> _openChannelSurface(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Builder(
         builder: (context) => Scaffold(
           body: TextButton(
@@ -261,7 +261,7 @@ class _RescanWorkspace extends _Workspace {
 }
 
 Widget _host(Widget child) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(body: SingleChildScrollView(child: child)),
 );
 
@@ -345,7 +345,7 @@ void main() {
       addTearDown(t.view.reset);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Builder(
             builder: (context) => Scaffold(
               body: TextButton(

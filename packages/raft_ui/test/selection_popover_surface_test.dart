@@ -35,16 +35,12 @@ Widget host(ThemeData theme, Widget child) => MaterialApp(
   ),
 );
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark Source default and caller retain distinct surface and actual inline-input geometry',
+      '${dark ? 'dark' : 'light'} Source default and caller retain distinct surface and actual inline-input geometry',
       (tester) async {
         await loadFonts(tester);
-        final theme = raftTheme(family, dark: dark),
+        final theme = raftTheme(dark: dark),
             controller = TextEditingController(text: 'des');
         final tokens = theme.extension<RaftTokens>()!;
         Widget popup(bool caller) => host(
@@ -73,29 +69,20 @@ void main() {
         expect(original.style.minWidth, 220);
         expect(
           original.style.backgroundColor!.resolve(tokens.recipeTokens),
-          family == RaftFamily.brutal
-              ? Colors.white
-              : tokens.semantic.layerPanel,
+          tokens.semantic.layerPanel,
         );
-        expect(
-          original.style.borderWidth,
-          EdgeInsets.all(family == RaftFamily.brutal ? 2 : 1),
-        );
+        expect(original.style.borderWidth, EdgeInsets.all(1));
         expect(
           original.style.border(tokens.recipeTokens)!.top.color,
-          dark
-              ? Colors.transparent
-              : family == RaftFamily.brutal
-              ? Colors.black
-              : tokens.semantic.lineMuted,
+          dark ? Colors.transparent : tokens.semantic.lineMuted,
         );
         expect(
           original.style.borderRadius ?? BorderRadius.zero,
-          BorderRadius.circular(family == RaftFamily.brutal ? 0 : 8),
+          BorderRadius.circular(8),
         );
         expect(
           tester.getSize(find.byType(RaftSelectionPopover)),
-          Size(310, family == RaftFamily.brutal ? 225 : 222),
+          Size(310, 222),
         );
         final state = tester.state(find.byType(EditableText));
         await tester.pumpWidget(popup(true));
@@ -113,39 +100,31 @@ void main() {
           box.style.border(tokens.recipeTokens)!.top.color,
           dark ? Colors.transparent : Colors.black,
         );
-        expect(
-          box.style.classes,
-          contains(
-            family == RaftFamily.brutal ? 'shadow-raft-md' : 'shadow-raft-xs',
-          ),
-        );
+        expect(box.style.classes, contains('shadow-raft-xs'));
         expect(
           tester.getSize(find.byType(RaftSelectionPopover)),
-          Size(310, family == RaftFamily.brutal ? 225 : 224),
+          Size(310, 224),
         );
         expect(
           tester.getTopLeft(find.byType(RaftTextInput)) -
               tester.getTopLeft(find.byType(RaftSelectionPopover)),
-          Offset(10, family == RaftFamily.brutal ? 42 : 43),
+          Offset(10, 43),
         );
-        expect(
-          tester.getSize(find.byType(RaftTextInput)).height,
-          family == RaftFamily.brutal ? 28 : 26,
-        );
+        expect(tester.getSize(find.byType(RaftTextInput)).height, 26);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         controller.dispose();
       },
     );
     testWidgets(
-      '$family/$dark popup search autofocus and Tab leave its last option',
+      '${dark ? 'dark' : 'light'} popup search autofocus and Tab leave its last option',
       (tester) async {
         await loadFonts(tester);
         final controller = TextEditingController();
         var after = 0;
         await tester.pumpWidget(
           host(
-            raftTheme(family, dark: dark),
+            raftTheme(dark: dark),
             Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,13 +167,13 @@ void main() {
       },
     );
     testWidgets(
-      '$family/$dark live popup retains focus IME selection and hit coordinates across caller and theme',
+      '${dark ? 'dark' : 'light'} live popup retains focus IME selection and hit coordinates across caller and theme',
       (tester) async {
         await loadFonts(tester);
         final controller = TextEditingController(), focus = FocusNode();
         var selected = 0;
-        Widget popup(RaftFamily next, bool nextDark, bool caller) {
-          final theme = raftTheme(next, dark: nextDark);
+        Widget popup(bool nextDark, bool caller) {
+          final theme = raftTheme(dark: nextDark);
           return host(
             theme,
             RaftSelectionPopover(
@@ -218,7 +197,7 @@ void main() {
           );
         }
 
-        await tester.pumpWidget(popup(family, dark, false));
+        await tester.pumpWidget(popup(dark, false));
         await tester.pump();
         await tester.showKeyboard(find.byType(TextField));
         final state = tester.state(find.byType(EditableText));
@@ -230,9 +209,9 @@ void main() {
           ),
         );
         await tester.pump();
-        await tester.pumpWidget(popup(family, dark, true));
+        await tester.pumpWidget(popup(dark, true));
         await tester.pump();
-        await tester.pumpWidget(popup(RaftFamily.elegant, !dark, false));
+        await tester.pumpWidget(popup(!dark, false));
         await tester.pump(const Duration(milliseconds: 250));
         expect(tester.state(find.byType(EditableText)), same(state));
         expect(focus.hasFocus, true);
@@ -270,12 +249,12 @@ void main() {
       },
     );
     testWidgets(
-      '$family/$dark real preview owner closes outside and Escape while keyboard and disabled semantics work',
+      '${dark ? 'dark' : 'light'} real preview owner closes outside and Escape while keyboard and disabled semantics work',
       (tester) async {
         await loadFonts(tester);
         final semantics = tester.ensureSemantics();
         await tester.pumpWidget(
-          host(raftTheme(family, dark: dark), selectionPopoverPreview()),
+          host(raftTheme(dark: dark), selectionPopoverPreview()),
         );
         await tester.tap(find.text('Choose channel'));
         await tester.pumpAndSettle();

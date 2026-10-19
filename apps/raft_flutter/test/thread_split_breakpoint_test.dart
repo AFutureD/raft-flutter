@@ -15,13 +15,9 @@ import 'mounted_message_navigation_test.dart'
 // Driven through the mounted WorkspaceView with a real canonical thread whose
 // URL owns a focused reply; resizing must keep that location and focus.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[N23] $family/$dark thread splits only at portrait>=1280 or landscape with container>=680; resize keeps location and msg focus',
+      '[N23] ${dark ? 'dark' : 'light'} thread splits only at portrait>=1280 or landscape with container>=680; resize keeps location and msg focus',
       (tester) async {
         final (w, api) = await pageFixture(tester);
         w.messageDomain.ledger.ingest([
@@ -54,7 +50,7 @@ void main() {
             navigate: false,
           ),
         );
-        await mountPage(tester, w, family, dark);
+        await mountPage(tester, w, dark);
         final uri = w.location,
             index = w.navigation.index,
             entries = w.navigation.entries.length;

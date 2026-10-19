@@ -39,15 +39,11 @@ void main() {
   // Real product fonts matter at the supported320px minimum. Ahem substitutes
   // 12px square glyphs and falsely wraps the short Task# legacy subtitle.
   setUpAll(loadParityFonts);
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [390.0, 800.0, 1280.0]) {
       for (final tasksRoute in [false, true]) {
         testWidgets(
-          '[K10b legacy presentation] Source ${tasksRoute ? '/tasks modal' : 'channel side'} real card and Close $family/$dark/$width',
+          '[K10b legacy presentation] Source ${tasksRoute ? '/tasks modal' : 'channel side'} real card and Close ${dark ? 'dark' : 'light'}/$width',
           (t) async {
             // MainLayout1407–1417 + LegacyTaskPanel70–166; mounted Source
             // legacy-task-source-v1 records the real opener and bounds.
@@ -70,11 +66,11 @@ void main() {
             w.drafts[w.draftScope()!] = 'Existing accepted main draft';
             await t.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 home: withAppServices(
                   WorkspaceView(
                     controller: w,
-                    appearance: RaftAppearance(light: family),
+                    appearance: RaftAppearance(),
                     onAppearance: (_) async {},
                     onLogout: () async {},
                   ),
@@ -107,9 +103,7 @@ void main() {
             } else if (!tasksRoute && width >= 1024) {
               expect(rect, Rect.fromLTWH(width - 380, 0, 380, 900));
             } else {
-              final left = width < 768
-                  ? 0.0
-                  : (family == RaftFamily.brutal ? 304.0 : 296.0);
+              final left = width < 768 ? 0.0 : (296.0);
               const height = 900.0;
               expect(rect, Rect.fromLTWH(left, 0, width - left, height));
             }
@@ -186,7 +180,7 @@ void main() {
       }
     }
     testWidgets(
-      '[K10b legacy presentation] real drag/Escape, reopen and viewport transitions preserve accepted editor $family/$dark',
+      '[K10b legacy presentation] real drag/Escape, reopen and viewport transitions preserve accepted editor ${dark ? 'dark' : 'light'}',
       (t) async {
         t.view.physicalSize = const Size(1280, 900);
         t.view.devicePixelRatio = 1;
@@ -206,11 +200,11 @@ void main() {
         ], expectedGeneration: w.messageDomain.ledger.generation);
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),
@@ -291,8 +285,6 @@ void main() {
                 ? 440
                 : width == 390
                 ? 390
-                : family == RaftFamily.brutal
-                ? 496
                 : 504,
           );
           expect(
@@ -366,7 +358,7 @@ void main() {
     );
     for (final change in ['close', 'server', 'principal', 'permission']) {
       testWidgets(
-        '[K10b legacy presentation] pending bucket cannot publish after $change $family/$dark',
+        '[K10b legacy presentation] pending bucket cannot publish after $change ${dark ? 'dark' : 'light'}',
         (t) async {
           t.view.physicalSize = const Size(1280, 900);
           t.view.devicePixelRatio = 1;
@@ -383,11 +375,11 @@ void main() {
           );
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),
@@ -446,7 +438,7 @@ void main() {
       );
     }
     testWidgets(
-      '[K10b legacy presentation] accepted dock retires immediately on role denial $family/$dark',
+      '[K10b legacy presentation] accepted dock retires immediately on role denial ${dark ? 'dark' : 'light'}',
       (t) async {
         t.view.physicalSize = const Size(1280, 900);
         t.view.devicePixelRatio = 1;
@@ -463,11 +455,11 @@ void main() {
         );
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),
@@ -508,7 +500,7 @@ void main() {
       },
     );
     testWidgets(
-      '[K10b legacy presentation] higher-priority profile hides dock and preserves owner on return $family/$dark',
+      '[K10b legacy presentation] higher-priority profile hides dock and preserves owner on return ${dark ? 'dark' : 'light'}',
       (t) async {
         t.view.physicalSize = const Size(1280, 900);
         t.view.devicePixelRatio = 1;
@@ -525,11 +517,11 @@ void main() {
         );
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),
@@ -587,7 +579,7 @@ void main() {
     );
     for (final saved in ['450', '9999']) {
       testWidgets(
-        '[K10b legacy presentation] cold accepted dock reads persisted width $saved $family/$dark',
+        '[K10b legacy presentation] cold accepted dock reads persisted width $saved ${dark ? 'dark' : 'light'}',
         (t) async {
           t.view.physicalSize = const Size(1280, 900);
           t.view.devicePixelRatio = 1;
@@ -610,11 +602,11 @@ void main() {
           );
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),

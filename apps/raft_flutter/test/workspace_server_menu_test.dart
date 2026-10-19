@@ -12,13 +12,9 @@ import 'workspace_shell_contract_test.dart' show retire;
 import 'support/app_services_fixture.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[K08j] $family/$dark actual mouse server reorder PATCH is Source-shaped and stale role handler cannot write',
+      '[K08j] ${dark ? 'dark' : 'light'} actual mouse server reorder PATCH is Source-shaped and stale role handler cannot write',
       (t) async {
         final (w, api) = await pageFixture(t, section: 'chat');
         w.servers = [
@@ -49,11 +45,11 @@ void main() {
         addTearDown(t.view.reset);
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
                 onChooseServer: () {},
@@ -104,7 +100,7 @@ void main() {
       },
     );
     testWidgets(
-      '[K08h] $family/$dark actual WorkspaceView server menu closes current without URI/history and delegates global chooser',
+      '[K08h] ${dark ? 'dark' : 'light'} actual WorkspaceView server menu closes current without URI/history and delegates global chooser',
       (t) async {
         final (w, api) = await pageFixture(t, section: 'chat');
         w.servers = [w.server!];
@@ -119,11 +115,11 @@ void main() {
         var choose = 0;
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
                 onChooseServer: () => choose++,
@@ -162,7 +158,7 @@ void main() {
       },
     );
     testWidgets(
-      '[K08i] $family/$dark actual server menu Invite is capability gated and sends trimmed member email before Source administration route',
+      '[K08i] ${dark ? 'dark' : 'light'} actual server menu Invite is capability gated and sends trimmed member email before Source administration route',
       (t) async {
         final (w, api) = await pageFixture(t, section: 'chat');
         w.servers = [w.server!];
@@ -179,11 +175,11 @@ void main() {
         addTearDown(t.view.reset);
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
                 onChooseServer: () {},

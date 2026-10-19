@@ -173,7 +173,7 @@ Future<_Rig> _mount(
   var n = 0;
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: MediaBrowser(
         controller: w,
         files: AttachmentFiles(gallerySupported: false),
@@ -383,7 +383,7 @@ void main() {
       final reads = rig.urlReads.length;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: MediaBrowser(
             controller: rig.w,
             files: AttachmentFiles(gallerySupported: false),

@@ -164,11 +164,7 @@ class _Client extends RaftClient {
   }
 }
 
-Future<(WorkspaceController, _Client)> _mount(
-  WidgetTester t,
-  RaftFamily family,
-  bool dark,
-) async {
+Future<(WorkspaceController, _Client)> _mount(WidgetTester t, bool dark) async {
   SharedPreferences.setMockInitialValues({});
   t.view.physicalSize = const Size(1200, 800);
   t.view.devicePixelRatio = 1;
@@ -192,10 +188,7 @@ Future<(WorkspaceController, _Client)> _mount(
   final workspace = withAppServices(
     WorkspaceView(
       controller: w,
-      appearance: RaftAppearance(
-        mode: dark ? ThemeMode.dark : ThemeMode.light,
-        light: family,
-      ),
+      appearance: RaftAppearance(mode: dark ? ThemeMode.dark : ThemeMode.light),
       onAppearance: (_) async {},
       onLogout: () async {},
     ),
@@ -203,7 +196,7 @@ Future<(WorkspaceController, _Client)> _mount(
   await t.pumpWidget(
     MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       supportedLocales: const [Locale('en'), Locale('zh')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: workspace,
@@ -239,7 +232,7 @@ bool _focused(WidgetTester t) =>
     t.widget<RaftActivitySearchInput>(_field).focusNode.hasPrimaryFocus;
 
 Future<(WorkspaceController, _Client)> _activity(WidgetTester t) async {
-  final (w, client) = await _mount(t, RaftFamily.elegant, false);
+  final (w, client) = await _mount(t, false);
   w.setForeground(true);
   await _rail(t, 'activity');
   // 1200x800 with the flag evaluated: the master-detail Activity sidebar.

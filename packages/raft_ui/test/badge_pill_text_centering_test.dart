@@ -63,16 +63,9 @@ const _variants = [
   RaftBadgeRecipeVariant.danger,
 ];
 
-Widget _tree(
-  RaftFamily family,
-  bool dark,
-  double scale,
-  _Config config,
-  GlobalKey capture,
-) {
+Widget _tree(bool dark, double scale, _Config config, GlobalKey capture) {
   const zh = Locale('zh');
   final theme = raftTheme(
-    family,
     dark: dark,
     locale: config.android ? zh : null,
     platform: config.android ? TargetPlatform.android : null,
@@ -225,10 +218,9 @@ void main() {
   final missing = missingTestFontReason(cjkTestFonts());
   final shots = Platform.environment['RAFT_PILL_SHOTS'];
 
-  for (final (name, family, dark) in raftThemeMatrix([
-    ('brutal-light', RaftFamily.brutal, false),
-    ('elegant-light', RaftFamily.elegant, false),
-    ('elegant-dark', RaftFamily.elegant, true),
+  for (final (name, dark) in raftThemeMatrix([
+    ('elegant-light', false),
+    ('elegant-dark', true),
   ], full: true)) {
     for (final config in _configs) {
       for (final scale in _scales) {
@@ -243,7 +235,7 @@ void main() {
           addTearDown(t.view.reset);
           await _loadFonts(t);
           final capture = GlobalKey();
-          await t.pumpWidget(_tree(family, dark, scale, config, capture));
+          await t.pumpWidget(_tree(dark, scale, config, capture));
           await t.pumpAndSettle();
 
           const ratio = 3.0;
@@ -321,7 +313,7 @@ void main() {
               pill.shift(-origin),
               text.shift(-origin),
               rich.text.style?.color ?? Colors.black,
-              family == RaftFamily.elegant ? pill.height / 2 : 0,
+              pill.height / 2,
             );
             if (rows == null) {
               problems.add('$tag: no ink found');

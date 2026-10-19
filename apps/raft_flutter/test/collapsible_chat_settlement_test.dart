@@ -110,7 +110,7 @@ Widget _host(
     child: SizedBox(height: 32, child: Text('Load earlier')),
   );
   return MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     home: Scaffold(
       body: Center(
         child: SizedBox(

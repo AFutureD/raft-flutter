@@ -19,14 +19,10 @@ import 'support/app_services_fixture.dart';
 /// beside the Activity list; the page never gains a full-width channel header
 /// on top (workspace-channel-header belongs to the channel route only).
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final scenario in ['channel', 'dm', 'thread']) {
       testWidgets(
-        '[K02] $family/$dark clicking an Activity $scenario entry adds no full-width channel header',
+        '[K02] ${dark ? 'dark' : 'light'} clicking an Activity $scenario entry adds no full-width channel header',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           tester.view.physicalSize = const Size(1440, 900);
@@ -81,11 +77,11 @@ void main() {
           };
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),

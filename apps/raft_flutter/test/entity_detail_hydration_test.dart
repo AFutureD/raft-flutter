@@ -77,22 +77,13 @@ void main() {
     w.dispose();
     await client.stream.close();
   });
-  Future<void> host(
-    WidgetTester t,
-    Widget child,
-    RaftFamily family,
-    bool dark,
-  ) => t.pumpWidget(
+  Future<void> host(WidgetTester t, Widget child, bool dark) => t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: Scaffold(body: child),
     ),
   );
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final kind in ['agent', 'computer', 'human']) {
       Widget detail(VoidCallback onBack) => kind == 'human'
           ? MemberProfileView(
@@ -113,11 +104,11 @@ void main() {
           ? 'Source Computer'
           : 'Source Human';
       testWidgets(
-        '$family/$dark $kind shows accepted real directory on first frame while HTTP waits',
+        '${dark ? 'dark' : 'light'} $kind shows accepted real directory on first frame while HTTP waits',
         (t) async {
           await w.entityDirectory.preload();
           w.hold = true;
-          await host(t, detail(() {}), family, dark);
+          await host(t, detail(() {}), dark);
           expect(find.text(expected), findsWidgets);
           expect(find.text('Loading profile…'), findsNothing);
           expect(find.text('null'), findsNothing);
@@ -134,11 +125,11 @@ void main() {
         },
       );
       testWidgets(
-        '[K05] $family/$dark cold $kind uses Source loading shell with working back and no invented facts',
+        '[K05] ${dark ? 'dark' : 'light'} cold $kind uses Source loading shell with working back and no invented facts',
         (t) async {
           w.hold = true;
           var back = 0;
-          await host(t, detail(() => back++), family, dark);
+          await host(t, detail(() => back++), dark);
           expect(find.text('Loading profile…'), findsOneWidget);
           expect(find.text(expected), findsNothing);
           expect(find.byType(RaftProfileIdentity), findsNothing);
@@ -174,7 +165,6 @@ void main() {
       await host(
         t,
         MemberProfileView(controller: w, userId: 'u', onClose: () {}),
-        RaftFamily.brutal,
         false,
       );
       w.pending['/servers/s/members/u/profile']!.single.complete({
@@ -197,7 +187,6 @@ void main() {
       await host(
         t,
         MemberProfileView(controller: w, userId: 'u', onClose: () {}),
-        RaftFamily.brutal,
         false,
       );
       w.pending['/servers/s/members/u/profile']!.single.completeError(
@@ -213,7 +202,6 @@ void main() {
       await host(
         t,
         MemberProfileView(controller: w, userId: 'u', onClose: () {}),
-        RaftFamily.brutal,
         false,
       );
       w.pending['/servers/s/members/u/profile']!.last.completeError(
@@ -233,7 +221,6 @@ void main() {
       await host(
         t,
         MemberProfileView(controller: w, userId: 'u', onClose: () {}),
-        RaftFamily.brutal,
         false,
       );
       expect(find.text('Source Human'), findsWidgets);
@@ -260,7 +247,6 @@ void main() {
       await host(
         t,
         MemberProfileView(controller: w, userId: 'u', onClose: () {}),
-        RaftFamily.brutal,
         false,
       );
       expect(find.text('Source Human'), findsWidgets);
@@ -297,7 +283,6 @@ void main() {
         computers: false,
         onOpenDetail: (row) => opened = row,
       ),
-      RaftFamily.brutal,
       false,
     );
     await t.pump();
@@ -327,7 +312,6 @@ void main() {
             ),
           ],
         ),
-        RaftFamily.elegant,
         true,
       );
       await t.tap(find.text('Activity'));
@@ -365,7 +349,6 @@ void main() {
       await host(
         t,
         MemberProfileView(controller: w, userId: 'u', onClose: () {}),
-        RaftFamily.brutal,
         false,
       );
       final oldDetail = w.pending['/servers/s/members/u/profile']!.single;

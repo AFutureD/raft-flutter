@@ -4,17 +4,13 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final height in [800.0, 560.0]) {
       for (final onRight in [false, true]) {
         for (final density in RaftDensity.values) {
           for (final bounded in [false, true]) {
             testWidgets(
-              '$family/$dark $height right=$onRight $density bounded=$bounded navigation keeps rail geometry',
+              '${dark ? 'dark' : 'light'} $height right=$onRight $density bounded=$bounded navigation keeps rail geometry',
               (tester) async {
                 tester.view.physicalSize = Size(1100, height);
                 tester.view.devicePixelRatio = 1;
@@ -22,7 +18,7 @@ void main() {
                 var selected = 'chat';
                 await tester.pumpWidget(
                   MaterialApp(
-                    theme: raftTheme(family, dark: dark),
+                    theme: raftTheme(dark: dark),
                     home: Scaffold(
                       body: RaftDensityScope(
                         density: density,
@@ -103,7 +99,7 @@ void main() {
                 expect(
                   initial.width,
                   RaftRailRecipe(
-                    raftTheme(family, dark: dark).extension<RaftTokens>()!,
+                    raftTheme(dark: dark).extension<RaftTokens>()!,
                     viewportHeight: height,
                   ).width,
                 );

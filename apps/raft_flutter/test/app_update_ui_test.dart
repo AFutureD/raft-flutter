@@ -205,10 +205,9 @@ void main() {
   }
 
   for (final width in _widths) {
-    for (final (name, family, dark) in [
-      ('brutal light', RaftFamily.brutal, false),
-      ('elegant light', RaftFamily.elegant, false),
-      ('elegant dark', RaftFamily.elegant, true),
+    for (final (name, dark) in [
+      ('elegant light', false),
+      ('elegant dark', true),
     ]) {
       testWidgets(
         '${_on(width)}: About row dot is the danger token, the entry keeps '
@@ -221,7 +220,6 @@ void main() {
             t,
             update,
             width: width,
-            family: family,
             dark: dark,
           );
           if (!_phone(width)) {
@@ -246,10 +244,9 @@ void main() {
     }
   }
 
-  for (final (name, family, dark) in [
-    ('brutal light', RaftFamily.brutal, false),
-    ('elegant light', RaftFamily.elegant, false),
-    ('elegant dark', RaftFamily.elegant, true),
+  for (final (name, dark) in [
+    ('elegant light', false),
+    ('elegant dark', true),
   ]) {
     testWidgets('phone: Settings tab dot keeps the attention colour in $name', (
       t,
@@ -260,7 +257,7 @@ void main() {
       final (w, _) = await pageFixture(t, section: 'chat');
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: Scaffold(
             body: const SizedBox(),
             bottomNavigationBar: WorkspaceMobileTabBar(
@@ -319,13 +316,7 @@ void main() {
 
     Future<RootFixture> openSettings(WidgetTester t, AppUpdateService s) async {
       final f = RootFixture();
-      await f.mount(
-        t,
-        'elegant-light',
-        390,
-        uri: Uri.parse('/s/alpha'),
-        appUpdate: s,
-      );
+      await f.mount(t, 'light', 390, uri: Uri.parse('/s/alpha'), appUpdate: s);
       await t.runAsync(s.start);
       await t.tap(find.byKey(const Key('mobile-tab-settings')));
       await f.flush(t);

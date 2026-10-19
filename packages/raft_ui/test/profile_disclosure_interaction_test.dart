@@ -5,13 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 void main() {
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ]) {
+  for (final (dark) in [(false), (true)]) {
     Widget host(Widget child, {bool touch = false}) => MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: Scaffold(
         body: RaftDensityScope(
           density: touch ? RaftDensity.touch : RaftDensity.desktop,
@@ -32,7 +28,7 @@ void main() {
 
     for (final key in [LogicalKeyboardKey.enter, LogicalKeyboardKey.space]) {
       testWidgets(
-        'DM avatar opens profile using Tab and ${key == LogicalKeyboardKey.space ? 'Space' : 'Enter'} $family/$dark',
+        'DM avatar opens profile using Tab and ${key == LogicalKeyboardKey.space ? 'Space' : 'Enter'} ${dark ? 'dark' : 'light'}',
         (t) async {
           retire(t);
           var opened = 0;
@@ -60,7 +56,7 @@ void main() {
     }
 
     testWidgets(
-      'disclosure retains its auxiliary action in the semantics tree $family/$dark',
+      'disclosure retains its auxiliary action in the semantics tree ${dark ? 'dark' : 'light'}',
       (t) async {
         retire(t);
         final semantics = t.ensureSemantics();
@@ -123,7 +119,7 @@ void main() {
     );
 
     testWidgets(
-      'touch can activate the disclosure inside the 48px target $family/$dark',
+      'touch can activate the disclosure inside the 48px target ${dark ? 'dark' : 'light'}',
       (t) async {
         retire(t);
         var changes = 0;
@@ -152,7 +148,7 @@ void main() {
     );
 
     testWidgets(
-      'the disclosure label keeps the neighbouring section alignment $family/$dark',
+      'the disclosure label keeps the neighbouring section alignment ${dark ? 'dark' : 'light'}',
       (t) async {
         retire(t);
         await t.pumpWidget(
@@ -186,7 +182,7 @@ void main() {
     );
 
     testWidgets(
-      'Skills remains keyboard-operable for Enter and Space $family/$dark',
+      'Skills remains keyboard-operable for Enter and Space ${dark ? 'dark' : 'light'}',
       (t) async {
         retire(t);
         await t.pumpWidget(

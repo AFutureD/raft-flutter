@@ -88,7 +88,6 @@ class _HostState extends State<_Host> {
       presentation: presentation,
       appearance: RaftAppearance(
         mode: widget.ctx.dark ? ThemeMode.dark : ThemeMode.light,
-        light: widget.ctx.family,
       ),
       onAppearance: (_) async {},
       onLogout: () async {},
@@ -98,7 +97,7 @@ class _HostState extends State<_Host> {
 
 /// The `screen-window` rectangle of windowed cases (same numbers as the React marker).
 Rect? _window(ParityContext ctx) {
-  final rail = ctx.family == RaftFamily.brutal ? 64.0 : 56.0;
+  final rail = 56.0;
   return switch (ctx.props['win']) {
     'activity' => Rect.fromLTWH(0, 0, rail + 560, ctx.height),
     'composer' => Rect.fromLTWH(

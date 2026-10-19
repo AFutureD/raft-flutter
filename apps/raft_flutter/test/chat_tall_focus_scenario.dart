@@ -12,7 +12,6 @@ import 'message_presentation_test.dart' show fixture;
 /// widget callers simulate the keyboard inset through TestFlutterView.
 Future<void> checkTallFocusReceipt(
   WidgetTester tester, {
-  required RaftFamily family,
   required bool dark,
   Widget Function(Widget child)? hostBuilder,
   Future<void> Function()? resize,
@@ -54,7 +53,7 @@ Future<void> checkTallFocusReceipt(
   api.routes['POST /channels/c1/read'] = (_) => {};
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: (hostBuilder ?? ((child) => child))(
         Scaffold(
           body: Column(

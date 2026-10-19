@@ -19,20 +19,15 @@ import 'support/app_services_fixture.dart';
 /// load), activate the same Activity row again. The re-positioning must never
 /// overscroll (no spring-back with an empty gap) on any frame.
 void main() {
-  for (final (family, dark, fling, last, thread) in [
-    (RaftFamily.brutal, false, false, false, false),
-    (RaftFamily.elegant, false, false, false, false),
-    (RaftFamily.brutal, false, true, false, false),
-    (RaftFamily.elegant, false, true, false, false),
-    (RaftFamily.brutal, false, false, true, false),
-    (RaftFamily.elegant, false, true, true, false),
-    (RaftFamily.brutal, false, false, true, true),
-    (RaftFamily.elegant, false, true, true, true),
-    (RaftFamily.brutal, false, false, false, true),
+  for (final (dark, fling, last, thread) in [
+    (false, false, false, false),
+    (false, true, false, false),
+    (false, true, true, false),
+    (false, true, true, true),
   ]) {
     final target = last ? 't-199' : 't-150';
     testWidgets(
-      '$family/$dark fling=$fling target=$target thread=$thread Activity re-activation never overscrolls',
+      '${dark ? 'dark' : 'light'} fling=$fling target=$target thread=$thread Activity re-activation never overscrolls',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1440, 900);
@@ -126,11 +121,11 @@ void main() {
         };
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),

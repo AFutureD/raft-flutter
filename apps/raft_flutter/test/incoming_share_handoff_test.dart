@@ -107,7 +107,7 @@ void main() {
         final wake = Uri.parse('raft://share/$token');
         try {
           if (cold) await t.runAsync(publish);
-          await f.mount(t, 'elegant', 390, uri: cold ? wake : null);
+          await f.mount(t, 'light', 390, uri: cold ? wake : null);
           if (!cold) {
             await t.runAsync(publish);
             f.content.receiveLink(wake);
@@ -170,7 +170,7 @@ void main() {
         'joined': true,
         'serverId': 'b',
       };
-      await f.mount(t, 'elegant', 412);
+      await f.mount(t, 'light', 412);
       await flushUntil(t, f, pickerOpen, what: 'the shared picker');
       expect(find.byType(IncomingSharePicker), findsOneWidget);
       await t.tap(find.text('Beta').last);
@@ -279,7 +279,7 @@ void main() {
           'joined': true,
           'serverId': 'b',
         };
-        await f.mount(t, 'elegant', 412);
+        await f.mount(t, 'light', 412);
         await flushUntil(t, f, pickerOpen, what: 'the shared picker');
         await t.tap(find.text('Beta').last);
         await flushUntil(

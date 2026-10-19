@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/raft_location.dart';
-import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -86,13 +85,9 @@ void main() {
     });
   }
 
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[N24g] $family/$dark canonical thread Back then channel double-click retains accepted destination every pending frame',
+      '[N24g] ${dark ? 'dark' : 'light'} canonical thread Back then channel double-click retains accepted destination every pending frame',
       (tester) async {
         final (w, api) = await pageFixture(tester);
         w.channels.add(
@@ -133,7 +128,7 @@ void main() {
         };
         await tester.runAsync(() => w.selectChannel(w.channel!));
         w.section = 'activity';
-        await mountPage(tester, w, family, dark);
+        await mountPage(tester, w, dark);
         final thread = find.byKey(const ValueKey('activity-thread-t2'));
         await tester.tap(thread);
         await tester.pump(const Duration(milliseconds: 80));

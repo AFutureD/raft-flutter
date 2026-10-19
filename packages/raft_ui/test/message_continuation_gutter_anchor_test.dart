@@ -4,20 +4,16 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
     for (final withTooltip in [false, true]) {
       testWidgets(
-        '$family/$dark tooltip $withTooltip keeps its continuation gutter height',
+        '${dark ? 'dark' : 'light'} tooltip $withTooltip keeps its continuation gutter height',
         (tester) async {
           try {
             for (final scale in [1.0, 2.0, 3.1]) {
               await tester.pumpWidget(
                 MaterialApp(
-                  theme: raftTheme(family, dark: dark),
+                  theme: raftTheme(dark: dark),
                   home: MediaQuery(
                     data: MediaQueryData(textScaler: TextScaler.linear(scale)),
                     child: Scaffold(

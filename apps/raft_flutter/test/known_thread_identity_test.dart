@@ -16,14 +16,10 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final sparse in [false, true]) {
       testWidgets(
-        '[N24a] $family/$dark sparse=$sparse accepted inbox thread starts replies while parent is held',
+        '[N24a] ${dark ? 'dark' : 'light'} sparse=$sparse accepted inbox thread starts replies while parent is held',
         (tester) async {
           tester.view.physicalSize = const Size(390, 844);
           tester.view.devicePixelRatio = 1;
@@ -88,7 +84,7 @@ void main() {
           );
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: Scaffold(body: RaftChatView(controller: w, thread: true)),
             ),
           );

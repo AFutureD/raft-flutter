@@ -35,20 +35,16 @@ void main() {
     }
   });
 
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark actual Card consumers use the measured Source box',
+      '${dark ? 'dark' : 'light'} actual Card consumers use the measured Source box',
       (tester) async {
         tester.view.devicePixelRatio = 3;
         tester.view.physicalSize = const Size(1170, 2532);
         addTearDown(tester.view.resetDevicePixelRatio);
         addTearDown(tester.view.resetPhysicalSize);
         await cascade.loadFonts(tester);
-        final theme = raftTheme(family, dark: dark);
+        final theme = raftTheme(dark: dark);
         final t = theme.extension<RaftTokens>()!;
         final resolver = RaftRecipeTokens(t);
         final specified = RaftCardRecipe.resolve(

@@ -22,7 +22,6 @@ class _SearchFocusPage {
 
   static Future<_SearchFocusPage> mount(
     WidgetTester tester,
-    RaftFamily family,
     bool dark, {
     bool otherChannel = false,
   }) async {
@@ -64,7 +63,7 @@ class _SearchFocusPage {
       ],
       'hasMore': false,
     };
-    await mountPage(tester, w, family, dark);
+    await mountPage(tester, w, dark);
     await tester.enterText(find.byType(TextField).first, 'Actual');
     await tester.pump(const Duration(milliseconds: 210));
     for (var frame = 0; frame < 8; frame++) {
@@ -121,15 +120,11 @@ class _SearchFocusPage {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[L01] $family/$dark actual cached Search result centers without another context GET or metadata reset',
+      '[L01] ${dark ? 'dark' : 'light'} actual cached Search result centers without another context GET or metadata reset',
       (tester) async {
-        final page = await _SearchFocusPage.mount(tester, family, dark);
+        final page = await _SearchFocusPage.mount(tester, dark);
         final w = page.workspace;
         final before = (
           page.contextRequests,
@@ -168,9 +163,9 @@ void main() {
     );
 
     testWidgets(
-      '[L03] $family/$dark actual second cached Search target owns its full highlight lifetime after the old timer deadline',
+      '[L03] ${dark ? 'dark' : 'light'} actual second cached Search target owns its full highlight lifetime after the old timer deadline',
       (tester) async {
-        final page = await _SearchFocusPage.mount(tester, family, dark);
+        final page = await _SearchFocusPage.mount(tester, dark);
         final w = page.workspace;
         await page.clickFirst(tester);
         final Timer oldTimer = page.getState(tester).highlightTimer;
@@ -200,11 +195,10 @@ void main() {
     );
 
     testWidgets(
-      '[L03] $family/$dark actual cross-channel Search target survives the old expiry while its context is held',
+      '[L03] ${dark ? 'dark' : 'light'} actual cross-channel Search target survives the old expiry while its context is held',
       (tester) async {
         final page = await _SearchFocusPage.mount(
           tester,
-          family,
           dark,
           otherChannel: true,
         );

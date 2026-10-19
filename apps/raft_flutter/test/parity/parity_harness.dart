@@ -80,7 +80,6 @@ class ParityContext {
   ParityContext({
     required this.caseJson,
     required this.fixtures,
-    required this.family,
     required this.dark,
   });
 
@@ -88,7 +87,6 @@ class ParityContext {
 
   /// shared/*.json keyed by file stem, e.g. `fixtureData`, `tasksFixture`.
   final Map<String, dynamic> fixtures;
-  final RaftFamily family;
   final bool dark;
 
   /// The capture target. Builders wrap the element that corresponds to the
@@ -109,11 +107,7 @@ class ParityContext {
   double get width => (viewport['width'] as num).toDouble();
   double get height => (viewport['height'] as num).toDouble();
   double get density => (viewport['density'] as num? ?? 1).toDouble();
-  String get themeId => dark
-      ? 'elegant-dark'
-      : family == RaftFamily.brutal
-      ? 'brutal-light'
-      : 'elegant-light';
+  String get themeId => dark ? 'elegant-dark' : 'elegant-light';
 
   Widget target(Widget child) {
     targetUsed = true;
@@ -145,19 +139,17 @@ class ParityContext {
   );
 }
 
-/// Theme the React render host uses for a case id: `.elegant` suffix →
-/// elegant-light, otherwise brutal (light). No official case declares dark.
-(RaftFamily, bool) parityThemeFor(
-  Map<String, dynamic> visualCase, {
-  String? override,
-}) {
+/// Whether the case renders dark. There is one Raft look: every case renders
+/// light unless a supplemental run asks for `elegant-dark` / `dark`. The
+/// historical `brutal-light` / `elegant-light` overrides still name the light
+/// look so older capture scripts keep working.
+bool parityThemeFor(Map<String, dynamic> visualCase, {String? override}) {
   // Supplemental theme runs preserve each original case/fixture identity.
   // The official run leaves this unset and retains its original 99-case matrix.
   if (override != null && override.isNotEmpty) {
     return switch (override) {
-      'brutal-light' => (RaftFamily.brutal, false),
-      'elegant-light' => (RaftFamily.elegant, false),
-      'elegant-dark' => (RaftFamily.elegant, true),
+      'brutal-light' || 'elegant-light' || 'light' => false,
+      'elegant-dark' || 'dark' => true,
       _ => throw ArgumentError.value(
         override,
         'override',
@@ -165,18 +157,13 @@ class ParityContext {
       ),
     };
   }
-  final id = visualCase['id'] as String;
   final props =
       ((visualCase['variants'] as List?)?.firstOrNull as Map?)?['props']
           as Map?;
   // Extension suite cases name their theme explicitly (tool/parity-ext).
   final extTheme = props?['parityTheme'];
   if (extTheme is String) return parityThemeFor(visualCase, override: extTheme);
-  final propsTheme = props?['theme'];
-  if (id.endsWith('.elegant') || propsTheme == 'elegant') {
-    return (RaftFamily.elegant, false);
-  }
-  return (RaftFamily.brutal, false);
+  return false;
 }
 
 Map<String, List<String>> paritySystemFonts() => {
@@ -265,14 +252,13 @@ Future<Map<String, dynamic>> captureParityCase(
   required Directory outputDir,
   required Map<String, dynamic> runInfo,
 }) async {
-  final (family, dark) = parityThemeFor(
+  final dark = parityThemeFor(
     visualCase,
     override: Platform.environment['PARITY_THEME_OVERRIDE'],
   );
   final ctx = ParityContext(
     caseJson: visualCase,
     fixtures: fixtures,
-    family: family,
     dark: dark,
   );
   final size = Size(ctx.width, ctx.height);
@@ -281,7 +267,7 @@ Future<Map<String, dynamic>> captureParityCase(
   addTearDown(t.view.reset);
 
   final rootKey = GlobalKey(debugLabel: 'parity-root');
-  final raft = raftTheme(family, dark: dark);
+  final raft = raftTheme(dark: dark);
   // Playwright screenshots default to caret: "hide"; hide Flutter's text
   // caret the same way so a focused field is not a spurious diff.
   final theme = raft.copyWith(

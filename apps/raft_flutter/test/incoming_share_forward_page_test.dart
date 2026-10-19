@@ -69,7 +69,6 @@ const _both = IncomingShare(
 Future<_Client> _pump(
   WidgetTester t, {
   IncomingShare share = _both,
-  RaftFamily family = RaftFamily.brutal,
   bool dark = false,
   Locale locale = const Locale('en'),
   int servers = 2,
@@ -86,7 +85,7 @@ Future<_Client> _pump(
       locale: locale,
       supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: IncomingSharePicker(
         client: client,
         staging: IncomingShareStaging(share),
@@ -116,16 +115,15 @@ Future<_Client> _pump(
 void main() {
   // Leak debt (share flow): see docs/development.md, Leak tracking.
   leakDebt(const ['IncomingShareStaging', 'ValueNotifier<RaftTransferProgress?>']);
-  for (final (name, family, dark) in [
-    ('brutal', RaftFamily.brutal, false),
-    ('elegant', RaftFamily.elegant, false),
-    ('elegant-dark', RaftFamily.elegant, true),
+  for (final (name, dark) in [
+    ('light', false),
+    ('dark', true),
   ]) {
     group(name, () {
       testWidgets(
         'targets page: header describes the share; rows are plain, no checkbox or chevron',
         (t) async {
-          await _pump(t, family: family, dark: dark);
+          await _pump(t, dark: dark);
           expect(find.text('Select destinations'), findsOneWidget);
           expect(find.text('Sharing 2 files and text'), findsOneWidget);
           // Not the forward copy: no "selected from", no message count.
@@ -157,7 +155,6 @@ void main() {
           final received = <String>[];
           final c = await _pump(
             t,
-            family: family,
             dark: dark,
             onContinue: (server, target) async =>
                 received.add('${server.id}:${target.key}'),

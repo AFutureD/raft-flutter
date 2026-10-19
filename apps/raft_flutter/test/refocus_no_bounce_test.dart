@@ -18,15 +18,13 @@ import '../integration_test/message_scroll_performance_test.dart'
 /// message again: the list repositions to it without ever leaving its
 /// scroll range (no overscroll spring / blank gap) on any frame.
 void main() {
-  for (final (family, dark, platform) in [
-    (RaftFamily.brutal, false, TargetPlatform.android),
-    (RaftFamily.elegant, false, TargetPlatform.android),
+  for (final (dark, platform) in [
+    (false, TargetPlatform.android),
     // Bouncing platforms: the app's own repositioning must not bounce.
-    (RaftFamily.brutal, false, TargetPlatform.iOS),
-    (RaftFamily.elegant, false, TargetPlatform.macOS),
+    (false, TargetPlatform.macOS),
   ]) {
     testWidgets(
-      '$family/$dark/$platform refocusing the same message never overscrolls',
+      '${dark ? 'dark' : 'light'}/$platform refocusing the same message never overscrolls',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1280, 800);
@@ -62,7 +60,7 @@ void main() {
         };
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark).copyWith(platform: platform),
+            theme: raftTheme(dark: dark).copyWith(platform: platform),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );
@@ -140,121 +138,113 @@ void main() {
     );
   }
 
-  for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
-    testWidgets('$family thread: reopening the same reply never overscrolls', (
-      tester,
-    ) async {
-      SharedPreferences.setMockInitialValues({});
-      tester.view.physicalSize = const Size(1280, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final (w, api) = (await tester.runAsync(() => fixture('member')))!;
-      addTearDown(w.dispose);
-      w.messageDomain.ledger.switchServer('s1');
-      final replies = [
-        for (final r in contextRows('r', count: 200)) {...r, 'channelId': 'th'},
-      ];
-      api.routes['GET /messages/context/parent'] = (_) => {
-        'messages': [
-          {
-            'id': 'parent',
-            'channelId': 'c1',
-            'seq': '1',
-            'senderId': 'alice',
-            'content': 'parent',
-          },
-        ],
-      };
-      api.routes['GET /messages/context/r-150'] = (_) => {
-        'messages': replies.sublist(125, 176),
-        'hasOlder': true,
-        'hasNewer': true,
-      };
-      api.routes['GET /messages/channel/th'] = (request) {
-        final before = int.tryParse('${request.queryParameters['before']}');
-        final after = int.tryParse('${request.queryParameters['after']}');
-        if (after != null) {
-          return {
-            'messages': replies.sublist(after, (after + 50).clamp(0, 200)),
-          };
-        }
-        final end = before == null ? replies.length : before - 1;
-        final start = (end - 50).clamp(0, end);
-        return {'messages': replies.sublist(start, end)};
-      };
-      Future<void> open() => tester.runAsync(() async {
-        unawaited(
-          w.openThreadIdentity(
-            parentChannelId: 'c1',
-            parentMessageId: 'parent',
-            initialThreadChannelId: 'th',
-            focusedMessageId: 'r-150',
-            navigate: false,
-          ),
-        );
-        for (
-          var i = 0;
-          i < 60 && (w.messageDomain.state.threadLoading || i < 4);
-          i++
-        ) {
-          await Future<void>.delayed(const Duration(milliseconds: 5));
-        }
-      });
-      await open();
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(family),
-          home: Scaffold(body: RaftChatView(controller: w, thread: true)),
+  testWidgets('thread: reopening the same reply never overscrolls', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final (w, api) = (await tester.runAsync(() => fixture('member')))!;
+    addTearDown(w.dispose);
+    w.messageDomain.ledger.switchServer('s1');
+    final replies = [
+      for (final r in contextRows('r', count: 200)) {...r, 'channelId': 'th'},
+    ];
+    api.routes['GET /messages/context/parent'] = (_) => {
+      'messages': [
+        {
+          'id': 'parent',
+          'channelId': 'c1',
+          'seq': '1',
+          'senderId': 'alice',
+          'content': 'parent',
+        },
+      ],
+    };
+    api.routes['GET /messages/context/r-150'] = (_) => {
+      'messages': replies.sublist(125, 176),
+      'hasOlder': true,
+      'hasNewer': true,
+    };
+    api.routes['GET /messages/channel/th'] = (request) {
+      final before = int.tryParse('${request.queryParameters['before']}');
+      final after = int.tryParse('${request.queryParameters['after']}');
+      if (after != null) {
+        return {'messages': replies.sublist(after, (after + 50).clamp(0, 200))};
+      }
+      final end = before == null ? replies.length : before - 1;
+      final start = (end - 50).clamp(0, end);
+      return {'messages': replies.sublist(start, end)};
+    };
+    Future<void> open() => tester.runAsync(() async {
+      unawaited(
+        w.openThreadIdentity(
+          parentChannelId: 'c1',
+          parentMessageId: 'parent',
+          initialThreadChannelId: 'th',
+          focusedMessageId: 'r-150',
+          navigate: false,
         ),
       );
-      for (var i = 0; i < 30; i++) {
-        await tester.pump(const Duration(milliseconds: 16));
+      for (
+        var i = 0;
+        i < 60 && (w.messageDomain.state.threadLoading || i < 4);
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
       }
-      expect(paintedMessage(tester, 'r-150'), isNotNull);
-      for (var k = 0; k < 25; k++) {
-        await tester.timedDrag(
-          find.byType(RaftChatView),
-          const Offset(0, 700),
-          const Duration(milliseconds: 120),
-        );
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 10)),
-        );
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-      await tester.pumpAndSettle();
-      expect(paintedMessage(tester, 'r-150'), isNull);
-      final dynamic state = tester.state(find.byType(RaftChatView));
-      await open();
-      final log = <String>[];
-      var bad = 0;
-      for (var i = 0; i < 60; i++) {
-        await tester.pump(const Duration(milliseconds: 16));
-        final ScrollController now = state.viewport;
-        if (!now.hasClients) {
-          log.add('$i detached');
-          continue;
-        }
-        final q = now.position;
-        final rect = paintedMessage(tester, 'r-150');
-        log.add(
-          '$i px=${q.pixels.toStringAsFixed(0)} '
-          'range=${q.minScrollExtent.toStringAsFixed(0)}..'
-          '${q.maxScrollExtent.toStringAsFixed(0)} '
-          'out=${q.outOfRange} target=${rect?.top.toStringAsFixed(0)}',
-        );
-        if (q.outOfRange) bad++;
-      }
-      expect(bad, 0, reason: log.join('\n'));
-      expect(
-        paintedMessage(tester, 'r-150'),
-        isNotNull,
-        reason: log.join('\n'),
-      );
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 3));
     });
-  }
+    await open();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(),
+        home: Scaffold(body: RaftChatView(controller: w, thread: true)),
+      ),
+    );
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(paintedMessage(tester, 'r-150'), isNotNull);
+    for (var k = 0; k < 25; k++) {
+      await tester.timedDrag(
+        find.byType(RaftChatView),
+        const Offset(0, 700),
+        const Duration(milliseconds: 120),
+      );
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await tester.pumpAndSettle();
+    expect(paintedMessage(tester, 'r-150'), isNull);
+    final dynamic state = tester.state(find.byType(RaftChatView));
+    await open();
+    final log = <String>[];
+    var bad = 0;
+    for (var i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      final ScrollController now = state.viewport;
+      if (!now.hasClients) {
+        log.add('$i detached');
+        continue;
+      }
+      final q = now.position;
+      final rect = paintedMessage(tester, 'r-150');
+      log.add(
+        '$i px=${q.pixels.toStringAsFixed(0)} '
+        'range=${q.minScrollExtent.toStringAsFixed(0)}..'
+        '${q.maxScrollExtent.toStringAsFixed(0)} '
+        'out=${q.outOfRange} target=${rect?.top.toStringAsFixed(0)}',
+      );
+      if (q.outOfRange) bad++;
+    }
+    expect(bad, 0, reason: log.join('\n'));
+    expect(paintedMessage(tester, 'r-150'), isNotNull, reason: log.join('\n'));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
+  });
 
   testWidgets('thread: own reply while scrolled to the top jumps to the end, '
       'no animated or inertial travel', (tester) async {
@@ -291,7 +281,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(body: RaftChatView(controller: w, thread: true)),
       ),
     );

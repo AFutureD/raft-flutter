@@ -113,7 +113,7 @@ class Fixture {
 
 Widget app(Fixture f, {String deployment = 'production', Widget? home}) =>
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       // The error notice is the app-wide toast (Web `toast.error`).
       builder: (context, child) => RaftToastHost(child: child!),
       home: AnnouncementHost(

@@ -12,7 +12,7 @@ void main() {
   ) async {
     Map<String, String>? submitted;
     Widget app(List<RaftFormField> fields) => MaterialApp(
-      theme: raftTheme(RaftFamily.brutal),
+      theme: raftTheme(),
       home: Scaffold(
         body: RaftFormDialog(
           title: 'Verify',

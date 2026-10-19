@@ -99,7 +99,7 @@ void main() {
       w.routes['/servers/s1/members'] = [];
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: withAppServices(
             ResourceView(
               controller: w,

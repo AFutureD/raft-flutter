@@ -56,7 +56,7 @@ Future<void> _pump(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.brutal),
+      theme: raftTheme(),
       home: Scaffold(
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -134,7 +134,7 @@ void main() {
         tester
             .getSize(find.byKey(const ValueKey('member-graph-canvas')))
             .height,
-        360 + 2 * 2,
+        360 + 2 * 1, // 1px border
       );
     },
   );

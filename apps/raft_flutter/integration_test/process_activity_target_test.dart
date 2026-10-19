@@ -769,15 +769,15 @@ void main() {
 
       try {
         await t.binding.setSurfaceSize(size);
-        final elegant = theme != 'brutal', dark = theme == 'elegant-dark';
+        final dark = theme == 'elegant-dark';
         await t.pumpWidget(
           MaterialApp(
             debugShowCheckedModeBanner: false,
             locale: const Locale('en'),
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
-            theme: raftTheme(elegant ? RaftFamily.elegant : RaftFamily.brutal),
-            darkTheme: raftTheme(RaftFamily.elegant, dark: true),
+            theme: raftTheme(),
+            darkTheme: raftTheme(dark: true),
             themeMode: dark ? ThemeMode.dark : ThemeMode.light,
             builder: (context, child) => Align(
               alignment: Alignment.topLeft,
@@ -799,7 +799,6 @@ void main() {
                 controller: w,
                 appearance: RaftAppearance(
                   mode: dark ? ThemeMode.dark : ThemeMode.light,
-                  light: elegant ? RaftFamily.elegant : RaftFamily.brutal,
                 ),
                 onAppearance: (_) async {},
                 onLogout: () async {},

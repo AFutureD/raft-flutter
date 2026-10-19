@@ -101,14 +101,10 @@ void main() {
     },
   );
 
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
-        '$family/$dark/$width pending identity keeps actual plain thread shell',
+        '${dark ? 'dark' : 'light'}/$width pending identity keeps actual plain thread shell',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           tester.view.physicalSize = Size(width, 844);
@@ -153,11 +149,11 @@ void main() {
           );
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),

@@ -61,7 +61,7 @@ Widget _host(
   String authority = 'alice',
   String label = 'current',
 }) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(
     body: RaftAdaptiveWorkspace(
       key: ValueKey(authority),
@@ -153,21 +153,15 @@ void main() {
     },
   );
 
-  for (final variant in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    final family = variant.$1;
-    final dark = variant.$2;
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/dark:$dark hidden retained menu closes and rejects stale actions',
+      '${dark ? 'dark' : 'light'} hidden retained menu closes and rejects stale actions',
       (tester) async {
         final controller = RaftMenuController();
         addTearDown(controller.dispose);
         var actions = 0;
         Widget host(bool active) => MaterialApp(
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: Scaffold(
             body: TickerMode(
               enabled: active,

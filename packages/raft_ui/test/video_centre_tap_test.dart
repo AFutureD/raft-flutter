@@ -22,7 +22,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: Center(
             child: SizedBox(
@@ -48,34 +48,45 @@ void main() {
     // The bar is up (paused) and the centre play button is drawn.
     if (!playing) {
       expect(find.byKey(const Key('inline-video-bar')), findsOneWidget);
-      if (touch) expect(find.byKey(const Key('inline-video-play')), findsOneWidget);
+      if (touch)
+        expect(find.byKey(const Key('inline-video-play')), findsOneWidget);
     }
-    await tester.tapAt(tester.getCenter(find.byKey(const Key('inline-video-surface'))));
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const Key('inline-video-surface'))),
+    );
     await tester.pump();
     return toggles;
   }
 
   for (final width in [220.0, 299.0, 360.0, 411.0, 448.0]) {
-    testWidgets('paused, touch: a tap in the middle of a ${width.toInt()} px card plays', (tester) async {
-      expect(await tapMiddle(tester, width: width), 1);
-    });
+    testWidgets(
+      'paused, touch: a tap in the middle of a ${width.toInt()} px card plays',
+      (tester) async {
+        expect(await tapMiddle(tester, width: width), 1);
+      },
+    );
   }
 
-  testWidgets('paused, mouse: a click in the middle of a phone-sized card plays', (tester) async {
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    addTearDown(mouse.removePointer);
-    await mouse.addPointer(location: Offset.zero);
-    expect(await tapMiddle(tester, width: 299, touch: false), 1);
-  });
+  testWidgets(
+    'paused, mouse: a click in the middle of a phone-sized card plays',
+    (tester) async {
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      expect(await tapMiddle(tester, width: 299, touch: false), 1);
+    },
+  );
 
-  testWidgets('the bar\'s own buttons still take their taps, not the picture', (tester) async {
+  testWidgets('the bar\'s own buttons still take their taps, not the picture', (
+    tester,
+  ) async {
     var overlay = 0, toggles = 0;
     tester.view.physicalSize = const Size(800, 600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: Center(
             child: SizedBox(
@@ -108,40 +119,49 @@ void main() {
     expect(toggles, 1);
   });
 
-  testWidgets('buffering shows a light spinner (not the play button) in every family', (tester) async {
-    for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
-      tester.view.physicalSize = const Size(800, 600);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(family),
-          home: Scaffold(
-            body: Center(
-              child: SizedBox(
-                width: 300,
-                height: 169,
-                child: RaftVideoOverlay(
-                  filename: 'clip.mp4',
-                  touch: true,
-                  ready: true,
-                  buffering: true,
-                  position: const Duration(seconds: 3),
-                  duration: const Duration(seconds: 20),
-                  child: const ColoredBox(color: Color(0xFF000000)),
-                ),
+  testWidgets('buffering shows a light spinner (not the play button)', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 300,
+              height: 169,
+              child: RaftVideoOverlay(
+                filename: 'clip.mp4',
+                touch: true,
+                ready: true,
+                buffering: true,
+                position: const Duration(seconds: 3),
+                duration: const Duration(seconds: 20),
+                child: const ColoredBox(color: Color(0xFF000000)),
               ),
             ),
           ),
         ),
-      );
-      expect(find.byKey(const Key('inline-video-buffering')), findsOneWidget);
-      expect(find.byKey(const Key('inline-video-play')), findsNothing);
-      // On the black stage the spinner is white, whatever the theme's ink is.
-      final painter = tester
-          .widget<CustomPaint>(find.descendant(of: find.byKey(const Key('inline-video-buffering')), matching: find.byType(CustomPaint)).first)
-          .painter as dynamic;
-      expect(painter.color, const Color(0xFFFFFFFF), reason: '$family');
-    }
+      ),
+    );
+    expect(find.byKey(const Key('inline-video-buffering')), findsOneWidget);
+    expect(find.byKey(const Key('inline-video-play')), findsNothing);
+    // On the black stage the spinner is white, whatever the theme's ink is.
+    final painter =
+        tester
+                .widget<CustomPaint>(
+                  find
+                      .descendant(
+                        of: find.byKey(const Key('inline-video-buffering')),
+                        matching: find.byType(CustomPaint),
+                      )
+                      .first,
+                )
+                .painter
+            as dynamic;
+    expect(painter.color, const Color(0xFFFFFFFF));
   });
 }

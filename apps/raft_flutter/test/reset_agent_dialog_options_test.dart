@@ -10,7 +10,7 @@ void main() {
     t,
   ) async {
     Widget app({required bool canFullReset}) => MaterialApp(
-      theme: raftTheme(RaftFamily.brutal),
+      theme: raftTheme(),
       home: Scaffold(
         body: SingleChildScrollView(
           child: RaftResetAgentDialog(

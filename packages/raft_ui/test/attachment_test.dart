@@ -5,20 +5,16 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '${family.name} dark=$dark attachment has separate accessible open/download actions',
+      '${dark ? 'dark' : 'light'} attachment has separate accessible open/download actions',
       (tester) async {
         final semantics = tester.ensureSemantics();
         try {
           var opened = 0, downloaded = 0;
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: Scaffold(
                 body: RaftAttachmentCard(
                   filename: '日本語.png',
@@ -48,7 +44,7 @@ void main() {
     'pending image preview reserves its final box without a spinner',
     (tester) async {
       Widget card(Widget? preview) => MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,
@@ -78,7 +74,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftAttachmentCard(
             filename: 'export.png',
@@ -109,7 +105,7 @@ void main() {
       var sends = 0, picks = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftComposer(
               canSend: false,

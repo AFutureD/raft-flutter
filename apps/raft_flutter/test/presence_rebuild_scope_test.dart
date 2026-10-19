@@ -184,7 +184,7 @@ void main() {
       unawaited(w.entityDirectory.preload());
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: w,

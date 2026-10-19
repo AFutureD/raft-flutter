@@ -5,12 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 
-Widget host(
-  Widget child, {
-  RaftFamily family = RaftFamily.elegant,
-  bool reduced = false,
-}) => MaterialApp(
-  theme: raftTheme(family),
+Widget host(Widget child, {bool reduced = false}) => MaterialApp(
+  theme: raftTheme(),
   home: MediaQuery(
     data: MediaQueryData(disableAnimations: reduced),
     child: Scaffold(body: child),
@@ -30,9 +26,8 @@ void main() {
     expect(clicks, 1);
     final context = tester.element(find.text('Default'));
     expect(
-      Actions.find<ButtonActivateIntent>(
-        context,
-      ).isEnabled(const ButtonActivateIntent()),
+      Actions.find<ButtonActivateIntent>(context)
+          .isEnabled(const ButtonActivateIntent()),
       isTrue,
     );
     Actions.invoke(context, const ButtonActivateIntent());
@@ -98,31 +93,24 @@ void main() {
     expect(tester.getSize(surface), const Size(32, 32));
   });
 
-  for (final family in RaftFamily.values) {
-    testWidgets(
-      '$family field outer box preserves source content plus border',
-      (tester) async {
-        await tester.pumpWidget(
-          host(
-            const SizedBox(
-              width: 320,
-              child: RaftFieldSurface(
-                child: TextField(
-                  decoration: InputDecoration(hintText: 'Server name'),
-                ),
-              ),
+  testWidgets('field outer box preserves source content plus border', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        const SizedBox(
+          width: 320,
+          child: RaftFieldSurface(
+            child: TextField(
+              decoration: InputDecoration(hintText: 'Server name'),
             ),
-            family: family,
           ),
-        );
-        expect(
-          tester.getSize(find.byType(RaftFieldSurface)).height,
-          family == RaftFamily.brutal ? 44 : 38,
-        );
-        expect(tester.takeException(), isNull);
-      },
+        ),
+      ),
     );
-  }
+    expect(tester.getSize(find.byType(RaftFieldSurface)).height, 38);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'Menu actual ArrowDown and Enter invoke next row; Escape dismisses',

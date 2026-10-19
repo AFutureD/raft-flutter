@@ -167,11 +167,11 @@ void main() {
     };
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: withAppServices(
           WorkspaceView(
             controller: w,
-            appearance: RaftAppearance(light: RaftFamily.elegant),
+            appearance: RaftAppearance(),
             onAppearance: (_) async {},
             onLogout: () async {},
           ),

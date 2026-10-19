@@ -232,7 +232,7 @@ void main() {
         addTearDown(fixture.content.dispose);
         await fixture.mount(
           t,
-          'brutal',
+          'light',
           1280,
           uri: Uri.parse('/s/alpha'),
           cachedSession: true,
@@ -377,7 +377,7 @@ void main() {
         final fixture = RootFixture(contentOverride: coordinator);
         addTearDown(fixture.content.dispose);
         addTearDown(() => fixture.close(t));
-        await fixture.mount(t, 'brutal', 390);
+        await fixture.mount(t, 'light', 390);
         await t.tap(find.byKey(const ValueKey('global-server-a')));
         await fixture.flush(t);
         await t.tap(find.text('general-a').last);

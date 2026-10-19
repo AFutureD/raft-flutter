@@ -9,14 +9,10 @@ import 'package:raft_ui/test_themes.dart';
 import 'message_presentation_test.dart' show fixture;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final thread in [false, true]) {
       testWidgets(
-        'actual sparse timeline geometry and resize $family/$dark/thread=$thread',
+        'actual sparse timeline geometry and resize ${dark ? 'dark' : 'light'}/thread=$thread',
         (t) async {
           final (w, _) = (await t.runAsync(() => fixture('owner')))!;
           addTearDown(w.dispose);
@@ -50,7 +46,7 @@ void main() {
           w.messageDomain.visibleIds[channelId] = {'row-1', 'row-2'};
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: Scaffold(
                 body: RaftDensityScope(
                   density: RaftDensity.desktop,

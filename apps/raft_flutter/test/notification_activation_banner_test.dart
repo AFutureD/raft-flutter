@@ -22,7 +22,6 @@ import 'workspace_source_location_contract_test.dart' show pageFixture;
 Widget host(
   Widget child,
   NativeNotificationService s, {
-  RaftFamily family = RaftFamily.brutal,
   bool dark = false,
   bool mobile = false,
   bool chinese = false,
@@ -30,7 +29,7 @@ Widget host(
   locale: chinese ? const Locale('zh') : const Locale('en'),
   supportedLocales: const [Locale('zh'), Locale('en')],
   localizationsDelegates: GlobalMaterialLocalizations.delegates,
-  theme: raftTheme(family, dark: dark),
+  theme: raftTheme(dark: dark),
   home: Scaffold(
     body: RaftDensityScope(
       density: mobile ? RaftDensity.touch : RaftDensity.desktop,
@@ -92,18 +91,14 @@ void main() {
       expect(t.binding.transientCallbackCount, 0);
     },
   );
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ]) {
+  for (final (dark) in [(false), (true)]) {
     for (final (mobile, chinese) in [
       (false, false),
       (true, false),
       (true, true),
     ]) {
       testWidgets(
-        'actual composer explicit opt-in survives restart $family/$dark/$mobile/$chinese',
+        'actual composer explicit opt-in survives restart ${dark ? 'dark' : 'light'}/$mobile/$chinese',
         (t) async {
           t.view.physicalSize = Size(mobile ? 390 : 1440, 1000);
           t.view.devicePixelRatio = 1;
@@ -118,7 +113,6 @@ void main() {
             host(
               RaftChatView(controller: w),
               s,
-              family: family,
               dark: dark,
               mobile: mobile,
               chinese: chinese,
@@ -155,7 +149,6 @@ void main() {
             host(
               RaftChatView(controller: w),
               reopened,
-              family: family,
               dark: dark,
               mobile: mobile,
             ),

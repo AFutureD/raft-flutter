@@ -32,7 +32,7 @@ Future<RootFixture> _signedOut(WidgetTester t, String path) async {
   SharedPreferences.setMockInitialValues({
     'raft.origin': 'https://fixture.invalid',
     'raft.mode': 'light',
-    'raft.light': 'elegant',
+    'raft.light': 'light',
   });
   t.view.devicePixelRatio = 1;
   t.view.physicalSize = const Size(1280, 900);
@@ -130,7 +130,7 @@ void main() {
 
   testWidgets('signed in member: a server the account has opens as before', (t) async {
     final f = RootFixture();
-    await f.mount(t, 'elegant', 1280, uri: Uri(path: '/s/alpha'));
+    await f.mount(t, 'light', 1280, uri: Uri(path: '/s/alpha'));
     expect(find.byType(WorkspaceView), findsOneWidget);
     expect(find.byType(PublicServerView), findsNothing);
     expect(f.adapter.calls.where((c) => c.path.startsWith('/public/')), isEmpty);
@@ -146,7 +146,7 @@ void main() {
       f.servers.add({'id': 'new', 'name': 'Gamma', 'slug': 'gamma', 'role': 'guest'});
       return {'joined': true};
     };
-    await f.mount(t, 'elegant', 1280, uri: Uri(path: '/s/gamma'));
+    await f.mount(t, 'light', 1280, uri: Uri(path: '/s/gamma'));
     expect(find.byType(PublicServerView), findsOneWidget);
     expect(find.byKey(const ValueKey('public-join-guest')), findsOneWidget);
     await t.tap(find.byKey(const ValueKey('public-join-guest')));
@@ -160,7 +160,7 @@ void main() {
 
   testWidgets('signed in nonmember: a server that is not public shows the server-not-found page', (t) async {
     final f = RootFixture();
-    await f.mount(t, 'elegant', 1280, uri: Uri(path: '/s/private-one'));
+    await f.mount(t, 'light', 1280, uri: Uri(path: '/s/private-one'));
     expect(find.byType(PublicServerView), findsNothing);
     expect(find.byType(GlobalServerSelector), findsNothing);
     expect(find.byType(RaftServerAccessDeniedPage), findsOneWidget);

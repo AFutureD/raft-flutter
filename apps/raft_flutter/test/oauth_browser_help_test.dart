@@ -57,7 +57,7 @@ Future<void> _mount(
 }) async {
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: AuthView(
         origin: 'https://example.invalid',
         onLogin: (b, e, p) async {},

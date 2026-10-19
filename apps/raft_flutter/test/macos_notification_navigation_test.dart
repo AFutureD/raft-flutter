@@ -142,7 +142,7 @@ void main() {
                 notificationResponse: _response(payload),
               );
             }
-            await mountPage(t, w, RaftFamily.brutal, false);
+            await mountPage(t, w, false);
             if (!cold && kind == 'dm') {
               api.routes['GET /messages/context/old-parent'] = (_) => {
                 'messages': [message('old-parent', 'c1')],

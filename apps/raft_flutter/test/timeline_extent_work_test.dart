@@ -190,7 +190,7 @@ void main() {
       final updates = <int, StateSetter>{};
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftMessageTimeline(
               controller: controller,

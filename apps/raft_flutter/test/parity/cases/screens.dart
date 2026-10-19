@@ -291,7 +291,7 @@ Widget _workspaceView(ParityContext ctx, WorkspaceController w) =>
     withAppServices(
       WorkspaceView(
         controller: w,
-        appearance: RaftAppearance(light: ctx.family),
+        appearance: RaftAppearance(),
         onAppearance: (_) async {},
         onLogout: () async {},
       ),

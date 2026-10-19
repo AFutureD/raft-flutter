@@ -537,7 +537,7 @@ void main() {
       w.messageDomain.visibleIds['channel'] = {'host'};
       final files = _RasterFiles();
       Widget mountedView() => MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: AttachmentView(
             controller: w,
@@ -639,7 +639,7 @@ void main() {
       w.messageDomain.visibleIds['channel'] = {'host'};
       final files = _RasterFiles();
       Widget mountedView() => MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: AttachmentView(
             controller: w,

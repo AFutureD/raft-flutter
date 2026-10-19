@@ -34,7 +34,7 @@ RaftClient _client() {
 }
 
 Widget _app(Widget child) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(body: child),
 );
 
@@ -461,7 +461,7 @@ void main() {
     );
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(body: RaftChatView(controller: w)),
       ),
     );

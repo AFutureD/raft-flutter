@@ -31,7 +31,6 @@ List<Map<String, dynamic>> _rows(String prefix, int from, int count) => [
 Future<void> _mount(
   WidgetTester tester,
   WorkspaceController w,
-  RaftFamily family,
   bool dark,
 ) async {
   tester.view.physicalSize = const Size(1280, 800);
@@ -39,7 +38,7 @@ Future<void> _mount(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: Scaffold(body: RaftChatView(controller: w)),
     ),
   );
@@ -58,13 +57,9 @@ Future<void> _mount(
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark scrolled-up arrivals are counted without moving, an own send follows to the end',
+      '${dark ? 'dark' : 'light'} scrolled-up arrivals are counted without moving, an own send follows to the end',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         final (w, api) = (await tester.runAsync(() => fixture('member')))!;
@@ -79,7 +74,7 @@ void main() {
         w.messageDomain.visibleIds['c1'] = rows
             .map((r) => r['id'] as String)
             .toSet();
-        await _mount(tester, w, family, dark);
+        await _mount(tester, w, dark);
         final dynamic state = tester.state(find.byType(RaftChatView));
         final ScrollController viewport = state.viewport;
         viewport.jumpTo(viewport.offset - 2400);
@@ -152,7 +147,7 @@ void main() {
     );
 
     testWidgets(
-      '$family/$dark loading an older page keeps the reading position',
+      '${dark ? 'dark' : 'light'} loading an older page keeps the reading position',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         final (w, api) = (await tester.runAsync(() => fixture('member')))!;
@@ -173,7 +168,7 @@ void main() {
           requests.add(Map.of(o.queryParameters));
           return page.future;
         };
-        await _mount(tester, w, family, dark);
+        await _mount(tester, w, dark);
         // A real upward drag toward older history arms and triggers paging.
         for (var i = 0; i < 40 && requests.isEmpty; i++) {
           await tester.drag(

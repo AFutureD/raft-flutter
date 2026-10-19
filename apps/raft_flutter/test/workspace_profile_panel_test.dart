@@ -26,11 +26,11 @@ void main() {
         api.routes['GET /servers/s1/members'] = (_) => [];
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.elegant),
+            theme: raftTheme(),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: RaftFamily.elegant),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),

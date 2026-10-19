@@ -228,7 +228,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           navigatorKey: navigator,
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

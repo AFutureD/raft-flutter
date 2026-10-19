@@ -346,17 +346,15 @@ String _short(AuditFinding f) =>
     '${f.where.isEmpty ? '' : ' @ ${f.where.split(' < ').first}'}';
 
 void main() {
-  for (final (name, family, dark) in raftThemeMatrix([
-    ('brutal-light', RaftFamily.brutal, false),
-    ('elegant-light', RaftFamily.elegant, false),
-    ('elegant-dark', RaftFamily.elegant, true),
+  for (final (name, dark) in raftThemeMatrix([
+    ('elegant-light', false),
+    ('elegant-dark', true),
   ])) {
     for (final profile in _profiles) {
       testWidgets('component labels fit: $name ${profile.name}', (t) async {
         await loadAuditFonts(t, AuditFonts.real);
         const zh = Locale('zh', 'CN');
         final theme = raftTheme(
-          family,
           dark: dark,
           locale: profile.android ? zh : null,
           platform: profile.android ? TargetPlatform.android : null,

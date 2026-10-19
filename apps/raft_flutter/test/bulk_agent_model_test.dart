@@ -151,7 +151,6 @@ void main() {
 
   Future<void> panel(
     WidgetTester tester, {
-    RaftFamily family = RaftFamily.brutal,
     bool dark = false,
     Locale locale = const Locale('en'),
     double width = 1100,
@@ -174,7 +173,7 @@ void main() {
         locale: locale,
         supportedLocales: const [Locale('en'), Locale('zh')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: raftTheme(family, dark: dark),
+        theme: raftTheme(dark: dark),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context)
               .copyWith(textScaler: TextScaler.linear(scale)),
@@ -231,7 +230,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: ComputerDetailPanel(controller: workspace, machine: machine),
         ),
@@ -250,15 +249,11 @@ void main() {
     );
   });
 
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ]) {
+  for (final (dark) in [(false), (true)]) {
     testWidgets(
-      'choose/review/cancel and keyboard dismissal do not write ($family/$dark)',
+      'choose/review/cancel and keyboard dismissal do not write (${dark ? 'dark' : 'light'})',
       (tester) async {
-        await panel(tester, family: family, dark: dark);
+        await panel(tester, dark: dark);
         await open(tester);
         await tap(tester, 'bulk-model-next');
         expect(find.byKey(const ValueKey('bulk-model-row-a1')), findsOneWidget);

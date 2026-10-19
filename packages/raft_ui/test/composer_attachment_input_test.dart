@@ -13,18 +13,15 @@ const _desktopPastePlatforms = TargetPlatformVariant({
   TargetPlatform.linux,
 });
 
-Future<void> _pump(
-  WidgetTester tester,
-  RaftComposer composer, {
-  RaftFamily family = RaftFamily.elegant,
-}) => tester.pumpWidget(
-  MaterialApp(
-    theme: raftTheme(family),
-    home: Scaffold(
-      body: Align(alignment: Alignment.bottomCenter, child: composer),
-    ),
-  ),
-);
+Future<void> _pump(WidgetTester tester, RaftComposer composer) =>
+    tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(),
+        home: Scaffold(
+          body: Align(alignment: Alignment.bottomCenter, child: composer),
+        ),
+      ),
+    );
 
 void _clipboardText(WidgetTester tester, String text) => tester
     .binding
@@ -183,7 +180,7 @@ void main() {
       final inspecting = Completer<bool>();
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Scaffold(
             body: Column(
               children: [
@@ -344,60 +341,59 @@ void main() {
     );
   });
 
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    testWidgets('$family/$dark drop overlay covers the composer without '
-        'taking input or semantics', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(family, dark: dark),
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.bottomCenter,
-              child: Stack(
-                children: [
-                  RaftComposer(onSend: (_) async => true),
-                  const Positioned.fill(child: RaftComposerDropOverlay()),
-                ],
+  for (final dark in raftThemeMatrix([false, true])) {
+    testWidgets(
+      '${dark ? 'dark' : 'light'} drop overlay covers the composer without '
+      'taking input or semantics',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(dark: dark),
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.bottomCenter,
+                child: Stack(
+                  children: [
+                    RaftComposer(onSend: (_) async => true),
+                    const Positioned.fill(child: RaftComposerDropOverlay()),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      );
-      expect(find.text('Drop files to attach'), findsOneWidget);
-      // `absolute inset-0` of the composer root: its padding box, below the
-      // root's `border-t` (2px Brutal, 1px Elegant).
-      final composer = tester.getRect(find.byType(RaftComposer));
-      expect(
-        tester.getRect(find.byKey(const ValueKey('composer-drop-overlay'))),
-        Rect.fromLTRB(
-          composer.left,
-          composer.top + (family == RaftFamily.brutal ? 2 : 1),
-          composer.right,
-          composer.bottom,
-        ),
-      );
-      final semantics = tester.ensureSemantics();
-      expect(find.bySemanticsLabel('Drop files to attach'), findsNothing);
-      semantics.dispose();
-      expect(
-        find.ancestor(
-          of: find.text('Drop files to attach'),
-          matching: find.byType(IgnorePointer),
-        ),
-        findsWidgets,
-      );
-      expect(tester.takeException(), isNull);
-    });
+        );
+        expect(find.text('Drop files to attach'), findsOneWidget);
+        // `absolute inset-0` of the composer root: its padding box, below the
+        // root's `border-t` (1px).
+        final composer = tester.getRect(find.byType(RaftComposer));
+        expect(
+          tester.getRect(find.byKey(const ValueKey('composer-drop-overlay'))),
+          Rect.fromLTRB(
+            composer.left,
+            composer.top + 1,
+            composer.right,
+            composer.bottom,
+          ),
+        );
+        final semantics = tester.ensureSemantics();
+        expect(find.bySemanticsLabel('Drop files to attach'), findsNothing);
+        semantics.dispose();
+        expect(
+          find.ancestor(
+            of: find.text('Drop files to attach'),
+            matching: find.byType(IgnorePointer),
+          ),
+          findsWidgets,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('drop overlay label is localized', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: Builder(
             builder: (context) => Localizations.override(

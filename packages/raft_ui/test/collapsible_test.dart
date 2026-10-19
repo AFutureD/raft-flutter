@@ -7,7 +7,7 @@ void main() {
     'rendered height collapse expands, respects disabled preference and remeasures',
     (tester) async {
       Widget frame({bool enabled = true, double height = 700}) => MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: SingleChildScrollView(
             child: RaftCollapsible(
@@ -47,7 +47,7 @@ void main() {
     final visibleFocus = FocusNode();
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: SingleChildScrollView(
             child: RaftCollapsible(

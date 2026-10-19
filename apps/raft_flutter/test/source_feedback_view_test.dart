@@ -55,13 +55,9 @@ void main() {
       }
     },
   );
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark real ticket action opens GET replies and back preserves inbox',
+      '${dark ? 'dark' : 'light'} real ticket action opens GET replies and back preserves inbox',
       (tester) async {
         final counts = <int>[];
         final store = SourceFeedbackStore(
@@ -77,7 +73,7 @@ void main() {
         await store.loadList();
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: SourceFeedbackProjectionView(store: store)),
           ),
         );

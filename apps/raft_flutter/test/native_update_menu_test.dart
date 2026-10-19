@@ -78,7 +78,7 @@ void main() {
         await t.pumpWidget(
           MaterialApp(
             navigatorKey: navigator,
-            theme: raftTheme(RaftFamily.brutal),
+            theme: raftTheme(),
             builder: (context, child) => AppWindowCommands(
               navigatorKey: navigator,
               updater: updater,

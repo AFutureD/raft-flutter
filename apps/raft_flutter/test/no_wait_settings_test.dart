@@ -29,13 +29,13 @@ import 'flutter_test_config.dart' show leakDebt;
 /// already holds (a previous visit, the workspace directory, the sidebar the
 /// rail loaded), with a network that never answers.
 Widget _host(Widget child) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(body: SingleChildScrollView(child: child)),
 );
 
 /// For pages that scroll themselves.
 Widget _fullPage(Widget child) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(body: SizedBox.expand(child: child)),
 );
 
@@ -295,7 +295,7 @@ void main() {
     final (w, a, service) = await t.runAsync(notif.fixture) as dynamic;
     addTearDown(w.dispose);
     Widget page() => MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: SingleChildScrollView(
           child: NotificationSettingsView(
@@ -324,7 +324,7 @@ void main() {
     final calls = <int>[];
     var hang = false;
     Widget page() => MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: InviteAcceptView(
         token: 'tok',
         signedIn: false,
@@ -388,7 +388,7 @@ void main() {
       });
     });
     Widget page() => MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: PublicServerView(
           client: client,

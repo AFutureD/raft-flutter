@@ -239,7 +239,7 @@ void main() {
     });
   });
 
-  for (final theme in ['brutal', 'elegant-light']) {
+  for (final theme in ['light']) {
     Future<void> tapTab(RootFixture f, WidgetTester t, String id) async {
       await t.tap(find.byKey(Key('mobile-tab-$id')));
       await f.flush(t);

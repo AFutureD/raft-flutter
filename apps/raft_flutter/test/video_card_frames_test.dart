@@ -240,7 +240,7 @@ void main() {
   );
 
   Widget host(Widget child, {Size? size}) => MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     home: Scaffold(
       body: Align(alignment: Alignment.topLeft, child: child),
     ),
@@ -709,7 +709,7 @@ void main() {
       final scheduler = VideoFrameScheduler();
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: ListView(
               controller: scroll,
@@ -853,7 +853,7 @@ void main() {
       final files = CountingFiles(picture);
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: Align(
               alignment: Alignment.topLeft,

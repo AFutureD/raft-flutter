@@ -10,7 +10,7 @@ void main() {
   testWidgets(
     'dark source inset paints inside field and survives border tween',
     (tester) async {
-      final theme = raftTheme(RaftFamily.elegant, dark: true);
+      final theme = raftTheme(dark: true);
       final normal =
           theme.inputDecorationTheme.enabledBorder! as RaftFieldBorder;
       final focused =
@@ -51,55 +51,51 @@ void main() {
       });
       expect(data, isNotNull);
       // A transparent 1px CSS border retains the fill at the border edge;
-      // the black inset ring begins inside it, at the padding edge.
+      // the inset ring (line-hairline, a faint light ring on dark) begins
+      // inside it, at the padding edge. The top/bottom glows are transparent.
       final interior = data!.getUint8((19 * 300 + 150) * 4);
       expect(data.getUint8(150 * 4), interior);
-      expect(data.getUint8((300 + 150) * 4), lessThan(interior));
+      expect(data.getUint8((300 + 150) * 4), greaterThan(interior));
       expect(data.getUint8((19 * 300) * 4), interior);
-      expect(data.getUint8((19 * 300 + 1) * 4), lessThan(interior));
+      expect(data.getUint8((19 * 300 + 1) * 4), greaterThan(interior));
       expect(boundary.size, const Size(300, 38));
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
 
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    testWidgets('$family dark=$dark disabled field renders named hint safely', (
-      tester,
-    ) async {
-      final theme = raftTheme(family, dark: dark);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: theme,
-          home: const Scaffold(
-            body: TextField(
-              enabled: false,
-              decoration: InputDecoration(
-                labelText: 'Channel name',
-                hintText: 'Disabled field',
+  for (final dark in raftThemeMatrix([false, true])) {
+    testWidgets(
+      '${dark ? 'dark' : 'light'} disabled field renders named hint safely',
+      (tester) async {
+        final theme = raftTheme(dark: dark);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: const Scaffold(
+              body: TextField(
+                enabled: false,
+                decoration: InputDecoration(
+                  labelText: 'Channel name',
+                  hintText: 'Disabled field',
+                ),
               ),
             ),
           ),
-        ),
-      );
-      expect(tester.takeException(), isNull);
-      expect(find.text('Disabled field'), findsOneWidget);
-      expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
-      final tokens = theme.extension<RaftTokens>()!;
-      final style = WidgetStateProperty.resolveAs<TextStyle>(
-        theme.inputDecorationTheme.hintStyle!,
-        {WidgetState.disabled},
-      );
-      expect(
-        style.color,
-        family == RaftFamily.brutal
-            ? tokens.colors['foreground-placeholder']
-            : tokens.colors['foreground-disabled'],
-      );
-      await tester.pumpWidget(const SizedBox.shrink());
-    });
+        );
+        expect(tester.takeException(), isNull);
+        expect(find.text('Disabled field'), findsOneWidget);
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).enabled,
+          isFalse,
+        );
+        final tokens = theme.extension<RaftTokens>()!;
+        final style = WidgetStateProperty.resolveAs<TextStyle>(
+          theme.inputDecorationTheme.hintStyle!,
+          {WidgetState.disabled},
+        );
+        expect(style.color, tokens.colors['foreground-disabled']);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
   }
 }

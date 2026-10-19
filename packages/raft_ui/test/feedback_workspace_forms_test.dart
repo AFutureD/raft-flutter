@@ -4,12 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
-Widget _host(
-  Widget child, {
-  RaftFamily family = RaftFamily.elegant,
-  bool dark = false,
-}) => MaterialApp(
-  theme: raftTheme(family, dark: dark),
+Widget _host(Widget child, {bool dark = false}) => MaterialApp(
+  theme: raftTheme(dark: dark),
   home: Scaffold(body: SizedBox(width: 900, height: 700, child: child)),
 );
 
@@ -86,12 +82,8 @@ final _png = Uint8List.fromList(const [
 ]);
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    group('$family/$dark', () {
+  for (final dark in raftThemeMatrix([false, true])) {
+    group('${dark ? 'dark' : 'light'}', () {
       testWidgets('composer: Enter submits, Shift+Enter and IME composition '
           'do not; the counter and actions render', (t) async {
         final controller = TextEditingController();
@@ -119,7 +111,6 @@ void main() {
                 onChanged: changes.add,
               ),
             ),
-            family: family,
             dark: dark,
           ),
         );
@@ -191,7 +182,6 @@ void main() {
                 actions: const [],
               ),
             ),
-            family: family,
             dark: dark,
           ),
         );
@@ -228,7 +218,6 @@ void main() {
               onKind: kinds.add,
               composer: const SizedBox(height: 40),
             ),
-            family: family,
             dark: dark,
           ),
         );
@@ -286,7 +275,6 @@ void main() {
                 ),
               ],
             ),
-            family: family,
             dark: dark,
           ),
         );

@@ -85,7 +85,7 @@ Map<String, _Route> _routes({bool joinable = true, List<Map<String, dynamic>>? c
 };
 
 Widget _host(Widget child) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(body: child),
 );
 

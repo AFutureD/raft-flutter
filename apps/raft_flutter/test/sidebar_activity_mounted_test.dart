@@ -7,13 +7,9 @@ import 'package:raft_ui/test_themes.dart';
 import 'mounted_message_navigation_test.dart' show pageFixture, mountPage;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark recent sidebar keeps order and current indicators through resize and history changes',
+      '${dark ? 'dark' : 'light'} recent sidebar keeps order and current indicators through resize and history changes',
       (t) async {
         final (w, _) = await pageFixture(t);
         w.channels.addAll([
@@ -40,7 +36,7 @@ void main() {
             'createdAt': '2026-10-02T00:00:00Z',
           },
         ], expectedGeneration: w.messageDomain.ledger.generation);
-        await mountPage(t, w, family, dark);
+        await mountPage(t, w, dark);
         final a = find.byKey(const ValueKey('sidebar-channel-activity-a'));
         final b = find.byKey(const ValueKey('sidebar-channel-activity-b'));
         final accepted = w.messageDomain.ledger.latestCreatedAt('activity-a');

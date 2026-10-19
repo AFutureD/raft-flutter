@@ -12,13 +12,9 @@ import 'flutter_test_config.dart' show leakDebt;
 void main() {
   // Leak debt (other): see docs/development.md, Leak tracking.
   leakDebt(const ['SourceChannelFilesStore']);
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark actual tab bodies preserve draft/cursor and reject hidden reads',
+      '${dark ? 'dark' : 'light'} actual tab bodies preserve draft/cursor and reject hidden reads',
       (t) async {
         t.view.physicalSize = const Size(390, 720);
         t.view.devicePixelRatio = 1;
@@ -69,7 +65,7 @@ void main() {
         var taskOpens = 0;
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: ConversationPanel(
                 controller: w,

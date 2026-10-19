@@ -279,7 +279,7 @@ void main() {
     }
 
     Widget app() => MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: ValueListenableBuilder<bool>(
           valueListenable: tickers,

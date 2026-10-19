@@ -154,7 +154,7 @@ Future<RootCache> _firstProcess(
 }) async {
   final f = RootFixture();
   _routes(f);
-  await f.mount(t, 'elegant-light', 1280);
+  await f.mount(t, 'light', 1280);
   await t.tap(find.byKey(const ValueKey('global-server-a')));
   await f.flush(t);
   await t.tap(find.text('general-x').first);
@@ -337,7 +337,7 @@ Future<Scene> boot(
   f.holds.addAll(holds);
   await f.mount(
     t,
-    'elegant-light',
+    'light',
     412,
     cachedSession: true,
     settle: !cold,

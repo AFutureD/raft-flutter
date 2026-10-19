@@ -354,7 +354,7 @@ Future<_Rig> _mount(
   });
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       builder: (context, child) => RaftToastHost(
         controller: toasts,
         child: textScale == 1 ? child! : RaftTextScaling(child: child!),
@@ -2306,7 +2306,7 @@ void registerImageViewerTests(TestPart part) {
       final shown = <String>[];
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: MediaBrowser(
             controller: rig.w,
             files: rig.files,

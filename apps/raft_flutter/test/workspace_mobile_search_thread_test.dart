@@ -17,14 +17,10 @@ import 'workspace_source_location_contract_test.dart'
 // Its explicit close-slot owner replaces the Search URI. It does not supply
 // Activity's onFocusedMessageConsumed callback (899–910), so expiry is visual.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [390.0, 1440.0]) {
       testWidgets(
-        '[N02c] $family/$dark ${width == 390 ? 'mobile' : 'desktop'} Search direct thread preserves URI through focus expiry and owned close',
+        '[N02c] ${dark ? 'dark' : 'light'} ${width == 390 ? 'mobile' : 'desktop'} Search direct thread preserves URI through focus expiry and owned close',
         (tester) async {
           final (w, api) = await pageFixture(tester, section: 'search');
           w.navigation.navigate(
@@ -55,7 +51,7 @@ void main() {
           };
           api.routes['GET /messages/context/parent'] = (_) => parent.future;
           api.routes['GET /messages/context/reply'] = (_) => reply.future;
-          await mountPage(tester, w, family, dark, width: width);
+          await mountPage(tester, w, dark, width: width);
           final searchElement = tester.element(find.byType(ResourceView)),
               index = w.navigation.index,
               count = w.navigation.entries.length;
@@ -198,7 +194,7 @@ void main() {
       );
     }
     testWidgets(
-      '[N02c] $family/$dark desktop Search first thread PUSH and reply/thread retarget/Close REPLACE',
+      '[N02c] ${dark ? 'dark' : 'light'} desktop Search first thread PUSH and reply/thread retarget/Close REPLACE',
       (tester) async {
         final (w, api) = await pageFixture(tester, section: 'search');
         w.navigation.navigate(
@@ -237,7 +233,7 @@ void main() {
         ]) {
           api.routes['GET /messages/context/$id'] = (_) => held.future;
         }
-        await mountPage(tester, w, family, dark);
+        await mountPage(tester, w, dark);
         final index = w.navigation.index, count = w.navigation.entries.length;
         expect(find.byType(RaftSearchResultSurface), findsNWidgets(3));
         for (var row = 0; row < rows.length; row++) {

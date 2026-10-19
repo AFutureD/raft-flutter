@@ -183,7 +183,6 @@ class _Client extends RaftClient {
 Future<(_Client, WorkspaceController)> mount(
   WidgetTester t, {
   Size size = const Size(1280, 900),
-  RaftFamily family = RaftFamily.elegant,
   bool dark = false,
   String section = 'chat',
 }) async {
@@ -213,7 +212,7 @@ Future<(_Client, WorkspaceController)> mount(
   });
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: withAppServices(
         WorkspaceView(
           controller: w,

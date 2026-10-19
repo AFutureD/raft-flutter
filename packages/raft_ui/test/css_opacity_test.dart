@@ -12,7 +12,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: RepaintBoundary(
           key: const ValueKey('paint'),
           child: ColoredBox(
@@ -64,15 +64,15 @@ void main() {
     final send = tester.getTopLeft(find.byType(RaftComposerAction));
     expect(
       await pixel(tester, dialog + const Offset(12, 12)),
-      const Color(0xfffecadb),
+      const Color(0xffffeef3),
     );
     expect(
       await pixel(tester, cindy + const Offset(12, 12)),
-      const Color(0xffffcbdc),
+      const Color(0xffffeff3),
     );
     expect(
       await pixel(tester, send + const Offset(5, 8)),
-      const Color(0xfffecadb),
+      const Color(0xffffeef3),
     );
     expect(
       tester.widget<RaftButton>(find.byType(RaftButton).first).onPressed,
@@ -81,89 +81,92 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    testWidgets('$family/$dark alpha changes retain editor, focus and IME', (
-      tester,
-    ) async {
-      final alpha = ValueNotifier<double>(1);
-      final controller = TextEditingController(text: 'Draft 中文');
-      final focus = FocusNode();
-      addTearDown(alpha.dispose);
-      addTearDown(controller.dispose);
-      addTearDown(focus.dispose);
-      final semantics = tester.ensureSemantics();
-      try {
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: raftTheme(family, dark: dark),
-            home: Scaffold(
-              body: ValueListenableBuilder<double>(
-                valueListenable: alpha,
-                builder: (_, value, _) => RaftCssOpacity(
-                  opacity: value,
-                  child: Semantics(
-                    label: 'Visible editor',
-                    child: TextField(controller: controller, focusNode: focus),
+  for (final dark in raftThemeMatrix([false, true])) {
+    testWidgets(
+      '${dark ? 'dark' : 'light'} alpha changes retain editor, focus and IME',
+      (tester) async {
+        final alpha = ValueNotifier<double>(1);
+        final controller = TextEditingController(text: 'Draft 中文');
+        final focus = FocusNode();
+        addTearDown(alpha.dispose);
+        addTearDown(controller.dispose);
+        addTearDown(focus.dispose);
+        final semantics = tester.ensureSemantics();
+        try {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: raftTheme(dark: dark),
+              home: Scaffold(
+                body: ValueListenableBuilder<double>(
+                  valueListenable: alpha,
+                  builder: (_, value, _) => RaftCssOpacity(
+                    opacity: value,
+                    child: Semantics(
+                      label: 'Visible editor',
+                      child: TextField(
+                        controller: controller,
+                        focusNode: focus,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
-        await tester.tap(find.byType(TextField));
-        await tester.pump();
-        final state = tester.state<EditableTextState>(
-          find.byType(EditableText),
-        );
-        tester.testTextInput.updateEditingValue(
-          const TextEditingValue(
-            text: 'Draft 日本語',
-            selection: TextSelection.collapsed(offset: 9),
-            composing: TextRange(start: 6, end: 9),
-          ),
-        );
-        await tester.pump();
-        for (final value in [.4, 0.0, 1.0]) {
-          alpha.value = value;
+          );
+          await tester.tap(find.byType(TextField));
           await tester.pump();
-          expect(
-            tester.state<EditableTextState>(find.byType(EditableText)),
-            same(state),
+          final state = tester.state<EditableTextState>(
+            find.byType(EditableText),
           );
-          expect(controller.value.composing, const TextRange(start: 6, end: 9));
-          expect(controller.text, 'Draft 日本語');
-          expect(focus.hasFocus, true);
-          final root = tester
-              .binding
-              .renderViews
-              .single
-              .owner!
-              .semanticsOwner!
-              .rootSemanticsNode!;
-          final labels = <String>[];
-          void visit(SemanticsNode node) {
-            labels.add(node.getSemanticsData().label);
-            node.visitChildren((child) {
-              visit(child);
-              return true;
-            });
-          }
+          tester.testTextInput.updateEditingValue(
+            const TextEditingValue(
+              text: 'Draft 日本語',
+              selection: TextSelection.collapsed(offset: 9),
+              composing: TextRange(start: 6, end: 9),
+            ),
+          );
+          await tester.pump();
+          for (final value in [.4, 0.0, 1.0]) {
+            alpha.value = value;
+            await tester.pump();
+            expect(
+              tester.state<EditableTextState>(find.byType(EditableText)),
+              same(state),
+            );
+            expect(
+              controller.value.composing,
+              const TextRange(start: 6, end: 9),
+            );
+            expect(controller.text, 'Draft 日本語');
+            expect(focus.hasFocus, true);
+            final root = tester
+                .binding
+                .renderViews
+                .single
+                .owner!
+                .semanticsOwner!
+                .rootSemanticsNode!;
+            final labels = <String>[];
+            void visit(SemanticsNode node) {
+              labels.add(node.getSemanticsData().label);
+              node.visitChildren((child) {
+                visit(child);
+                return true;
+              });
+            }
 
-          visit(root);
-          expect(
-            labels.any((label) => label.contains('Visible editor')),
-            value != 0,
-          );
+            visit(root);
+            expect(
+              labels.any((label) => label.contains('Visible editor')),
+              value != 0,
+            );
+          }
+          await tester.pumpWidget(const SizedBox());
+          await tester.pump();
+        } finally {
+          semantics.dispose();
         }
-        await tester.pumpWidget(const SizedBox());
-        await tester.pump();
-      } finally {
-        semantics.dispose();
-      }
-    });
+      },
+    );
   }
 }

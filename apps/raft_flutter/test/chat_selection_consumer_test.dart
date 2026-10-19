@@ -94,7 +94,7 @@ void main() {
         );
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.elegant),
+            theme: raftTheme(),
             home: Scaffold(
               body: RaftChatView(
                 controller: w,

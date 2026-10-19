@@ -60,7 +60,6 @@ Future<WorkspaceController> mountAppUpdateWorkspace(
   WidgetTester t,
   AppUpdateService? update, {
   double width = 1280,
-  RaftFamily family = RaftFamily.elegant,
   bool dark = false,
 }) async {
   final (w, api) = await pageFixture(t, section: 'chat');
@@ -75,11 +74,11 @@ Future<WorkspaceController> mountAppUpdateWorkspace(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: withAppServices(
         WorkspaceView(
           controller: w,
-          appearance: const RaftAppearance(light: RaftFamily.elegant),
+          appearance: const RaftAppearance(),
           onAppearance: (_) async {},
           onLogout: () async {},
         ),

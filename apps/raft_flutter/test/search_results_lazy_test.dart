@@ -8,19 +8,15 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final threaded in [false, true]) {
       testWidgets(
-        '1000 search results stay lazy $family/$dark/thread=$threaded',
+        '1000 search results stay lazy ${dark ? 'dark' : 'light'}/thread=$threaded',
         (t) async {
           Map<String, dynamic>? selected;
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: Scaffold(
                 body: ResourceSearchResults(
                   query: 'result',

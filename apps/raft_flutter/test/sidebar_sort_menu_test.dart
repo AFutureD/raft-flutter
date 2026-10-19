@@ -22,7 +22,7 @@ void main() {
         String? selected;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.elegant),
+            theme: raftTheme(),
             home: Scaffold(
               body: Builder(
                 builder: (context) => Align(

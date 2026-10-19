@@ -33,7 +33,7 @@ void main() {
     });
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: ListenableBuilder(
             listenable: w,

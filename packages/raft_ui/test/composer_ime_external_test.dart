@@ -6,11 +6,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     Widget host({
       String draft = '',
       int revision = 0,
@@ -19,10 +15,7 @@ void main() {
       Future<bool> Function(String)? send,
       Key? composerKey,
     }) => MaterialApp(
-      theme: raftTheme(
-        family,
-        dark: dark,
-      ).copyWith(platform: TargetPlatform.macOS),
+      theme: raftTheme(dark: dark).copyWith(platform: TargetPlatform.macOS),
       home: Scaffold(
         body: Align(
           alignment: Alignment.bottomCenter,
@@ -39,7 +32,7 @@ void main() {
       ),
     );
     testWidgets(
-      'failed send persists recovery without rewriting live IME $family/$dark',
+      'failed send persists recovery without rewriting live IME ${dark ? 'dark' : 'light'}',
       (t) async {
         final reply = Completer<bool>(), edits = <String>[];
         await t.pumpWidget(
@@ -77,7 +70,7 @@ void main() {
       },
     );
     testWidgets(
-      'successive external captions survive navigation during IME $family/$dark',
+      'successive external captions survive navigation during IME ${dark ? 'dark' : 'light'}',
       (t) async {
         final edits = <String>[];
         await t.pumpWidget(host(draft: 'native', edits: edits));
@@ -116,7 +109,7 @@ void main() {
       },
     );
     testWidgets(
-      'programmatic mention preserves an emoji at synthetic midpoint $family/$dark',
+      'programmatic mention preserves an emoji at synthetic midpoint ${dark ? 'dark' : 'light'}',
       (t) async {
         final handle = RaftComposerHandle();
         await t.pumpWidget(host(draft: '😀', handle: handle));
@@ -140,7 +133,7 @@ void main() {
       },
     );
     testWidgets(
-      'long dictation and ordinary rebuild preserve native editing value $family/$dark',
+      'long dictation and ordinary rebuild preserve native editing value ${dark ? 'dark' : 'light'}',
       (t) async {
         await t.pumpWidget(host());
         final c = t.widget<TextField>(find.byType(TextField)).controller!;

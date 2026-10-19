@@ -17,103 +17,107 @@ const _href = 'https://example.invalid/manual';
 const _label = 'Quest Machine 官方手册';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final scale in [1.0, 2.0]) {
-      testWidgets('mixed link has one detached underline $family/$dark/$scale', (
-        tester,
-      ) async {
-        final key = GlobalKey();
-        final tapped = <String>[];
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: raftTheme(family, dark: dark),
-            home: Scaffold(
-              body: Align(
-                alignment: Alignment.topLeft,
-                child: MediaQuery(
-                  data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-                  child: RepaintBoundary(
-                    key: key,
-                    child: SizedBox(
-                      width: 700,
-                      child: RaftMessageBody(
-                        content: '[$_label]($_href); ordinary',
-                        onLink: tapped.add,
+      testWidgets(
+        'mixed link has one detached underline ${dark ? 'dark' : 'light'}/$scale',
+        (tester) async {
+          final key = GlobalKey();
+          final tapped = <String>[];
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: raftTheme(dark: dark),
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: MediaQuery(
+                    data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                    child: RepaintBoundary(
+                      key: key,
+                      child: SizedBox(
+                        width: 700,
+                        child: RaftMessageBody(
+                          content: '[$_label]($_href); ordinary',
+                          onLink: tapped.add,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
-        final rich = find.byWidgetPredicate(
-          (w) => w is RichText && w.text.toPlainText().startsWith(_label),
-        );
-        final paragraph = tester.renderObject<RenderParagraph>(rich);
-        final span = tester.widget<RichText>(rich).text;
-        span.visitChildren((s) {
-          if (s is TextSpan && s.recognizer is MessageLinkRecognizer) {
-            expect(s.style!.decoration, TextDecoration.none);
-          }
-          return true;
-        });
-        final bounds = paragraph.getBoxesForSelection(
-          const TextSelection(baseOffset: 0, extentOffset: _label.length),
-          boxHeightStyle: ui.BoxHeightStyle.strut,
-        );
-        expect(bounds.map((b) => b.top).toSet(), hasLength(1));
-        final left = bounds.map((b) => b.left).reduce((a, b) => a < b ? a : b);
-        final right = bounds
-            .map((b) => b.right)
-            .reduce((a, b) => a > b ? a : b);
-        final boundary =
-            key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-        final origin = paragraph.localToGlobal(Offset.zero, ancestor: boundary);
-        // Check painted pixels, not just a style flag: a continuous stroke lies
-        // below the common baseline across both scripts, exactly 2 scaled px.
-        final image = (await tester.runAsync(() => boundary.toImage()))!;
-        final bytes = (await tester.runAsync(
-          () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
-        ))!;
-        final color = dark ? const Color(0xff8ec5ff) : const Color(0xff1447e6);
-        final strokeTop = (origin.dy + _baseline(paragraph) + 2 * scale)
-            .roundToDouble();
-        for (
-          var y = strokeTop.ceil();
-          y < (strokeTop + 2 * scale).floor();
-          y++
-        ) {
+          );
+          final rich = find.byWidgetPredicate(
+            (w) => w is RichText && w.text.toPlainText().startsWith(_label),
+          );
+          final paragraph = tester.renderObject<RenderParagraph>(rich);
+          final span = tester.widget<RichText>(rich).text;
+          span.visitChildren((s) {
+            if (s is TextSpan && s.recognizer is MessageLinkRecognizer) {
+              expect(s.style!.decoration, TextDecoration.none);
+            }
+            return true;
+          });
+          final bounds = paragraph.getBoxesForSelection(
+            const TextSelection(baseOffset: 0, extentOffset: _label.length),
+            boxHeightStyle: ui.BoxHeightStyle.strut,
+          );
+          expect(bounds.map((b) => b.top).toSet(), hasLength(1));
+          final left = bounds
+              .map((b) => b.left)
+              .reduce((a, b) => a < b ? a : b);
+          final right = bounds
+              .map((b) => b.right)
+              .reduce((a, b) => a > b ? a : b);
+          final boundary =
+              key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+          final origin = paragraph.localToGlobal(
+            Offset.zero,
+            ancestor: boundary,
+          );
+          // Check painted pixels, not just a style flag: a continuous stroke lies
+          // below the common baseline across both scripts, exactly 2 scaled px.
+          final image = (await tester.runAsync(() => boundary.toImage()))!;
+          final bytes = (await tester.runAsync(
+            () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+          ))!;
+          final color = dark
+              ? const Color(0xff8ec5ff)
+              : const Color(0xff1447e6);
+          final strokeTop = (origin.dy + _baseline(paragraph) + 2 * scale)
+              .roundToDouble();
           for (
-            var x = (origin.dx + left).ceil() + 1;
-            x < (origin.dx + right).floor() - 1;
-            x++
+            var y = strokeTop.ceil();
+            y < (strokeTop + 2 * scale).floor();
+            y++
           ) {
-            final pixel = (y * image.width + x) * 4;
+            for (
+              var x = (origin.dx + left).ceil() + 1;
+              x < (origin.dx + right).floor() - 1;
+              x++
+            ) {
+              final pixel = (y * image.width + x) * 4;
 
-            expect(bytes.getUint8(pixel), (color.r * 255).round());
-            expect(bytes.getUint8(pixel + 1), (color.g * 255).round());
-            expect(bytes.getUint8(pixel + 2), (color.b * 255).round());
+              expect(bytes.getUint8(pixel), (color.r * 255).round());
+              expect(bytes.getUint8(pixel + 1), (color.g * 255).round());
+              expect(bytes.getUint8(pixel + 2), (color.b * 255).round());
+            }
           }
-        }
-        image.dispose();
-        await tester.tapAt(
-          paragraph.localToGlobal(
-            Offset(
-              (left + right) / 2,
-              (bounds.first.top + bounds.first.bottom) / 2,
+          image.dispose();
+          await tester.tapAt(
+            paragraph.localToGlobal(
+              Offset(
+                (left + right) / 2,
+                (bounds.first.top + bounds.first.bottom) / 2,
+              ),
             ),
-          ),
-        );
-        expect(tapped, [_href]);
-        expect(paragraph.text.toPlainText(), '$_label; ordinary');
-        expect(find.byType(SelectionArea), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      });
+          );
+          expect(tapped, [_href]);
+          expect(paragraph.text.toPlainText(), '$_label; ordinary');
+          expect(find.byType(SelectionArea), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
   }
 
@@ -123,7 +127,7 @@ void main() {
     final tapped = <String>[];
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: SizedBox(
             width: 160,
@@ -262,7 +266,7 @@ void main() {
     'ordinary prose skips decoration and repaint reuses link geometry',
     (tester) async {
       Widget host(String content, double width) => MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: SizedBox(
             width: width,
@@ -292,7 +296,7 @@ void main() {
       final key = GlobalKey();
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: Align(
               alignment: Alignment.topLeft,

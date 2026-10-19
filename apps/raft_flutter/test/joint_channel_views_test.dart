@@ -105,7 +105,7 @@ Future<(_Workspace, _Adapter)> fixture([String role = 'owner']) async {
 }
 
 Widget host(Widget child) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(body: child),
 );
 Future<void> createForm(WidgetTester t) async {

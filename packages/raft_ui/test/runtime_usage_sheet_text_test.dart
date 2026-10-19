@@ -10,13 +10,9 @@ import 'package:raft_ui/test_themes.dart';
 import 'task_typography_test.dart' show loadTaskFonts;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark usage sheet has undecorated text and live actions',
+      '${dark ? 'dark' : 'light'} usage sheet has undecorated text and live actions',
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
@@ -31,10 +27,8 @@ void main() {
             RepaintBoundary(
               key: boundaryKey,
               child: MaterialApp(
-                theme: raftTheme(
-                  family,
-                  dark: dark,
-                ).copyWith(platform: TargetPlatform.android),
+                theme: raftTheme(dark: dark)
+                    .copyWith(platform: TargetPlatform.android),
                 home: Scaffold(
                   body: Builder(
                     builder: (context) {
@@ -95,7 +89,7 @@ void main() {
                 format: ui.ImageByteFormat.png,
               );
               image.dispose();
-              final file = File('$output/${family.name}-$dark.png');
+              final file = File('$output/$dark.png');
               await file.parent.create(recursive: true);
               await file.writeAsBytes(bytes!.buffer.asUint8List());
             });

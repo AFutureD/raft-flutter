@@ -14,15 +14,11 @@ import 'workspace_source_location_contract_test.dart' show pageFixture;
 import 'support/app_services_fixture.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final section in ['tasks', 'chat']) {
       for (final legacy in [false, true]) {
         testWidgets(
-          'Repeated $section ${legacy ? 'legacy' : 'modern'} task open/close/system Back retains its page $family/$dark',
+          'Repeated $section ${legacy ? 'legacy' : 'modern'} task open/close/system Back retains its page ${dark ? 'dark' : 'light'}',
           (t) async {
             t.view.physicalSize = const Size(390, 844);
             t.view.devicePixelRatio = 1;
@@ -41,11 +37,11 @@ void main() {
             }
             await t.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 home: withAppServices(
                   WorkspaceView(
                     controller: w,
-                    appearance: RaftAppearance(light: family),
+                    appearance: RaftAppearance(),
                     onAppearance: (_) async {},
                     onLogout: () async {},
                   ),
@@ -71,9 +67,7 @@ void main() {
               expect(find.byType(RaftMobilePageHeader), findsNothing);
               expect(
                 t.getSize(find.byKey(const ValueKey('task-modal-bar'))).height,
-                legacy
-                    ? (family == RaftFamily.brutal ? 62 : 56)
-                    : (family == RaftFamily.brutal ? 54 : 53),
+                legacy ? (56) : (53),
               );
               final owner = t
                   .widget<SourceTaskSurface>(find.byType(SourceTaskSurface))

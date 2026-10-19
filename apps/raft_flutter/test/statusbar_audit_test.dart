@@ -1,5 +1,5 @@
 // Status bar audit (phone, 40dp top inset). Renders real mobile routes in the
-// three themes and asserts, for every page, that the status bar strip is the
+// two themes and asserts, for every page, that the status bar strip is the
 // same colour as the surface directly under it (the header, on Web the header
 // is drawn up under the safe-area top) and that the status bar icons contrast
 // with it. Writes the top 120dp of each page to
@@ -41,7 +41,7 @@ import 'support/test_parts.dart';
 const _dpr = 2.625;
 const _size = Size(1081, 2402);
 const _topDp = 40.0;
-const _themes = ['brutal', 'elegant-light', 'elegant-dark'];
+const _themes = ['light', 'dark'];
 
 Directory outDir(String theme) => Directory(
   '${Platform.environment['RAFT_STATUSBAR_DIR'] ?? '${Directory.current.path}/../../.local/statusbar'}/crops/$theme',
@@ -475,14 +475,6 @@ Future<void> _expectColumnsContinue(
     greaterThan(1),
     reason: '$theme: wide strip must follow the columns',
   );
-  if (theme == 'brutal') {
-    expect(
-      colours,
-      contains(0xFF000000),
-      reason: 'brutal: the black column dividers reach the top edge',
-    );
-    expect(colours, contains(0xFFFFD441), reason: 'brutal: yellow rail');
-  }
   final renderView = t.binding.renderViews.first;
   final style = (renderView.debugLayer! as OffsetLayer)
       .find<SystemUiOverlayStyle>(
@@ -491,7 +483,7 @@ Future<void> _expectColumnsContinue(
   expect(style, isNotNull);
   expect(
     style!.statusBarIconBrightness,
-    theme == 'elegant-dark' ? Brightness.light : Brightness.dark,
+    theme == 'dark' ? Brightness.light : Brightness.dark,
     reason: '$theme: status bar icon brightness',
   );
 }
@@ -693,10 +685,7 @@ void registerStatusbarAuditTests(TestPart part) {
           await t.pumpWidget(
             MaterialApp(
               debugShowCheckedModeBanner: false,
-              theme: raftTheme(
-                theme == 'brutal' ? RaftFamily.brutal : RaftFamily.elegant,
-                dark: theme == 'elegant-dark',
-              ),
+              theme: raftTheme(dark: theme == 'dark'),
               home: RaftSystemBars(child: entry.value()),
             ),
           );

@@ -7,7 +7,6 @@ import 'package:raft_ui/raft_ui.dart';
 void main() {
   Future<({List<String> attached, List<MethodCall> textInput})> pumpComposer(
     WidgetTester tester,
-    RaftFamily family,
   ) async {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3;
@@ -29,7 +28,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(family),
+        theme: raftTheme(),
         home: Scaffold(
           body: Align(
             alignment: Alignment.bottomCenter,
@@ -48,61 +47,55 @@ void main() {
   EditableText editable(WidgetTester tester) =>
       tester.widget<EditableText>(find.byType(EditableText));
 
-  for (final family in RaftFamily.values) {
-    testWidgets(
-      '$family: a tap on the composer blank space focuses the editor',
-      (tester) async {
-        await pumpComposer(tester, family);
-        expect(editable(tester).focusNode.hasFocus, isFalse);
-        final shell = tester.getRect(
-          find.byKey(const ValueKey('composer-shell-slot')),
-        );
-        final field = tester.getRect(find.byType(TextField));
-        // Blank space: inside the shell, below the first editor line and
-        // left of the toolbar's buttons' row centre, away from any button.
-        final blank = Offset(
-          shell.center.dx,
-          (field.bottom + shell.bottom) / 2,
-        );
-        expect(
-          tester
-              .hitTestOnBinding(blank)
-              .path
-              .any((entry) => entry.target is RenderEditable),
-          isFalse,
-          reason: 'the probe must miss the text field itself',
-        );
-        await tester.tapAt(blank);
-        await tester.pump();
-        expect(editable(tester).focusNode.hasFocus, isTrue);
-      },
+  testWidgets('a tap on the composer blank space focuses the editor', (
+    tester,
+  ) async {
+    await pumpComposer(tester);
+    expect(editable(tester).focusNode.hasFocus, isFalse);
+    final shell = tester.getRect(
+      find.byKey(const ValueKey('composer-shell-slot')),
     );
+    final field = tester.getRect(find.byType(TextField));
+    // Blank space: inside the shell, below the first editor line and
+    // left of the toolbar's buttons' row centre, away from any button.
+    final blank = Offset(shell.center.dx, (field.bottom + shell.bottom) / 2);
+    expect(
+      tester
+          .hitTestOnBinding(blank)
+          .path
+          .any((entry) => entry.target is RenderEditable),
+      isFalse,
+      reason: 'the probe must miss the text field itself',
+    );
+    await tester.tapAt(blank);
+    await tester.pump();
+    expect(editable(tester).focusNode.hasFocus, isTrue);
+  });
 
-    testWidgets('$family: buttons keep their own taps', (tester) async {
-      final probe = await pumpComposer(tester, family);
-      await tester.tap(find.byTooltip('Attach file'));
-      await tester.pump();
-      expect(probe.attached, ['attach']);
-      expect(editable(tester).focusNode.hasFocus, isFalse);
-    });
+  testWidgets('buttons keep their own taps', (tester) async {
+    final probe = await pumpComposer(tester);
+    await tester.tap(find.byTooltip('Attach file'));
+    await tester.pump();
+    expect(probe.attached, ['attach']);
+    expect(editable(tester).focusNode.hasFocus, isFalse);
+  });
 
-    testWidgets('$family: a focused editor with a dismissed keyboard shows it '
-        'again', (tester) async {
-      final probe = await pumpComposer(tester, family);
-      final shell = tester.getRect(
-        find.byKey(const ValueKey('composer-shell-slot')),
-      );
-      final field = tester.getRect(find.byType(TextField));
-      final blank = Offset(shell.center.dx, (field.bottom + shell.bottom) / 2);
-      await tester.tapAt(blank);
-      await tester.pump();
-      probe.textInput.clear();
-      await tester.tapAt(blank);
-      await tester.pump();
-      expect(
-        probe.textInput.map((call) => call.method),
-        contains('TextInput.show'),
-      );
-    });
-  }
+  testWidgets('a focused editor with a dismissed keyboard shows it '
+      'again', (tester) async {
+    final probe = await pumpComposer(tester);
+    final shell = tester.getRect(
+      find.byKey(const ValueKey('composer-shell-slot')),
+    );
+    final field = tester.getRect(find.byType(TextField));
+    final blank = Offset(shell.center.dx, (field.bottom + shell.bottom) / 2);
+    await tester.tapAt(blank);
+    await tester.pump();
+    probe.textInput.clear();
+    await tester.tapAt(blank);
+    await tester.pump();
+    expect(
+      probe.textInput.map((call) => call.method),
+      contains('TextInput.show'),
+    );
+  });
 }

@@ -8,7 +8,7 @@ const _code = '```dart\nfinal answer = 42;\nString greet() => "hi";\n```';
 const _body = 'First prose paragraph.\n\n$_code\n\nLast prose paragraph.';
 
 Widget _host(Widget child, {bool dark = false}) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant, dark: dark),
+  theme: raftTheme(dark: dark),
   home: Scaffold(
     body: SingleChildScrollView(child: SizedBox(width: 600, child: child)),
   ),
@@ -198,7 +198,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(body: Column(children: [row(0), row(1)])),
         ),
       );

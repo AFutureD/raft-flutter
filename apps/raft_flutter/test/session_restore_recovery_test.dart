@@ -49,7 +49,7 @@ void main() {
         final f = RootFixture();
         f.overrides['GET /auth/me'] = (_) => {'error': 'x'};
         f.adapter.statuses['GET /auth/me'] = status;
-        await f.mount(t, 'elegant-light', 390);
+        await f.mount(t, 'light', 390);
         expect(_recovery, findsOneWidget);
         expect(find.byType(AuthView), findsNothing);
         final stored = await f.sessions.read(_origin);
@@ -64,7 +64,7 @@ void main() {
     (t) async {
       final f = RootFixture();
       f.adapter.statuses['GET /auth/me'] = 401;
-      await f.mount(t, 'elegant-light', 390);
+      await f.mount(t, 'light', 390);
       expect(find.byType(AuthView), findsOneWidget);
       expect(_recovery, findsNothing);
       expect(find.text('Your session has expired. Sign in again.'), findsOneWidget);
@@ -96,7 +96,7 @@ void main() {
           'emailVerified': true,
         };
         store.readError = error;
-        await f.mount(t, 'elegant-light', 390);
+        await f.mount(t, 'light', 390);
         expect(_recovery, findsOneWidget);
         expect(find.byType(AuthView), findsNothing);
         expect(store.clears, 0);
@@ -121,7 +121,7 @@ void main() {
   testWidgets('retry after the server returns restores the session', (t) async {
     final f = RootFixture();
     f.adapter.statuses['GET /auth/me'] = 503;
-    await f.mount(t, 'elegant-light', 390);
+    await f.mount(t, 'light', 390);
     expect(_recovery, findsOneWidget);
     f.adapter.statuses.remove('GET /auth/me');
     await t.tap(find.byKey(const Key('session-recovery-retry')));
@@ -136,7 +136,7 @@ void main() {
   ) async {
     final f = RootFixture();
     f.adapter.statuses['GET /auth/me'] = 503;
-    await f.mount(t, 'elegant-light', 390);
+    await f.mount(t, 'light', 390);
     await t.tap(find.byKey(const Key('session-recovery-sign-in')));
     await f.flush(t);
     expect(find.byType(AuthView), findsOneWidget);
@@ -150,7 +150,7 @@ void main() {
       (t) async {
         final f = RootFixture();
         f.adapter.statuses['GET /auth/me'] = status;
-        await f.mount(t, 'elegant-light', 390, cachedSession: true);
+        await f.mount(t, 'light', 390, cachedSession: true);
         expect(find.byType(AuthView), findsNothing);
         expect(_recovery, findsNothing);
         expect(

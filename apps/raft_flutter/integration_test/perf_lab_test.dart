@@ -508,11 +508,11 @@ void main() {
         await runControls(name);
         continue;
       }
-      final (family, dark) = switch (name) {
-        'brutal-light' => (RaftFamily.brutal, false),
-        'brutal-dark' => (RaftFamily.brutal, true),
-        'elegant-light' => (RaftFamily.elegant, false),
-        'elegant-dark' => (RaftFamily.elegant, true),
+      // One Raft look: the retired family names still select light / dark so the
+      // lab's configs keep working.
+      final dark = switch (name) {
+        'brutal-light' || 'elegant-light' || 'light' => false,
+        'brutal-dark' || 'elegant-dark' || 'dark' => true,
         _ => throw ArgumentError('Unknown theme $name'),
       };
       SharedPreferences.setMockInitialValues({});
@@ -568,7 +568,7 @@ void main() {
       await w.selectChannel(mix.record);
       await t.pumpWidget(MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: raftTheme(family, dark: dark),
+        theme: raftTheme(dark: dark),
         home: Scaffold(body: _Host(w: w, onScroll: (notification) => observeScroll?.call(notification))),
       ));
       String newest(LabChannel c) => c.rows.last['id'] as String;
@@ -974,7 +974,7 @@ void main() {
         await show(tagged, latest: true);
         await t.pumpWidget(MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: Scaffold(body: ConversationPanel(controller: w)),
         ));
         await lab.settle(t, time: const Duration(seconds: 2));
@@ -1307,7 +1307,7 @@ void main() {
         }
         SharedPreferences.setMockInitialValues({
           'raft.origin': nclient.origin,
-          'raft.mode': dark ? 'dark' : 'light', 'raft.light': family.name,
+          'raft.mode': dark ? 'dark' : 'light',
           MobileTabbarStore.preferenceKey: navTabs.encode(),
         });
         final cacheDirectory = await Directory.systemTemp.createTemp('raft-live-navigation-');
@@ -1663,7 +1663,7 @@ void main() {
       if (wants('keyboard') && (only.isNotEmpty || Platform.isAndroid)) {
         await independentGroup('$name/keyboard', () async {
         await phoneViewport();
-        final closeKeyboard = await mountKeyboardChat(t, images: images, family: family, dark: dark,
+        final closeKeyboard = await mountKeyboardChat(t, images: images, dark: dark,
             useTestViewport: detection);
         final keyboardRounds = int.tryParse(_cfg('RAFT_LAB_ROUNDS')) ?? 1;
         try {

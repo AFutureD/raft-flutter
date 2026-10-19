@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 Widget _host(Widget child) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(
     body: SingleChildScrollView(
       child: Align(alignment: Alignment.topLeft, child: child),
@@ -57,7 +57,7 @@ void main() {
     tester,
   ) async {
     Widget frame(Locale locale, bool dark) => MaterialApp(
-      theme: raftTheme(RaftFamily.elegant, dark: dark),
+      theme: raftTheme(dark: dark),
       home: Scaffold(
         body: Builder(
           builder: (context) => Localizations.override(

@@ -5,11 +5,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     Future<void> mount(
       WidgetTester tester,
       Widget child, {
@@ -22,7 +18,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: Scaffold(
             body: RaftDensityScope(
               density: density,
@@ -39,7 +35,7 @@ void main() {
     for (final density in RaftDensity.values) {
       for (final width in [390.0, 1000.0]) {
         testWidgets(
-          '$family/$dark/$density/$width mounted tabs are source-sized and left anchored',
+          '${dark ? 'dark' : 'light'}/$density/$width mounted tabs are source-sized and left anchored',
           (tester) async {
             var selected = RaftConversationTabId.chat;
             var calls = 0;
@@ -77,79 +73,36 @@ void main() {
             final files = find.byKey(const ValueKey('panel-tab-files'));
             expect(tester.getRect(strip).left, 0);
             expect(tester.getSize(strip).width, width);
-            expect(
-              tester.getRect(chat).left,
-              family == RaftFamily.brutal ? 0 : 16,
-            );
+            expect(tester.getRect(chat).left, 16);
             final mobile = width < 768;
-            final expectedStrip = family == RaftFamily.brutal
-                ? 30.0
-                : mobile
-                ? 41.0
-                : 48.0;
-            final expectedTarget = family == RaftFamily.brutal
-                ? 28.0
-                : mobile
-                ? 40.0
-                : 28.0;
+            final expectedStrip = mobile ? 41.0 : 48.0;
+            final expectedTarget = mobile ? 40.0 : 28.0;
             expect(tester.getSize(strip).height, expectedStrip);
             expect(tester.getSize(chat).height, expectedTarget);
             final control = tester.widget<RaftControl>(chat);
-            expect(
-              control.padding,
-              family == RaftFamily.brutal
-                  ? const EdgeInsets.only(left: 22, right: 16)
-                  : const EdgeInsets.symmetric(horizontal: 12),
+            expect(control.padding, const EdgeInsets.symmetric(horizontal: 12));
+            final surface = tester.widget<Container>(
+              find
+                  .descendant(of: strip, matching: find.byType(Container))
+                  .first,
             );
-            if (family == RaftFamily.brutal) {
-              final selectedControl = find
-                  .descendant(
-                    of: chat,
-                    matching: find.byType(AnimatedContainer),
-                  )
-                  .first;
+            final recipe = RaftConversationTabsRecipe(
+              RaftTokens.of(tester.element(strip)),
+              mobile: mobile,
+              density: density,
+            );
+            expect(
+              (surface.decoration! as BoxDecoration).color,
+              recipe.background,
+            );
+            if (dark && !mobile) {
               expect(
-                (tester.widget<AnimatedContainer>(selectedControl).decoration!
-                        as BoxDecoration)
-                    .color,
-                RaftTokens.of(tester.element(chat)).semantic.primary400,
-              );
-              final tasks = find.byKey(const ValueKey('panel-tab-tasks'));
-              for (final (id, target) in [('tasks', tasks), ('files', files)]) {
-                final separator = find.byKey(
-                  ValueKey('conversation-tab-separator-$id'),
-                );
-                expect(
-                  tester.getRect(separator).left,
-                  tester.getRect(target).left,
-                );
-                expect(tester.getSize(separator).width, 2);
-                expect(tester.getSize(separator).height, 28);
-              }
-              final edge = find.byKey(
-                const ValueKey('conversation-tab-list-edge'),
-              );
-              expect(tester.getRect(edge).left, tester.getRect(files).right);
-              expect(tester.getSize(edge).width, 2);
-            } else {
-              final surface = tester.widget<Container>(
-                find
-                    .descendant(of: strip, matching: find.byType(Container))
-                    .first,
-              );
-              final recipe = RaftConversationTabsRecipe(
-                RaftTokens.of(tester.element(strip)),
-                mobile: mobile,
-                density: density,
-              );
-              expect(
-                (surface.decoration! as BoxDecoration).color,
                 recipe.background,
+                RaftTokens.of(tester.element(strip)).card,
               );
-              if (dark && !mobile) {
-                expect(recipe.background, const Color(0xff1b1b19));
-              }
+              expect(recipe.background, const Color(0xff242422));
             }
+
             await tester.tap(chat);
             expect(calls, 1);
             await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
@@ -171,7 +124,7 @@ void main() {
       }
     }
     testWidgets(
-      '$family/$dark date rules consume every remaining content pixel',
+      '${dark ? 'dark' : 'light'} date rules consume every remaining content pixel',
       (tester) async {
         await mount(
           tester,
@@ -205,7 +158,7 @@ void main() {
       },
     );
     testWidgets(
-      '$family/$dark long localized date remains bounded without phantom flex space',
+      '${dark ? 'dark' : 'light'} long localized date remains bounded without phantom flex space',
       (tester) async {
         await mount(
           tester,

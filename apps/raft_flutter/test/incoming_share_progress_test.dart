@@ -87,7 +87,6 @@ IncomingShare _staged() => const IncomingShare(
 Future<void> _page(
   WidgetTester t,
   IncomingShareStaging staging, {
-  RaftFamily family = RaftFamily.brutal,
   bool dark = false,
   Locale locale = const Locale('en'),
   Future<void> Function(RaftRecord, IncomingShareTarget)? onContinue,
@@ -102,7 +101,7 @@ Future<void> _page(
       locale: locale,
       supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: Builder(
         builder: (context) => Scaffold(
           body: Center(
@@ -153,10 +152,9 @@ Future<void> _advance(WidgetTester t, [int ms = 300]) =>
 void main() {
   // Leak debt (share flow): see docs/development.md, Leak tracking.
   leakDebt(const ['IncomingShareStaging', 'ValueNotifier<RaftTransferProgress?>']);
-  for (final (name, family, dark) in [
-    ('brutal', RaftFamily.brutal, false),
-    ('elegant', RaftFamily.elegant, false),
-    ('elegant-dark', RaftFamily.elegant, true),
+  for (final (name, dark) in [
+    ('light', false),
+    ('dark', true),
   ]) {
     group(name, () {
       testWidgets(
@@ -164,7 +162,7 @@ void main() {
         (t) async {
           final staging = IncomingShareStaging(_raw);
           final copy = _Copy()..start(staging);
-          await _page(t, staging, family: family, dark: dark);
+          await _page(t, staging, dark: dark);
           // Targets page: one compact bar, by bytes.
           expect(
             find.byKey(const Key('incoming-share-preparing')),
@@ -206,7 +204,6 @@ void main() {
           await _page(
             t,
             staging,
-            family: family,
             dark: dark,
             pops: pops,
             onContinue: (server, target) async {
@@ -254,7 +251,6 @@ void main() {
           await _page(
             t,
             staging,
-            family: family,
             dark: dark,
             pops: pops,
             onContinue: (server, target) => handoff.future,
@@ -279,7 +275,6 @@ void main() {
         await _page(
           t,
           staging,
-          family: family,
           dark: dark,
           pops: pops,
           onContinue: (server, target) => Completer<void>().future,
@@ -317,7 +312,7 @@ void main() {
           (t) async {
             final staging = IncomingShareStaging(_raw);
             final copy = _Copy()..start(staging);
-            await _page(t, staging, family: family, dark: dark);
+            await _page(t, staging, dark: dark);
             copy.done(1);
             copy.done(2);
             copy.finished.completeError(IncomingShareFailure(reason, index: 2));
@@ -353,7 +348,6 @@ void main() {
           await _page(
             t,
             staging,
-            family: family,
             dark: dark,
             onContinue: (server, target) async {
               await staging.result;
@@ -389,7 +383,7 @@ void main() {
       final staging = IncomingShareStaging(_staged());
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: IncomingSharePicker(
             client: client,
             staging: staging,

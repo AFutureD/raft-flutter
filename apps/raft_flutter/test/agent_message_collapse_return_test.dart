@@ -37,11 +37,7 @@ Finder toggle(Finder chat, bool open) => find.descendant(
 );
 
 void main() {
-  for (final theme in raftThemeMatrix([
-    'brutal',
-    'elegant-light',
-    'elegant-dark',
-  ])) {
+  for (final theme in raftThemeMatrix(['light', 'dark'])) {
     testWidgets('$theme covered channel keeps its own expansion memory', (
       tester,
     ) async {

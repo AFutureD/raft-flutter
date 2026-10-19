@@ -11,16 +11,12 @@ import '../../../tool/testing/vertical_alignment.dart';
 /// stack, and Web then top-aligns the action across both rows (`row-span-2`).
 void main() {
   for (final androidZh in [false, true])
-    for (final theme in raftThemeMatrix([
-      (RaftFamily.brutal, false),
-      (RaftFamily.elegant, false),
-      (RaftFamily.elegant, true),
-    ])) {
+    for (final dark in raftThemeMatrix([false, true])) {
       for (final size in RaftBannerRecipeSize.values) {
         for (final glyph in [null, RaftGlyph.info]) {
           for (final width in [460.0, 700.0]) {
             testWidgets(
-              'banner copy, icon and action share a centre: $theme '
+              'banner copy, icon and action share a centre: ${dark ? 'dark' : 'light'} '
               '${androidZh ? 'android-zh ' : ''}'
               '${size.name} ${glyph == null ? 'no icon' : 'icon'} ${width}px',
               (tester) async {
@@ -28,8 +24,7 @@ void main() {
                   MaterialApp(
                     locale: androidZh ? const Locale('zh') : null,
                     theme: raftTheme(
-                      theme.$1,
-                      dark: theme.$2,
+                      dark: dark,
                       locale: androidZh ? const Locale('zh') : null,
                       platform: androidZh ? TargetPlatform.android : null,
                     ),

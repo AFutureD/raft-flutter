@@ -101,7 +101,7 @@ class _HarnessState extends State<_Harness> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     builder: (context, child) => RaftTextScaling(child: child!),
     home: Scaffold(
       body: Builder(

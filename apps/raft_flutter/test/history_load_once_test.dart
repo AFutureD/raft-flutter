@@ -131,7 +131,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftChatView(controller: w, thread: thread),
           ),
@@ -192,7 +192,7 @@ void main() {
       final (w, older) = await historyFixture(tester, thread: thread);
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftChatView(controller: w, thread: thread),
           ),

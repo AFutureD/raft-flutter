@@ -60,7 +60,7 @@ void main() {
       addTearDown(() async => tester.pumpWidget(const SizedBox.shrink()));
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Scaffold(
             body: ResourceView(
               controller: w,

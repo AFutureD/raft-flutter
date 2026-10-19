@@ -53,14 +53,13 @@ void main() {
     WidgetTester t, {
     VideoCacheAccount? account,
     Locale locale = const Locale('en'),
-    RaftFamily family = RaftFamily.elegant,
   }) async {
     t.view.physicalSize = const Size(390, 1200);
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(family),
+        theme: raftTheme(),
         locale: locale,
         supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -200,21 +199,14 @@ void main() {
     await t.pump(const Duration(seconds: 6));
   }, skip: Platform.isWindows);
 
-  for (final family in RaftFamily.values) {
-    testWidgets('reads in Chinese on the ${family.name} family', (t) async {
-      leave(alice, 5 * 1024 * 1024);
-      await pumpPage(
-        t,
-        account: alice,
-        locale: const Locale('zh', 'CN'),
-        family: family,
-      );
-      expect(find.text('视频缓存'), findsOneWidget);
-      expect(sizeLine(t), '视频缓存：5.0 MB');
-      expect(find.text('看过的视频会保存在此设备上，再次播放无需重新下载。退出登录时会一并删除。'), findsOneWidget);
-      expect(find.text('清除'), findsOneWidget);
-    });
-  }
+  testWidgets('reads in Chinese on the', (t) async {
+    leave(alice, 5 * 1024 * 1024);
+    await pumpPage(t, account: alice, locale: const Locale('zh', 'CN'));
+    expect(find.text('视频缓存'), findsOneWidget);
+    expect(sizeLine(t), '视频缓存：5.0 MB');
+    expect(find.text('看过的视频会保存在此设备上，再次播放无需重新下载。退出登录时会一并删除。'), findsOneWidget);
+    expect(find.text('清除'), findsOneWidget);
+  });
 }
 
 /// Real file I/O needs real time between frames.

@@ -17,15 +17,11 @@ import 'workspace_source_location_contract_test.dart' show pageFixture;
 import 'support/app_services_fixture.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [390.0, 1280.0]) {
       for (final chip in [false, true]) {
         testWidgets(
-          '[K10b entry] actual ${chip ? 'message footer chip' : 'channel Tasks tab card'} owns task URI $family/$dark/$width',
+          '[K10b entry] actual ${chip ? 'message footer chip' : 'channel Tasks tab card'} owns task URI ${dark ? 'dark' : 'light'}/$width',
           (t) async {
             // Source TasksPanel964–987 and MessageItem3685–3700 distinguish
             // board arbitration from footer task intent; neither steals side.
@@ -67,11 +63,11 @@ void main() {
             );
             await t.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 home: withAppServices(
                   WorkspaceView(
                     controller: w,
-                    appearance: RaftAppearance(light: family),
+                    appearance: RaftAppearance(),
                     onAppearance: (_) async {},
                     onLogout: () async {},
                   ),

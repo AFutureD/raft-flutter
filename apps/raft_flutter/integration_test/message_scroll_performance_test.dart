@@ -96,10 +96,9 @@ void main() {
     final sizes = NativeSizeObserver();
     binding.addObserver(sizes);
     addTearDown(() => binding.removeObserver(sizes));
-    for (final (name, family, dark) in [
-      ('brutal-light', RaftFamily.brutal, false),
-      ('elegant-light', RaftFamily.elegant, false),
-      ('elegant-dark', RaftFamily.elegant, true),
+    for (final (name, dark) in [
+      ('elegant-light', false),
+      ('elegant-dark', true),
     ]) {
       if (only.isNotEmpty && only != name) continue;
       await Process.run('python3', [Platform.environment['RAFT_PERF_RESIZER']!, '$pid', '0']);
@@ -141,7 +140,7 @@ void main() {
       final shot = GlobalKey();
       final setupClock = Stopwatch()..start();
       await t.pumpWidget(MaterialApp(
-        theme: raftTheme(family, dark: dark),
+        theme: raftTheme(dark: dark),
         home: Scaffold(body: RepaintBoundary(key: shot, child: RaftChatView(controller: w))),
       ));
       await t.pump(const Duration(milliseconds: 100));

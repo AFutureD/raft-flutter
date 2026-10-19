@@ -99,7 +99,7 @@ void main() {
     addTearDown(t.view.resetDevicePixelRatio);
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant, dark: dark),
+        theme: raftTheme(dark: dark),
         home: Scaffold(
           body: ResourceView(
             controller: w,

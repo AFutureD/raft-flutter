@@ -34,7 +34,6 @@ List<String> highlighted(WidgetTester t) {
 
 Future<void> mount(
   WidgetTester t,
-  RaftFamily family,
   bool dark,
   List<Map<String, dynamic>> rows, {
   double width = 1280,
@@ -54,7 +53,7 @@ Future<void> mount(
       locale: locale,
       supportedLocales: const [Locale('en'), Locale('zh')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: Scaffold(
         body: ResourceSearchResults(
           query: 'alpha\t[beta].*',
@@ -78,14 +77,10 @@ Future<void> mount(
 void main() {
   // Web v1.21.12 MessageHitRow + MessageSearchPage.SearchHighlight:
   // whitespace-separated literal terms, not a whole-query substring.
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
-        'search row highlights terms and opens its own hit $family/$dark/$width',
+        'search row highlights terms and opens its own hit ${dark ? 'dark' : 'light'}/$width',
         (t) async {
           Map<String, dynamic>? opened;
           var opens = 0;
@@ -94,7 +89,6 @@ void main() {
             final row = hit('m1');
             await mount(
               t,
-              family,
               dark,
               [row],
               width: width,
@@ -133,43 +127,44 @@ void main() {
         },
       );
     }
-    testWidgets('search warning badges are not all caps $family/$dark', (
-      t,
-    ) async {
-      await mount(t, family, dark, [
-        hit('m1')..['channelArchivedAt'] = '2026-01-01',
-      ]);
-      final badges = t.widgetList<RaftBadge>(find.byType(RaftBadge)).toList();
-      expect(badges.where((b) => b.label == 'Archived'), hasLength(1));
-      expect(badges.where((b) => b.label == 'Upgrade to view'), hasLength(1));
-      expect(find.text('Archived'), findsOneWidget);
-      expect(find.text('Upgrade to view'), findsOneWidget);
-    });
-    testWidgets('empty parent identity stays an individual hit $family/$dark', (
-      t,
-    ) async {
-      await mount(t, family, dark, [
-        for (final id in ['m1', 'm2'])
-          hit(id)
-            ..['threadId'] = 'thread-1'
-            ..['parentMessageId'] = '',
-      ]);
-      expect(find.byType(RaftQuickSwitcherThreadGroup), findsNothing);
-      expect(find.byType(RaftQuickSwitcherHit), findsNWidgets(2));
-    });
-    testWidgets('Chinese search metadata uses the app locale $family/$dark', (
-      t,
-    ) async {
-      await mount(t, family, dark, [
-        hit('m1', date: 'invalid'),
-      ], locale: const Locale('zh'));
-      expect(find.text('未知时间'), findsOneWidget);
-      expect(highlighted(t), ['ALPHA', '[Beta].*', 'alpha']);
-    });
     testWidgets(
-      'invalid search timestamp has localized unknown label $family/$dark',
+      'search warning badges are not all caps ${dark ? 'dark' : 'light'}',
       (t) async {
-        await mount(t, family, dark, [hit('m1', date: 'invalid')]);
+        await mount(t, dark, [hit('m1')..['channelArchivedAt'] = '2026-01-01']);
+        final badges = t.widgetList<RaftBadge>(find.byType(RaftBadge)).toList();
+        expect(badges.where((b) => b.label == 'Archived'), hasLength(1));
+        expect(badges.where((b) => b.label == 'Upgrade to view'), hasLength(1));
+        expect(find.text('Archived'), findsOneWidget);
+        expect(find.text('Upgrade to view'), findsOneWidget);
+      },
+    );
+    testWidgets(
+      'empty parent identity stays an individual hit ${dark ? 'dark' : 'light'}',
+      (t) async {
+        await mount(t, dark, [
+          for (final id in ['m1', 'm2'])
+            hit(id)
+              ..['threadId'] = 'thread-1'
+              ..['parentMessageId'] = '',
+        ]);
+        expect(find.byType(RaftQuickSwitcherThreadGroup), findsNothing);
+        expect(find.byType(RaftQuickSwitcherHit), findsNWidgets(2));
+      },
+    );
+    testWidgets(
+      'Chinese search metadata uses the app locale ${dark ? 'dark' : 'light'}',
+      (t) async {
+        await mount(t, dark, [
+          hit('m1', date: 'invalid'),
+        ], locale: const Locale('zh'));
+        expect(find.text('未知时间'), findsOneWidget);
+        expect(highlighted(t), ['ALPHA', '[Beta].*', 'alpha']);
+      },
+    );
+    testWidgets(
+      'invalid search timestamp has localized unknown label ${dark ? 'dark' : 'light'}',
+      (t) async {
+        await mount(t, dark, [hit('m1', date: 'invalid')]);
         expect(find.text('unknown time'), findsOneWidget);
       },
     );

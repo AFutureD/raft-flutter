@@ -18,7 +18,7 @@ void main() {
         child: const Text('Move'),
       );
       return MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: Row(
             children: [
@@ -85,7 +85,7 @@ void main() {
         var clicks = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.brutal),
+            theme: raftTheme(),
             home: Scaffold(
               body: Center(
                 child: RaftDensityScope(
@@ -118,18 +118,14 @@ void main() {
       )
       .whereType<BoxDecoration>()
       .first;
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    final name = '${family.name} ${dark ? 'dark' : 'light'}';
+  for (final dark in raftThemeMatrix([false, true])) {
+    final name = dark ? 'dark' : 'light';
     testWidgets(
       '$name destructive button paints the buttonVariants danger recipe',
       (tester) async {
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: RaftButton(
                 label: 'Delete',
@@ -141,13 +137,10 @@ void main() {
         );
         final t = RaftTokens.of(tester.element(find.text('Delete')));
         final decoration = buttonDecoration(tester, find.byType(RaftButton));
-        // brutal: bg-brutal-red text-foreground-strong; elegant: bg-danger
-        // text-danger-foreground.
+        // bg-danger text-danger-foreground.
         expect(
           decoration.color,
-          family == RaftFamily.brutal
-              ? const Color(0xfff97264)
-              : dark
+          dark
               // [dark] background-color override of variant=danger.
               ? const Color(0xffdb2c2b)
               : t.semantic.danger,
@@ -156,11 +149,7 @@ void main() {
             .style;
         expect(
           style.color,
-          family == RaftFamily.brutal
-              ? const Color(0xff141110)
-              : dark
-              ? const Color(0xfffafaf7)
-              : t.semantic.dangerForeground,
+          dark ? const Color(0xfffafaf7) : t.semantic.dangerForeground,
         );
       },
     );
@@ -170,7 +159,7 @@ void main() {
         var clicks = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Center(
                 child: RaftDensityScope(
@@ -208,7 +197,7 @@ void main() {
         var clicks = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Center(
                 child: RaftButton(label: 'Run', onPressed: () => clicks++),
@@ -225,12 +214,7 @@ void main() {
         // variant=accent hover: brutal keeps bg-brutal-pink (and lifts),
         // elegant uses the accent hover role.
         final hovered = buttonDecoration(tester, target);
-        expect(
-          hovered.color,
-          family == RaftFamily.brutal
-              ? const Color(0xfffe7da8)
-              : t.semantic.accentHover,
-        );
+        expect(hovered.color, t.semantic.accentHover);
         final gesture = await tester.startGesture(tester.getCenter(target));
         await tester.pump();
         final pressed = tester
@@ -240,12 +224,7 @@ void main() {
             .first
             .transform;
         // active: brutal `translate: 1px 1px`, elegant `scale: 0.985`.
-        expect(
-          family == RaftFamily.brutal
-              ? pressed.storage[12]
-              : pressed.storage[0],
-          family == RaftFamily.brutal ? 1 : .985,
-        );
+        expect(pressed.storage[0], .985);
         await gesture.moveBy(const Offset(300, 0));
         await gesture.up();
         await tester.pump();
@@ -259,7 +238,7 @@ void main() {
         var clicks = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Column(
                 children: [
@@ -288,18 +267,11 @@ void main() {
         await tester.pump();
         expect(clicks, 0);
         expect(tester.takeException(), isNull);
-        final theme = raftTheme(family, dark: dark);
-        expect(
-          theme.colorScheme.primary,
-          family == RaftFamily.brutal
-              ? const Color(0xffffd440)
-              : const Color(0xffffd441),
-        );
+        final theme = raftTheme(dark: dark);
+        expect(theme.colorScheme.primary, const Color(0xffffd440));
         expect(
           theme.textTheme.titleMedium!.fontFamily,
-          family == RaftFamily.brutal
-              ? 'packages/raft_ui/HankenGrotesk'
-              : 'packages/raft_ui/Inter',
+          'packages/raft_ui/Inter',
         );
       },
     );

@@ -35,8 +35,7 @@ Future<void> mountHost(
   await t.pumpWidget(
     MaterialApp(
       navigatorKey: nav,
-      theme: raftTheme(RaftFamily.elegant)
-          .copyWith(platform: platformFor(size)),
+      theme: raftTheme().copyWith(platform: platformFor(size)),
       home: const Scaffold(body: Text('root-page')),
     ),
   );

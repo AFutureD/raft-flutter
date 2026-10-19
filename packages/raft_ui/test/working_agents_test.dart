@@ -25,202 +25,190 @@ void main() {
     WidgetTester t,
     Widget child, {
     Size size = const Size(390, 844),
-    RaftFamily family = RaftFamily.elegant,
   }) async {
     t.view.physicalSize = size;
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(family),
+        theme: raftTheme(),
         home: Scaffold(body: SafeArea(child: child)),
       ),
     );
   }
 
-  for (final family in [RaftFamily.elegant, RaftFamily.brutal]) {
-    group('summary ($family)', () {
-      testWidgets(
-        'shows at most 3 faces, the count, and the sentence as its name',
-        (t) async {
-          final handle = t.ensureSemantics();
-          final many = [
-            for (var i = 0; i < 5; i++) _agent('a$i', 'Agent $i', 'Working…'),
-          ];
-          await pump(
-            t,
-            Align(
-              alignment: Alignment.topRight,
-              child: RaftWorkingSummary(agents: many),
-            ),
-            family: family,
-          );
-          expect(find.byKey(const Key('working-agent-faces')), findsOneWidget);
-          expect(find.byType(RaftMountedAvatarFrame), findsNWidgets(3));
-          expect(
-            t.getSize(find.byType(RaftMountedAvatarFrame).first),
-            const Size(19, 19),
-          );
-          // Each face overlaps the one before by 5px.
-          final x0 = t.getTopLeft(find.byType(RaftMountedAvatarFrame).at(0)).dx;
-          final x1 = t.getTopLeft(find.byType(RaftMountedAvatarFrame).at(1)).dx;
-          expect(x1 - x0, 14);
-          expect(find.text('5'), findsOneWidget);
-          expect(find.bySemanticsLabel('5 agents working'), findsOneWidget);
-          // The faces are hidden from assistive technology.
-          expect(find.bySemanticsLabel('Agent 0'), findsNothing);
-          handle.dispose();
-        },
-      );
-
-      testWidgets('one agent reads "1 agent working"; nobody hides it (no 0)', (
-        t,
-      ) async {
-        await pump(t, RaftWorkingSummary(agents: [_two.first]), family: family);
-        expect(find.bySemanticsLabel('1 agent working'), findsOneWidget);
-        await pump(t, const RaftWorkingSummary(agents: []), family: family);
-        expect(find.byKey(const Key('working-agents-summary')), findsNothing);
-        expect(find.text('0'), findsNothing);
-      });
-
-      testWidgets(
-        'opens Working now: 300px, aligned to the end, one row per agent',
-        (t) async {
-          final opened = <String>[];
-          await pump(
-            t,
-            Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 24),
-                child: RaftWorkingSummary(
-                  agents: _two,
-                  onOpenAgent: opened.add,
-                ),
-              ),
-            ),
-            family: family,
-          );
-          expect(find.text('Working now'), findsNothing);
-          await t.tap(find.byKey(const Key('working-agents-summary')));
-          await t.pumpAndSettle();
-          expect(find.text('Working now'), findsOneWidget);
-          expect(
-            t.getSize(find.byKey(const Key('working-now'))).width,
-            lessThanOrEqualTo(300),
-          );
-          final panel = t.getRect(find.byType(RaftWorkingNow));
-          expect(panel.width, 300);
-          final summary = t.getRect(
-            find.byKey(const Key('working-agents-summary')),
-          );
-          expect(
-            panel.right,
-            closeTo(summary.right, 1),
-            reason: 'aligned to the end',
-          );
-          // Rows: avatar, bold name, what it is doing.
-          expect(find.text('Bugen'), findsOneWidget);
-          expect(find.text('Editing Flow.tsx · #25'), findsOneWidget);
-          expect(find.text('Wug'), findsOneWidget);
-          expect(find.text('Drafting release notes · #31'), findsOneWidget);
-          expect(
-            t.widget<Text>(find.text('Editing Flow.tsx · #25')).maxLines,
-            2,
-          );
-          expect(
-            t.getSize(
-              find.descendant(
-                of: find.byKey(const ValueKey('working-now-row-bugen')),
-                matching: find.byType(RaftMountedAvatarFrame),
-              ),
-            ),
-            const Size(27, 27),
-          );
-          // Selecting a row opens the agent and closes the popover.
-          await t.tap(find.byKey(const ValueKey('working-now-row-wug')));
-          await t.pumpAndSettle();
-          expect(opened, ['wug']);
-          expect(find.text('Working now'), findsNothing);
-        },
-      );
-
-      testWidgets(
-        'Escape and an outside tap close it; the count changes in place',
-        (t) async {
-          final agents = ValueNotifier(_two);
-          addTearDown(agents.dispose);
-          await pump(
-            t,
-            Align(
-              alignment: Alignment.topRight,
-              child: ValueListenableBuilder(
-                valueListenable: agents,
-                builder: (_, value, _) => RaftWorkingSummary(agents: value),
-              ),
-            ),
-            family: family,
-          );
-          await t.tap(find.byKey(const Key('working-agents-summary')));
-          await t.pumpAndSettle();
-          expect(find.text('Working now'), findsOneWidget);
-          agents.value = [_two.first];
-          await t.pumpAndSettle();
-          expect(find.text('1'), findsOneWidget);
-          expect(
-            find.text('Wug'),
-            findsNothing,
-            reason: 'the list follows the work',
-          );
-          await t.sendKeyEvent(LogicalKeyboardKey.escape);
-          await t.pumpAndSettle();
-          expect(find.text('Working now'), findsNothing);
-          await t.tap(find.byKey(const Key('working-agents-summary')));
-          await t.pumpAndSettle();
-          await t.tapAt(const Offset(10, 700));
-          await t.pumpAndSettle();
-          expect(find.text('Working now'), findsNothing);
-        },
-      );
-
-      testWidgets('a face that joins slides in; reduced motion just shows it', (
-        t,
-      ) async {
-        final agents = ValueNotifier([_two.first]);
-        addTearDown(agents.dispose);
-        Widget host() => ValueListenableBuilder(
-          valueListenable: agents,
-          builder: (_, value, _) => RaftWorkingSummary(agents: value),
+  group('summary', () {
+    testWidgets(
+      'shows at most 3 faces, the count, and the sentence as its name',
+      (t) async {
+        final handle = t.ensureSemantics();
+        final many = [
+          for (var i = 0; i < 5; i++) _agent('a$i', 'Agent $i', 'Working…'),
+        ];
+        await pump(
+          t,
+          Align(
+            alignment: Alignment.topRight,
+            child: RaftWorkingSummary(agents: many),
+          ),
         );
-        await pump(t, host());
-        agents.value = _two;
-        await t.pump();
-        await t.pump(const Duration(milliseconds: 60));
-        final joining = find.byKey(const ValueKey('working-face-wug'));
+        expect(find.byKey(const Key('working-agent-faces')), findsOneWidget);
+        expect(find.byType(RaftMountedAvatarFrame), findsNWidgets(3));
         expect(
-          t
-              .widget<Opacity>(
-                find
-                    .descendant(of: joining, matching: find.byType(Opacity))
-                    .first,
-              )
-              .opacity,
-          lessThan(1),
+          t.getSize(find.byType(RaftMountedAvatarFrame).first),
+          const Size(19, 19),
         );
-        await t.pumpAndSettle();
-        expect(
-          t
-              .widget<Opacity>(
-                find
-                    .descendant(of: joining, matching: find.byType(Opacity))
-                    .first,
-              )
-              .opacity,
-          1,
-        );
-      });
+        // Each face overlaps the one before by 5px.
+        final x0 = t.getTopLeft(find.byType(RaftMountedAvatarFrame).at(0)).dx;
+        final x1 = t.getTopLeft(find.byType(RaftMountedAvatarFrame).at(1)).dx;
+        expect(x1 - x0, 14);
+        expect(find.text('5'), findsOneWidget);
+        expect(find.bySemanticsLabel('5 agents working'), findsOneWidget);
+        // The faces are hidden from assistive technology.
+        expect(find.bySemanticsLabel('Agent 0'), findsNothing);
+        handle.dispose();
+      },
+    );
+
+    testWidgets('one agent reads "1 agent working"; nobody hides it (no 0)', (
+      t,
+    ) async {
+      await pump(t, RaftWorkingSummary(agents: [_two.first]));
+      expect(find.bySemanticsLabel('1 agent working'), findsOneWidget);
+      await pump(t, const RaftWorkingSummary(agents: []));
+      expect(find.byKey(const Key('working-agents-summary')), findsNothing);
+      expect(find.text('0'), findsNothing);
     });
-  }
+
+    testWidgets(
+      'opens Working now: 300px, aligned to the end, one row per agent',
+      (t) async {
+        final opened = <String>[];
+        await pump(
+          t,
+          Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 24),
+              child: RaftWorkingSummary(agents: _two, onOpenAgent: opened.add),
+            ),
+          ),
+        );
+        expect(find.text('Working now'), findsNothing);
+        await t.tap(find.byKey(const Key('working-agents-summary')));
+        await t.pumpAndSettle();
+        expect(find.text('Working now'), findsOneWidget);
+        expect(
+          t.getSize(find.byKey(const Key('working-now'))).width,
+          lessThanOrEqualTo(300),
+        );
+        final panel = t.getRect(find.byType(RaftWorkingNow));
+        expect(panel.width, 300);
+        final summary = t.getRect(
+          find.byKey(const Key('working-agents-summary')),
+        );
+        expect(
+          panel.right,
+          closeTo(summary.right, 1),
+          reason: 'aligned to the end',
+        );
+        // Rows: avatar, bold name, what it is doing.
+        expect(find.text('Bugen'), findsOneWidget);
+        expect(find.text('Editing Flow.tsx · #25'), findsOneWidget);
+        expect(find.text('Wug'), findsOneWidget);
+        expect(find.text('Drafting release notes · #31'), findsOneWidget);
+        expect(t.widget<Text>(find.text('Editing Flow.tsx · #25')).maxLines, 2);
+        expect(
+          t.getSize(
+            find.descendant(
+              of: find.byKey(const ValueKey('working-now-row-bugen')),
+              matching: find.byType(RaftMountedAvatarFrame),
+            ),
+          ),
+          const Size(27, 27),
+        );
+        // Selecting a row opens the agent and closes the popover.
+        await t.tap(find.byKey(const ValueKey('working-now-row-wug')));
+        await t.pumpAndSettle();
+        expect(opened, ['wug']);
+        expect(find.text('Working now'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Escape and an outside tap close it; the count changes in place',
+      (t) async {
+        final agents = ValueNotifier(_two);
+        addTearDown(agents.dispose);
+        await pump(
+          t,
+          Align(
+            alignment: Alignment.topRight,
+            child: ValueListenableBuilder(
+              valueListenable: agents,
+              builder: (_, value, _) => RaftWorkingSummary(agents: value),
+            ),
+          ),
+        );
+        await t.tap(find.byKey(const Key('working-agents-summary')));
+        await t.pumpAndSettle();
+        expect(find.text('Working now'), findsOneWidget);
+        agents.value = [_two.first];
+        await t.pumpAndSettle();
+        expect(find.text('1'), findsOneWidget);
+        expect(
+          find.text('Wug'),
+          findsNothing,
+          reason: 'the list follows the work',
+        );
+        await t.sendKeyEvent(LogicalKeyboardKey.escape);
+        await t.pumpAndSettle();
+        expect(find.text('Working now'), findsNothing);
+        await t.tap(find.byKey(const Key('working-agents-summary')));
+        await t.pumpAndSettle();
+        await t.tapAt(const Offset(10, 700));
+        await t.pumpAndSettle();
+        expect(find.text('Working now'), findsNothing);
+      },
+    );
+
+    testWidgets('a face that joins slides in; reduced motion just shows it', (
+      t,
+    ) async {
+      final agents = ValueNotifier([_two.first]);
+      addTearDown(agents.dispose);
+      Widget host() => ValueListenableBuilder(
+        valueListenable: agents,
+        builder: (_, value, _) => RaftWorkingSummary(agents: value),
+      );
+      await pump(t, host());
+      agents.value = _two;
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 60));
+      final joining = find.byKey(const ValueKey('working-face-wug'));
+      expect(
+        t
+            .widget<Opacity>(
+              find
+                  .descendant(of: joining, matching: find.byType(Opacity))
+                  .first,
+            )
+            .opacity,
+        lessThan(1),
+      );
+      await t.pumpAndSettle();
+      expect(
+        t
+            .widget<Opacity>(
+              find
+                  .descendant(of: joining, matching: find.byType(Opacity))
+                  .first,
+            )
+            .opacity,
+        1,
+      );
+    });
+  });
 
   testWidgets('summary hit target is at least 44px on a phone', (t) async {
     await pump(

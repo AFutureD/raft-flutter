@@ -14,15 +14,9 @@ const _action = ValueKey('trailing-action');
 bool _androidZh = false;
 double _scale = 1;
 
-Widget _host(
-  RaftFamily family,
-  bool dark,
-  Widget child, {
-  double width = 700,
-}) => MaterialApp(
+Widget _host(bool dark, Widget child, {double width = 700}) => MaterialApp(
   locale: _androidZh ? const Locale('zh') : null,
   theme: raftTheme(
-    family,
     dark: dark,
     locale: _androidZh ? const Locale('zh') : null,
     platform: _androidZh ? TargetPlatform.android : null,
@@ -57,12 +51,8 @@ void main() {
       _androidZh = zh;
       _scale = scale;
     });
-    for (final theme in raftThemeMatrix([
-      (RaftFamily.brutal, false),
-      (RaftFamily.elegant, false),
-      (RaftFamily.elegant, true),
-    ])) {
-      final (family, dark) = theme;
+    for (final theme in raftThemeMatrix([(false), (true)])) {
+      final (dark) = theme;
 
       for (final small in [false, true]) {
         testWidgets(
@@ -70,7 +60,6 @@ void main() {
           (tester) async {
             await tester.pumpWidget(
               _host(
-                family,
                 dark,
                 RaftErrorBanner(
                   'Could not load',
@@ -94,7 +83,6 @@ void main() {
         (tester) async {
           await tester.pumpWidget(
             _host(
-              family,
               dark,
               RaftComposerNotice(
                 message: 'Attachment too large',
@@ -116,7 +104,6 @@ void main() {
         (tester) async {
           await tester.pumpWidget(
             _host(
-              family,
               dark,
               RaftAvatarListRow(
                 avatar: const SizedBox.square(dimension: 32),
@@ -138,7 +125,6 @@ void main() {
         (tester) async {
           await tester.pumpWidget(
             _host(
-              family,
               dark,
               RaftSettingsActionCard(
                 title: 'Delete Workspace',
@@ -159,7 +145,6 @@ void main() {
         (tester) async {
           await tester.pumpWidget(
             _host(
-              family,
               dark,
               RaftConnectedAppDangerRow(
                 description: 'Removing the app revokes its access.',

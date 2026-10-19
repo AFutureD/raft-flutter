@@ -309,13 +309,9 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(n.sent, isEmpty);
   });
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'Members keeps its reading position after opening an agent $family/$dark',
+      'Members keeps its reading position after opening an agent ${dark ? 'dark' : 'light'}',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(390, 844);
@@ -345,13 +341,12 @@ void main() {
         });
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
                 appearance: RaftAppearance(
                   mode: dark ? ThemeMode.dark : ThemeMode.light,
-                  light: family,
                 ),
                 onAppearance: (_) async {},
                 onLogout: () async {},
@@ -386,7 +381,7 @@ void main() {
       },
     );
     testWidgets(
-      'Settings root and detail retain separate scroll positions $family/$dark',
+      'Settings root and detail retain separate scroll positions ${dark ? 'dark' : 'light'}',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(390, 560);
@@ -404,13 +399,12 @@ void main() {
         });
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
                 appearance: RaftAppearance(
                   mode: dark ? ThemeMode.dark : ThemeMode.light,
-                  light: family,
                 ),
                 onAppearance: (_) async {},
                 onLogout: () async {},
@@ -444,7 +438,7 @@ void main() {
       },
     );
     testWidgets(
-      'Home retains scroll after channel Back and tab switching $family/$dark',
+      'Home retains scroll after channel Back and tab switching ${dark ? 'dark' : 'light'}',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(390, 844);
@@ -470,13 +464,12 @@ void main() {
         });
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
                 appearance: RaftAppearance(
                   mode: dark ? ThemeMode.dark : ThemeMode.light,
-                  light: family,
                 ),
                 onAppearance: (_) async {},
                 onLogout: () async {},
@@ -530,7 +523,7 @@ void main() {
     );
     for (final knownRevoked in [true, false]) {
       testWidgets(
-        'actual mobile Back rejects a deleted channel $family/$dark known=$knownRevoked',
+        'actual mobile Back rejects a deleted channel ${dark ? 'dark' : 'light'} known=$knownRevoked',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           tester.view.physicalSize = const Size(390, 844);
@@ -569,13 +562,12 @@ void main() {
           }
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
                   appearance: RaftAppearance(
                     mode: dark ? ThemeMode.dark : ThemeMode.light,
-                    light: family,
                   ),
                   onAppearance: (_) async {},
                   onLogout: () async {},
@@ -639,7 +631,7 @@ void main() {
     c.pendingMetadata['/channels/gone'] = held;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: withAppServices(
           WorkspaceView(
             controller: w,
@@ -695,7 +687,7 @@ void main() {
       });
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: w,
@@ -870,7 +862,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       final states = <bool>[];
       Widget app(int revision) => MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftSettingsPage(
             mobileRoot: true,
@@ -901,43 +893,39 @@ void main() {
     },
   );
 
-  for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
-    testWidgets('a left-edge swipe never opens a sidebar drawer $family', (
-      tester,
-    ) async {
-      SharedPreferences.setMockInitialValues({});
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final c = _Client()..selectServer('s');
-      final w = WorkspaceController(c, mobileNavigation: true)
-        ..server = RaftRecord({'id': 's', 'name': 'Fixture', 'role': 'owner'});
-      w.setSection('members');
-      addTearDown(() async {
-        w.dispose();
-        await c.stream.close();
-      });
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(family),
-          home: withAppServices(
-            WorkspaceView(
-              controller: w,
-              appearance: RaftAppearance(mode: ThemeMode.light, light: family),
-              onAppearance: (_) async {},
-              onLogout: () async {},
-            ),
+  testWidgets('a left-edge swipe never opens a sidebar drawer', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final c = _Client()..selectServer('s');
+    final w = WorkspaceController(c, mobileNavigation: true)
+      ..server = RaftRecord({'id': 's', 'name': 'Fixture', 'role': 'owner'});
+    w.setSection('members');
+    addTearDown(() async {
+      w.dispose();
+      await c.stream.close();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(),
+        home: withAppServices(
+          WorkspaceView(
+            controller: w,
+            appearance: RaftAppearance(mode: ThemeMode.light),
+            onAppearance: (_) async {},
+            onLogout: () async {},
           ),
         ),
-      );
-      await tester.pumpAndSettle();
-      // Phones reach the sidebar through the Home tab only (Web has no
-      // drawer); an edge drag must not race Android's back gesture.
-      await tester.dragFrom(const Offset(2, 420), const Offset(300, 0));
-      await tester.pumpAndSettle();
-      expect(find.byType(Drawer), findsNothing);
-      expect(find.byType(DrawerController), findsNothing);
-      expect(tester.takeException(), isNull);
-    });
-  }
+      ),
+    );
+    await tester.pumpAndSettle();
+    // Phones reach the sidebar through the Home tab only (Web has no
+    // drawer); an edge drag must not race Android's back gesture.
+    await tester.dragFrom(const Offset(2, 420), const Offset(300, 0));
+    await tester.pumpAndSettle();
+    expect(find.byType(Drawer), findsNothing);
+    expect(find.byType(DrawerController), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

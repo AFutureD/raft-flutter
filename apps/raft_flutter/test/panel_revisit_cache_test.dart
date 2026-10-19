@@ -48,18 +48,14 @@ Map<String, dynamic> fileRow(String id, {String name = ''}) => {
 /// Panel text is painted through RaftCssText (RichText).
 Finder rich(String text) => find.text(text, findRichText: true);
 
-const _themes = [
-  (RaftFamily.brutal, false),
-  (RaftFamily.elegant, false),
-  (RaftFamily.elegant, true),
-];
+const _themes = [(false), (true)];
 
 void main() {
   // Leak debt (other): see docs/development.md, Leak tracking.
   leakDebt(const ['SourceChannelFilesStore']);
-  for (final (family, dark) in raftThemeMatrix(_themes)) {
+  for (final (dark) in raftThemeMatrix(_themes)) {
     testWidgets(
-      '$family/$dark Files tab: revisit and thread open show cached rows at the first frame; refresh replaces in place; identity change drops them',
+      '${dark ? 'dark' : 'light'} Files tab: revisit and thread open show cached rows at the first frame; refresh replaces in place; identity change drops them',
       (t) async {
         final (w, api) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -85,7 +81,7 @@ void main() {
         };
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: ConversationPanel(controller: w)),
           ),
         );
@@ -195,11 +191,10 @@ void main() {
   };
   Widget agentPanel(
     dynamic w,
-    RaftFamily family,
     bool dark, {
     AgentDetailTab tab = AgentDetailTab.profile,
   }) => MaterialApp(
-    theme: raftTheme(family, dark: dark),
+    theme: raftTheme(dark: dark),
     home: Scaffold(
       body: AgentDetailPanel(
         key: const ValueKey('agent-panel'),
@@ -214,9 +209,9 @@ void main() {
     ),
   );
 
-  for (final (family, dark) in raftThemeMatrix(_themes)) {
+  for (final (dark) in raftThemeMatrix(_themes)) {
     testWidgets(
-      '$family/$dark agent Chat tab: no 0 counts on revisit, in-place refresh, identity change drops it',
+      '${dark ? 'dark' : 'light'} agent Chat tab: no 0 counts on revisit, in-place refresh, identity change drops it',
       (t) async {
         final (w, api) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -249,7 +244,7 @@ void main() {
             },
           ],
         };
-        await t.pumpWidget(agentPanel(w, family, dark));
+        await t.pumpWidget(agentPanel(w, dark));
         await t.pump();
         final tabs = find.byType(RaftPanelTabBar<AgentDetailTab>);
         Future<void> openTab(String label) =>
@@ -302,7 +297,7 @@ void main() {
     );
 
     testWidgets(
-      '$family/$dark agent Reminders tab: refresh never inserts a Loading line above shown rows',
+      '${dark ? 'dark' : 'light'} agent Reminders tab: refresh never inserts a Loading line above shown rows',
       (t) async {
         final (w, api) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -325,7 +320,7 @@ void main() {
           held.add(gate);
           return gate.future;
         };
-        await t.pumpWidget(agentPanel(w, family, dark));
+        await t.pumpWidget(agentPanel(w, dark));
         await t.pump();
         final tabs = find.byType(RaftPanelTabBar<AgentDetailTab>);
         Future<void> openTab(String label) =>
@@ -370,7 +365,7 @@ void main() {
     );
 
     testWidgets(
-      '$family/$dark agent Workspace tab: expanded folders survive tab switches and the tree refreshes in place',
+      '${dark ? 'dark' : 'light'} agent Workspace tab: expanded folders survive tab switches and the tree refreshes in place',
       (t) async {
         final (w, api) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -397,7 +392,7 @@ void main() {
           held.add(gate);
           return gate.future;
         };
-        await t.pumpWidget(agentPanel(w, family, dark));
+        await t.pumpWidget(agentPanel(w, dark));
         await t.pump();
         final tabs = find.byType(RaftPanelTabBar<AgentDetailTab>);
         Future<void> openTab(String label) =>
@@ -458,9 +453,9 @@ void main() {
     );
   }
 
-  for (final (family, dark) in raftThemeMatrix(_themes)) {
+  for (final (dark) in raftThemeMatrix(_themes)) {
     testWidgets(
-      '$family/$dark task detail: known row and cached history at the first frame, background refresh in place, identity change drops history',
+      '${dark ? 'dark' : 'light'} task detail: known row and cached history at the first frame, background refresh in place, identity change drops history',
       (t) async {
         final (w, api) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -494,7 +489,7 @@ void main() {
           owners.add(owner);
           unawaited(owner.start());
           return MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: SourceTaskSurface(
                 owner: owner,

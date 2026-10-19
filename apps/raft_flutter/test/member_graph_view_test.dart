@@ -125,7 +125,7 @@ Future<(WorkspaceController, _Client)> _pump(
   });
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.brutal),
+      theme: raftTheme(),
       home: Scaffold(
         body: body?.call(w) ?? MemberGraphPage(controller: w, onBack: () {}),
       ),
@@ -276,14 +276,11 @@ void main() {
     });
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: withAppServices(
           WorkspaceView(
             controller: w,
-            appearance: const RaftAppearance(
-              mode: ThemeMode.light,
-              light: RaftFamily.brutal,
-            ),
+            appearance: const RaftAppearance(mode: ThemeMode.light),
             onAppearance: (_) async {},
             onLogout: () async {},
           ),

@@ -12,7 +12,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'app_global_server_selector_test.dart' show RootFixture;
 
 Future<void> _mount(WidgetTester t, RootFixture f) async {
-  await f.mount(t, 'elegant', 1200);
+  await f.mount(t, 'light', 1200);
   await t.tap(find.byKey(const ValueKey('global-server-a')));
   await f.flush(t);
   expect(find.byType(TextField), findsWidgets);

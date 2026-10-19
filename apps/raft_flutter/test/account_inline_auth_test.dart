@@ -55,7 +55,7 @@ void main() {
   });
   Future<void> mount(WidgetTester t, Widget child) => t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(body: SingleChildScrollView(child: child)),
     ),
   );

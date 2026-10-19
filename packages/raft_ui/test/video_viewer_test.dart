@@ -5,160 +5,142 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 void main() {
-  for (final family in RaftFamily.values) {
-    group('$family video viewer', () {
-      late List<String> calls;
-      Duration? seek;
-      double? volume;
+  group('video viewer', () {
+    late List<String> calls;
+    Duration? seek;
+    double? volume;
 
-      Future<void> pump(
-        WidgetTester tester, {
-        Size? videoSize = const Size(720, 1280),
-        bool playing = false,
-        bool touch = false,
-        Size screen = const Size(1000, 700),
-      }) async {
-        calls = [];
-        seek = null;
-        volume = null;
-        tester.view.physicalSize = screen;
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: raftTheme(family),
-            home: Scaffold(
-              body: RaftVideoViewer(
-                filename: 'clip.mp4',
-                videoSize: videoSize,
-                video: const ColoredBox(
-                  key: Key('surface'),
-                  color: Color(0xFF3D5A79),
-                ),
-                playing: playing,
-                position: const Duration(seconds: 30),
-                duration: const Duration(seconds: 120),
-                touch: touch,
-                onTogglePlay: () => calls.add('toggle'),
-                onSeek: (v) => seek = v,
-                onVolume: (v) => volume = v,
-                onDownload: () => calls.add('download'),
+    Future<void> pump(
+      WidgetTester tester, {
+      Size? videoSize = const Size(720, 1280),
+      bool playing = false,
+      bool touch = false,
+      Size screen = const Size(1000, 700),
+    }) async {
+      calls = [];
+      seek = null;
+      volume = null;
+      tester.view.physicalSize = screen;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(),
+          home: Scaffold(
+            body: RaftVideoViewer(
+              filename: 'clip.mp4',
+              videoSize: videoSize,
+              video: const ColoredBox(
+                key: Key('surface'),
+                color: Color(0xFF3D5A79),
               ),
+              playing: playing,
+              position: const Duration(seconds: 30),
+              duration: const Duration(seconds: 120),
+              touch: touch,
+              onTogglePlay: () => calls.add('toggle'),
+              onSeek: (v) => seek = v,
+              onVolume: (v) => volume = v,
+              onDownload: () => calls.add('download'),
             ),
           ),
-        );
-        await tester.pump();
-      }
-
-      testWidgets(
-        'stage is black; a portrait clip shrinks to fit, never grows',
-        (tester) async {
-          await pump(tester);
-          final stage = tester.getRect(find.byKey(const Key('video-viewer')));
-          final frame = tester.getRect(
-            find.byKey(const Key('video-viewer-frame')),
-          );
-          // 16 px around, aspect kept (720x1280 into 668 px of height).
-          expect(frame.height, 668);
-          // The frame wraps the content: border (2 px brutal, 1 px elegant) outside.
-          final rule = family == RaftFamily.brutal ? 2.0 : 1.0;
-          expect(
-            frame.width,
-            closeTo((668 - 2 * rule) * 720 / 1280 + 2 * rule, 1),
-          );
-          expect(frame.center.dx, closeTo(stage.center.dx, 1));
-          expect(
-            tester
-                .widget<ColoredBox>(find.byKey(const Key('video-viewer')))
-                .color,
-            const Color(0xFF000000),
-          );
-          await pump(tester, videoSize: const Size(320, 180));
-          final small = tester.getSize(
-            find.byKey(const Key('video-viewer-frame')),
-          );
-          final rule2 = family == RaftFamily.brutal ? 2.0 : 1.0;
-          expect(small, Size(320 + 2 * rule2, 180 + 2 * rule2));
-          // Paused: the browser-style bar is up, no Material slider anywhere.
-          expect(find.byKey(const Key('inline-video-bar')), findsOneWidget);
-          expect(find.byType(Slider), findsNothing);
-        },
+        ),
       );
+      await tester.pump();
+    }
 
-      testWidgets('play, seek, mute, volume rail, download, full screen', (
-        tester,
-      ) async {
-        await pump(tester);
+    testWidgets('stage is black; a portrait clip shrinks to fit, never grows', (
+      tester,
+    ) async {
+      await pump(tester);
+      final stage = tester.getRect(find.byKey(const Key('video-viewer')));
+      final frame = tester.getRect(find.byKey(const Key('video-viewer-frame')));
+      // 16 px around, aspect kept (720x1280 into 668 px of height).
+      expect(frame.height, 668);
+      // The frame wraps the content: border (1 px) outside.
+      final rule = 1.0;
+      expect(frame.width, closeTo((668 - 2 * rule) * 720 / 1280 + 2 * rule, 1));
+      expect(frame.center.dx, closeTo(stage.center.dx, 1));
+      expect(
+        tester.widget<ColoredBox>(find.byKey(const Key('video-viewer'))).color,
+        const Color(0xFF000000),
+      );
+      await pump(tester, videoSize: const Size(320, 180));
+      final small = tester.getSize(find.byKey(const Key('video-viewer-frame')));
+      final rule2 = 1.0;
+      expect(small, Size(320 + 2 * rule2, 180 + 2 * rule2));
+      // Paused: the browser-style bar is up, no Material slider anywhere.
+      expect(find.byKey(const Key('inline-video-bar')), findsOneWidget);
+      expect(find.byType(Slider), findsNothing);
+    });
+
+    testWidgets('play, seek, mute, volume rail, download, full screen', (
+      tester,
+    ) async {
+      await pump(tester);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.byKey(const Key('surface'))));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('inline-video-toggle')));
+      await tester.tap(find.byKey(const Key('inline-video-download-action')));
+      expect(calls, ['toggle', 'download']);
+      final rail = tester.getRect(find.byKey(const Key('inline-video-seek')));
+      await tester.tapAt(Offset(rail.left + rail.width / 2, rail.center.dy));
+      expect(seek!.inSeconds, inInclusiveRange(59, 61));
+      await tester.tap(find.byKey(const Key('inline-video-mute')));
+      expect(volume, 0);
+      // The volume rail opens while the pointer is over the speaker.
+      await mouse.moveTo(
+        tester.getCenter(find.byKey(const Key('inline-video-mute'))),
+      );
+      await tester.pump();
+      final vol = tester.getRect(find.byKey(const Key('inline-video-volume')));
+      await tester.tapAt(Offset(vol.left + vol.width * .25, vol.center.dy));
+      expect(volume, closeTo(25, 1));
+      // Full screen: the picture takes the whole stage, unframed.
+      await tester.tap(find.byKey(const Key('inline-video-fullscreen')));
+      await tester.pump();
+      final stage = tester.getSize(find.byKey(const Key('video-viewer')));
+      expect(
+        tester.getSize(find.byKey(const Key('video-viewer-frame'))),
+        stage,
+      );
+      await tester.tap(find.byKey(const Key('inline-video-fullscreen')));
+      await tester.pump();
+      expect(
+        tester.getSize(find.byKey(const Key('video-viewer-frame'))),
+        isNot(stage),
+      );
+    });
+
+    testWidgets(
+      'a click on the picture toggles; playing hides the bar off hover',
+      (tester) async {
+        await pump(tester, playing: true);
+        expect(find.byKey(const Key('inline-video-bar')), findsNothing);
+        await tester.tap(find.byKey(const Key('inline-video-surface')));
+        expect(calls, ['toggle']);
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);
         addTearDown(mouse.removePointer);
         await mouse.moveTo(tester.getCenter(find.byKey(const Key('surface'))));
         await tester.pump();
-        await tester.tap(find.byKey(const Key('inline-video-toggle')));
-        await tester.tap(find.byKey(const Key('inline-video-download-action')));
-        expect(calls, ['toggle', 'download']);
-        final rail = tester.getRect(find.byKey(const Key('inline-video-seek')));
-        await tester.tapAt(Offset(rail.left + rail.width / 2, rail.center.dy));
-        expect(seek!.inSeconds, inInclusiveRange(59, 61));
-        await tester.tap(find.byKey(const Key('inline-video-mute')));
-        expect(volume, 0);
-        // The volume rail opens while the pointer is over the speaker.
-        await mouse.moveTo(
-          tester.getCenter(find.byKey(const Key('inline-video-mute'))),
-        );
-        await tester.pump();
-        final vol = tester.getRect(
-          find.byKey(const Key('inline-video-volume')),
-        );
-        await tester.tapAt(Offset(vol.left + vol.width * .25, vol.center.dy));
-        expect(volume, closeTo(25, 1));
-        // Full screen: the picture takes the whole stage, unframed.
-        await tester.tap(find.byKey(const Key('inline-video-fullscreen')));
-        await tester.pump();
-        final stage = tester.getSize(find.byKey(const Key('video-viewer')));
-        expect(
-          tester.getSize(find.byKey(const Key('video-viewer-frame'))),
-          stage,
-        );
-        await tester.tap(find.byKey(const Key('inline-video-fullscreen')));
-        await tester.pump();
-        expect(
-          tester.getSize(find.byKey(const Key('video-viewer-frame'))),
-          isNot(stage),
-        );
-      });
+        expect(find.byKey(const Key('inline-video-bar')), findsOneWidget);
+      },
+    );
 
-      testWidgets(
-        'a click on the picture toggles; playing hides the bar off hover',
-        (tester) async {
-          await pump(tester, playing: true);
-          expect(find.byKey(const Key('inline-video-bar')), findsNothing);
-          await tester.tap(find.byKey(const Key('inline-video-surface')));
-          expect(calls, ['toggle']);
-          final mouse = await tester.createGesture(
-            kind: PointerDeviceKind.mouse,
-          );
-          await mouse.addPointer(location: Offset.zero);
-          addTearDown(mouse.removePointer);
-          await mouse.moveTo(
-            tester.getCenter(find.byKey(const Key('surface'))),
-          );
-          await tester.pump();
-          expect(find.byKey(const Key('inline-video-bar')), findsOneWidget);
-        },
-      );
-
-      testWidgets('phone width: bar keeps play, time, seek and drops extras', (
-        tester,
-      ) async {
-        await pump(tester, touch: true, screen: const Size(320, 640));
-        expect(find.byKey(const Key('inline-video-toggle')), findsOneWidget);
-        expect(find.byKey(const Key('inline-video-seek')), findsOneWidget);
-        expect(find.byKey(const Key('inline-video-play')), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      });
+    testWidgets('phone width: bar keeps play, time, seek and drops extras', (
+      tester,
+    ) async {
+      await pump(tester, touch: true, screen: const Size(320, 640));
+      expect(find.byKey(const Key('inline-video-toggle')), findsOneWidget);
+      expect(find.byKey(const Key('inline-video-seek')), findsOneWidget);
+      expect(find.byKey(const Key('inline-video-play')), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
-  }
+  });
 
   testWidgets('audio viewer card: badge, name, rails; no Material slider', (
     tester,
@@ -166,7 +148,7 @@ void main() {
     Duration? seek;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftAudioPreview(
             filename: 'standup.mp3',
@@ -200,7 +182,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftVideoViewer(
             filename: 'clip.mp4',
@@ -274,7 +256,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftAttachmentPreviewShell(
               filename: 'clip.mp4',

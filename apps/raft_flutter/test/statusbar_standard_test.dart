@@ -33,7 +33,7 @@ import 'support/test_parts.dart';
 
 const _dpr = 2.625;
 const _topDp = 40.0;
-const _themes = ['brutal', 'elegant-light', 'elegant-dark'];
+const _themes = ['light', 'dark'];
 const _sizes = {
   'phone-390': Size(390, 844),
   'fold-816': Size(816, 900),

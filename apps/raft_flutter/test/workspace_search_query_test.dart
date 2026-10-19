@@ -14,80 +14,77 @@ import 'workspace_source_location_contract_test.dart'
     show pageFixture, mountPage, frames, waitForPainted;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    testWidgets('$family/$dark mobile Search returns to its scrolled result', (
-      tester,
-    ) async {
-      final (w, api) = await pageFixture(tester, section: 'search');
-      w.navigation.navigate(
-        RaftLocation.parse('/s/demo/search?q=needle'),
-        kind: RaftNavigationKind.replace,
-      );
-      api.routes['GET /messages/search'] = (_) => {
-        'results': [
-          for (var i = 0; i < 60; i++)
-            {
-              ...message('result-$i', 'c1'),
-              'channelName': 'test',
-              'content': 'needle result $i',
-            },
-        ],
-        'hasMore': false,
-      };
-      for (var i = 0; i < 60; i++) {
-        api.routes['GET /messages/context/result-$i'] = (_) => {
-          'messages': [
-            {...message('result-$i', 'c1'), 'content': 'needle result $i'},
+  for (final dark in raftThemeMatrix([false, true])) {
+    testWidgets(
+      '${dark ? 'dark' : 'light'} mobile Search returns to its scrolled result',
+      (tester) async {
+        final (w, api) = await pageFixture(tester, section: 'search');
+        w.navigation.navigate(
+          RaftLocation.parse('/s/demo/search?q=needle'),
+          kind: RaftNavigationKind.replace,
+        );
+        api.routes['GET /messages/search'] = (_) => {
+          'results': [
+            for (var i = 0; i < 60; i++)
+              {
+                ...message('result-$i', 'c1'),
+                'channelName': 'test',
+                'content': 'needle result $i',
+              },
           ],
+          'hasMore': false,
         };
-      }
-      await mountPage(tester, w, family, dark, width: 390);
-      await frames(tester, () {});
-      ScrollPosition scroll() => tester
-          .state<ScrollableState>(
-            find
-                .descendant(
-                  of: find.byType(ResourceSearchResults),
-                  matching: find.byType(Scrollable),
-                )
-                .first,
-          )
-          .position;
-      scroll().jumpTo(1200);
-      await tester.pump();
-      final offset = scroll().pixels;
-      final target = find
-          .byType(RaftSearchResultSurface)
-          .evaluate()
-          .map((e) => find.byWidget(e.widget))
-          .firstWhere((f) {
-            final rect = tester.getRect(f);
-            return rect.top >= 200 && rect.bottom <= 750;
-          });
-      await tester.tap(target);
-      await frames(tester, () {});
-      await waitForPainted(tester, w.location.messageId!);
-      await tester.binding.handlePopRoute();
-      await frames(tester, () {});
-      await tester.pumpAndSettle();
-      expect(w.location.route, RaftRoute.search);
-      expect(scroll().pixels, closeTo(offset, .1));
-      expect(tester.takeException(), isNull);
-    });
+        for (var i = 0; i < 60; i++) {
+          api.routes['GET /messages/context/result-$i'] = (_) => {
+            'messages': [
+              {...message('result-$i', 'c1'), 'content': 'needle result $i'},
+            ],
+          };
+        }
+        await mountPage(tester, w, dark, width: 390);
+        await frames(tester, () {});
+        ScrollPosition scroll() => tester
+            .state<ScrollableState>(
+              find
+                  .descendant(
+                    of: find.byType(ResourceSearchResults),
+                    matching: find.byType(Scrollable),
+                  )
+                  .first,
+            )
+            .position;
+        scroll().jumpTo(1200);
+        await tester.pump();
+        final offset = scroll().pixels;
+        final target = find
+            .byType(RaftSearchResultSurface)
+            .evaluate()
+            .map((e) => find.byWidget(e.widget))
+            .firstWhere((f) {
+              final rect = tester.getRect(f);
+              return rect.top >= 200 && rect.bottom <= 750;
+            });
+        await tester.tap(target);
+        await frames(tester, () {});
+        await waitForPainted(tester, w.location.messageId!);
+        await tester.binding.handlePopRoute();
+        await frames(tester, () {});
+        await tester.pumpAndSettle();
+        expect(w.location.route, RaftRoute.search);
+        expect(scroll().pixels, closeTo(offset, .1));
+        expect(tester.takeException(), isNull);
+      },
+    );
     for (final width in [390.0, 1440.0]) {
       testWidgets(
-        '$family/$dark width=$width actual Search commits q, preserves raw input/cursor and pauses IME',
+        '${dark ? 'dark' : 'light'} width=$width actual Search commits q, preserves raw input/cursor and pauses IME',
         (tester) async {
           final (w, api) = await pageFixture(tester, section: 'search');
           w.navigation.navigate(
             RaftLocation.parse('/s/demo/search?q=seed&keep=accepted'),
             kind: RaftNavigationKind.replace,
           );
-          await mountPage(tester, w, family, dark, width: width);
+          await mountPage(tester, w, dark, width: width);
           final field = find.byWidgetPredicate(
             (widget) =>
                 widget is TextField &&
@@ -138,7 +135,7 @@ void main() {
       );
     }
     testWidgets(
-      '$family/$dark actual Search query preserves pending thread and adopts external query without stale overwrite',
+      '${dark ? 'dark' : 'light'} actual Search query preserves pending thread and adopts external query without stale overwrite',
       (tester) async {
         final (w, api) = await pageFixture(tester, section: 'search');
         w.navigation.navigate(
@@ -166,7 +163,7 @@ void main() {
         };
         api.routes['GET /messages/context/parent'] = (_) => parent.future;
         api.routes['GET /messages/context/reply'] = (_) => reply.future;
-        await mountPage(tester, w, family, dark);
+        await mountPage(tester, w, dark);
         await tester.tap(find.byType(RaftSearchResultSurface).first);
         await frames(tester, () {});
         final revision = w.navigationRevision,

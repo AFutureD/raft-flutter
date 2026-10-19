@@ -10,7 +10,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: const Center(
             child: RaftMountedReaction(
               label: 'Public reaction by artin',
@@ -78,7 +78,7 @@ void main() {
   });
 
   test('mounted selected/failure/hover rules differ from generic RUI chip', () {
-    final t = raftTheme(RaftFamily.elegant).extension<RaftTokens>()!;
+    final t = raftTheme().extension<RaftTokens>()!;
     final error = RaftMountedReactionRecipe(t, failure: true);
     expect(error.radius, BorderRadius.circular(4));
     expect(error.padding, const EdgeInsets.symmetric(horizontal: 6));

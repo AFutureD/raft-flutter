@@ -7,14 +7,10 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final theme in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    final (family, dark) = theme;
+  for (final theme in raftThemeMatrix([(false), (true)])) {
+    final (dark) = theme;
     Widget host(Widget child) => MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: Scaffold(body: SingleChildScrollView(child: child)),
     );
     testWidgets(

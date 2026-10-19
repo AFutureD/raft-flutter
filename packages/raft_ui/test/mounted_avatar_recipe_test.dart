@@ -8,26 +8,22 @@ import 'package:raft_ui/src/tooltip.dart';
 import 'package:raft_ui/test_themes.dart';
 
 const busy = RaftAvatarPresence(activity: RaftAvatarActivity.working);
-Widget host(Widget child, RaftFamily family, bool dark) => MaterialApp(
-  theme: raftTheme(family, dark: dark),
+Widget host(Widget child, bool dark) => MaterialApp(
+  theme: raftTheme(dark: dark),
   home: Scaffold(
     body: Align(alignment: Alignment.topLeft, child: child),
   ),
 );
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
     for (final (context, extent, inner) in [
       (RaftMountedAvatarContext.panelHeader, 36.0, 32.0),
       (RaftMountedAvatarContext.compactList, 20.0, 18.0),
       (RaftMountedAvatarContext.previewMini, 14.0, 12.0),
     ]) {
       testWidgets(
-        'mounted $context frame and real inner content $family/$dark',
+        'mounted $context frame and real inner content ${dark ? 'dark' : 'light'}',
         (tester) async {
           await tester.pumpWidget(
             host(
@@ -39,7 +35,6 @@ void main() {
                   color: Colors.red,
                 ),
               ),
-              family,
               dark,
             ),
           );
@@ -56,14 +51,8 @@ void main() {
           );
           final decoration = frame.decoration as BoxDecoration;
           expect(decoration.border!.top.width, (extent - inner) / 2);
-          expect(
-            decoration.border!.top.color,
-            family == RaftFamily.brutal ? Colors.black : Colors.transparent,
-          );
-          expect(
-            decoration.borderRadius,
-            BorderRadius.circular(family == RaftFamily.brutal ? 0 : extent / 2),
-          );
+          expect(decoration.border!.top.color, Colors.transparent);
+          expect(decoration.borderRadius, BorderRadius.circular(extent / 2));
           final fill = tester.widget<DecoratedBox>(
             find.byKey(const ValueKey('mounted-avatar-fallback-fill')),
           );
@@ -72,9 +61,7 @@ void main() {
           ).extension<RaftTokens>()!;
           expect(
             (fill.decoration as BoxDecoration).color,
-            t.colors[family == RaftFamily.brutal
-                ? 'color-brutal-lavender'
-                : 'fill-strong'],
+            t.colors['fill-strong'],
           );
           expect(
             find.byKey(const ValueKey('mounted-avatar-presence')),
@@ -85,7 +72,7 @@ void main() {
       );
     }
     testWidgets(
-      'muted mention frame hides status without changing layout $family/$dark',
+      'muted mention frame hides status without changing layout ${dark ? 'dark' : 'light'}',
       (tester) async {
         await tester.pumpWidget(
           host(
@@ -96,7 +83,6 @@ void main() {
               presence: busy,
               muted: true,
             ),
-            family,
             dark,
           ),
         );
@@ -120,7 +106,7 @@ void main() {
       },
     );
     testWidgets(
-      'agent panel badge matches mounted DOM and remains outside image clip $family/$dark',
+      'agent panel badge matches mounted DOM and remains outside image clip ${dark ? 'dark' : 'light'}',
       (tester) async {
         await tester.pumpWidget(
           host(
@@ -130,7 +116,6 @@ void main() {
               presence: busy,
               child: ColoredBox(color: Colors.blue),
             ),
-            family,
             dark,
           ),
         );
@@ -138,8 +123,8 @@ void main() {
         final row = find.byType(RaftMountedAvatarFrame);
         final delta = tester.getTopLeft(badge) - tester.getTopLeft(row);
         expect(tester.getSize(badge), const Size.square(10));
-        expect(delta.dx, family == RaftFamily.brutal ? 28.75 : 25);
-        expect(delta.dy, family == RaftFamily.brutal ? 28.75 : 25);
+        expect(delta.dx, 25);
+        expect(delta.dy, 25);
         expect(
           find.ancestor(of: badge, matching: find.byType(ClipRRect)),
           findsNothing,
@@ -148,28 +133,20 @@ void main() {
             tester.widget<DecoratedBox>(badge).decoration as BoxDecoration;
         expect(decoration.color, const Color(0xffffd440));
         expect(decoration.border!.top.width, 1);
-        expect(
-          decoration.boxShadow!.length,
-          family == RaftFamily.brutal ? 0 : 1,
-        );
-        if (family == RaftFamily.elegant) {
-          final t = RaftTokens.of(tester.element(row));
-          expect(decoration.boxShadow!.single.color, t.panel);
-          expect(decoration.boxShadow!.single.spreadRadius, 2);
-        }
+        expect(decoration.boxShadow!.length, 1);
+        final t = RaftTokens.of(tester.element(row));
+        expect(decoration.boxShadow!.single.color, t.panel);
+        expect(decoration.boxShadow!.single.spreadRadius, 2);
+
         await tester.pump();
         expect(tester.binding.hasScheduledFrame, isFalse);
       },
     );
     testWidgets(
-      'explicit and nested Gravatar fallbacks use separate source glyph sizes $family/$dark',
+      'explicit and nested Gravatar fallbacks use separate source glyph sizes ${dark ? 'dark' : 'light'}',
       (tester) async {
         await tester.pumpWidget(
-          host(
-            const RaftMountedAvatarFrame(name: 'Public human'),
-            family,
-            dark,
-          ),
+          host(const RaftMountedAvatarFrame(name: 'Public human'), dark),
         );
         var glyph = tester.widget<RaftIcon>(find.byType(RaftIcon));
         expect(glyph.size, 18);
@@ -178,9 +155,10 @@ void main() {
         );
         expect(
           glyph.color,
-          family == RaftFamily.brutal
-              ? Colors.black
-              : t.colors['foreground-placeholder']!.withValues(alpha: .7),
+          // opacity-70 over the token's own alpha (Raft hint is translucent).
+          t.colors['foreground-placeholder']!.withValues(
+            alpha: t.colors['foreground-placeholder']!.a * .7,
+          ),
         );
         await tester.pumpWidget(
           host(
@@ -188,7 +166,6 @@ void main() {
               name: 'Public human',
               child: RaftMountedAvatarFallback(gravatar: true),
             ),
-            family,
             dark,
           ),
         );
@@ -209,7 +186,6 @@ void main() {
               identity: identity,
               presence: busy,
             ),
-            RaftFamily.elegant,
             false,
           ),
         );
@@ -228,7 +204,6 @@ void main() {
             presence: busy,
             deactivated: true,
           ),
-          RaftFamily.elegant,
           false,
         ),
       );
@@ -244,7 +219,6 @@ void main() {
             name: 'Public',
             identity: RaftMountedAvatarIdentity.agent,
           ),
-          RaftFamily.elegant,
           false,
         ),
       );
@@ -271,7 +245,6 @@ void main() {
                 online: online,
               ),
             ),
-            RaftFamily.elegant,
             true,
           ),
         );
@@ -311,7 +284,6 @@ void main() {
               ),
             ),
           ),
-          RaftFamily.brutal,
           false,
         ),
       );
@@ -319,9 +291,7 @@ void main() {
         tester.widget<RaftTooltip>(find.byType(RaftTooltip)).message,
         'Online',
       );
-      await tester.pumpWidget(
-        host(const SizedBox.shrink(), RaftFamily.brutal, false),
-      );
+      await tester.pumpWidget(host(const SizedBox.shrink(), false));
       await tester.pump(const Duration(seconds: 1));
       expect(find.byType(RaftTooltip), findsNothing);
       expect(tester.takeException(), isNull);
@@ -332,11 +302,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      host(
-        const RaftAvatar(name: 'Public generic', size: 44),
-        RaftFamily.elegant,
-        false,
-      ),
+      host(const RaftAvatar(name: 'Public generic', size: 44), false),
     );
     expect(find.byType(RaftMountedAvatarFrame), findsNothing);
     expect(tester.getSize(find.byType(RaftAvatar)), const Size.square(44));
@@ -346,7 +312,6 @@ void main() {
           name: 'Public mounted',
           mountedContext: RaftMountedAvatarContext.compactList,
         ),
-        RaftFamily.elegant,
         false,
       ),
     );

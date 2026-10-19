@@ -10,7 +10,7 @@ Widget _zh(Widget home) => MaterialApp(
   locale: const Locale('zh'),
   supportedLocales: const [Locale('zh')],
   localizationsDelegates: GlobalMaterialLocalizations.delegates,
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: home,
 );
 

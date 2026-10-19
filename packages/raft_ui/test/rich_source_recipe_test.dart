@@ -68,7 +68,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftForwardedBundle(
               metadata: {
@@ -97,17 +97,13 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
     testWidgets(
-      'intrinsic Markdown table, left headers and source link role $family/$dark',
+      'intrinsic Markdown table, left headers and source link role ${dark ? 'dark' : 'light'}',
       (tester) async {
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: const Scaffold(
               body: SizedBox(
                 width: 640,
@@ -150,11 +146,11 @@ void main() {
       },
     );
     testWidgets(
-      'raw SVG remains file affordance; raster images keep preview $family/$dark',
+      'raw SVG remains file affordance; raster images keep preview ${dark ? 'dark' : 'light'}',
       (tester) async {
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Column(
                 children: [
@@ -186,7 +182,7 @@ void main() {
       var closed = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: MediaQuery(
             data: const MediaQueryData(
               size: Size(800, 600),

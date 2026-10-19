@@ -14,13 +14,9 @@ import 'message_presentation_test.dart' show fixture;
 /// in the thread timeline; in a centered history window it reloads the latest
 /// page.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[K04] $family/$dark history-window button is centered above the composer and reloads latest',
+      '[K04] ${dark ? 'dark' : 'light'} history-window button is centered above the composer and reloads latest',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(900, 800);
@@ -39,7 +35,7 @@ void main() {
         expect(w.messageDomain.state.hasNewer, true);
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );
@@ -86,7 +82,7 @@ void main() {
     );
 
     testWidgets(
-      '[K04] $family/$dark thread panel shows the centered button when scrolled away, counts replies and returns to its end',
+      '[K04] ${dark ? 'dark' : 'light'} thread panel shows the centered button when scrolled away, counts replies and returns to its end',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(900, 800);
@@ -122,7 +118,7 @@ void main() {
         });
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w, thread: true)),
           ),
         );

@@ -245,7 +245,7 @@ Future<Ctx> mount(WidgetTester t, TapHost host) async {
     MaterialApp(
       // Density follows the platform: a 1280 / 816 window is a desktop
       // (mouse, hover toolbar), 390 a phone.
-      theme: raftTheme(RaftFamily.elegant).copyWith(
+      theme: raftTheme().copyWith(
         platform: host.touch ? TargetPlatform.android : TargetPlatform.macOS,
       ),
       navigatorObservers: [observer],
@@ -471,7 +471,7 @@ void main() {
           api.routes['DELETE /channels/saved/parent'] = (_) => {'ok': true};
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(RaftFamily.elegant).copyWith(
+              theme: raftTheme().copyWith(
                 platform: width < 768
                     ? TargetPlatform.android
                     : TargetPlatform.macOS,

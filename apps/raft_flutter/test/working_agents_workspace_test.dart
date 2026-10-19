@@ -106,7 +106,6 @@ Future<PersonalPresentationStore> _mount(
   WidgetTester t,
   WorkspaceController w, {
   required double width,
-  RaftFamily family = RaftFamily.elegant,
 }) async {
   t.view.physicalSize = Size(width, 844);
   t.view.devicePixelRatio = 1;
@@ -116,11 +115,11 @@ Future<PersonalPresentationStore> _mount(
   await t.runAsync(() => presentation.bind(w.client.origin, w.client.user!.id));
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family),
+      theme: raftTheme(),
       home: withAppServices(
         WorkspaceView(
           controller: w,
-          appearance: RaftAppearance(light: family),
+          appearance: RaftAppearance(),
           onAppearance: (_) async {},
           onLogout: () async {},
           presentation: presentation,
@@ -150,73 +149,65 @@ void _work(
 const _liveBar = Key('live-agent-activity-bar');
 
 void main() {
-  for (final family in [RaftFamily.elegant, RaftFamily.brutal]) {
-    testWidgets(
-      'phone Home ($family): summary, Working now, row text, no bar',
-      (t) async {
-        final (w, client) = await _fixture(t);
-        await _mount(t, w, width: 390, family: family);
-        expect(find.byKey(const Key('working-agents-summary')), findsNothing);
-        expect(find.text('Working now'), findsNothing);
+  testWidgets('phone Home: summary, Working now, row text, no bar', (t) async {
+    final (w, client) = await _fixture(t);
+    await _mount(t, w, width: 390);
+    expect(find.byKey(const Key('working-agents-summary')), findsNothing);
+    expect(find.text('Working now'), findsNothing);
 
-        _work(client, 'bugen', detail: 'Editing Flow.tsx · #25');
-        _work(client, 'wug', detail: 'Drafting release notes · #31');
-        await t.pump();
+    _work(client, 'bugen', detail: 'Editing Flow.tsx · #25');
+    _work(client, 'wug', detail: 'Drafting release notes · #31');
+    await t.pump();
 
-        // The summary sits in the Home bar before the bell.
-        final summary = find.byKey(const Key('working-agents-summary'));
-        expect(summary, findsOneWidget);
-        expect(find.bySemanticsLabel('2 agents working'), findsOneWidget);
-        expect(
-          t.getRect(summary).right,
-          lessThan(
-            t.getRect(find.byKey(const Key('mobile-home-notifications'))).left,
-          ),
-        );
-        expect(
-          t.getRect(summary).top,
-          lessThan(
-            t.getRect(find.byKey(const Key('mobile-server-selector'))).bottom,
-          ),
-        );
-
-        // The agent's row says what it is doing, in place of its runtime.
-        final row = find.byKey(const ValueKey('sidebar-channel-dm-bugen'));
-        expect(
-          find.descendant(
-            of: row,
-            matching: find.text('Editing Flow.tsx · #25'),
-          ),
-          findsOneWidget,
-        );
-
-        // Working now: one row per agent, what it is doing on up to 2 lines.
-        await t.tap(summary);
-        await t.pumpAndSettle();
-        expect(find.text('Working now'), findsOneWidget);
-        for (final text in [
-          'Editing Flow.tsx · #25',
-          'Drafting release notes · #31',
-        ]) {
-          expect(
-            find.descendant(
-              of: find.byKey(const Key('working-now')),
-              matching: find.text(text),
-            ),
-            findsOneWidget,
-          );
-        }
-        await t.tap(find.byKey(const ValueKey('working-now-row-wug')));
-        await t.pumpAndSettle();
-        expect(find.text('Working now'), findsNothing);
-
-        // Nothing is attached above the tab bar.
-        expect(find.byKey(_liveBar), findsNothing);
-        expect(find.byKey(const Key('live-agent-activity-text')), findsNothing);
-        expect(find.byKey(const Key('workspace-mobile-home')), findsOneWidget);
-      },
+    // The summary sits in the Home bar before the bell.
+    final summary = find.byKey(const Key('working-agents-summary'));
+    expect(summary, findsOneWidget);
+    expect(find.bySemanticsLabel('2 agents working'), findsOneWidget);
+    expect(
+      t.getRect(summary).right,
+      lessThan(
+        t.getRect(find.byKey(const Key('mobile-home-notifications'))).left,
+      ),
     );
-  }
+    expect(
+      t.getRect(summary).top,
+      lessThan(
+        t.getRect(find.byKey(const Key('mobile-server-selector'))).bottom,
+      ),
+    );
+
+    // The agent's row says what it is doing, in place of its runtime.
+    final row = find.byKey(const ValueKey('sidebar-channel-dm-bugen'));
+    expect(
+      find.descendant(of: row, matching: find.text('Editing Flow.tsx · #25')),
+      findsOneWidget,
+    );
+
+    // Working now: one row per agent, what it is doing on up to 2 lines.
+    await t.tap(summary);
+    await t.pumpAndSettle();
+    expect(find.text('Working now'), findsOneWidget);
+    for (final text in [
+      'Editing Flow.tsx · #25',
+      'Drafting release notes · #31',
+    ]) {
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('working-now')),
+          matching: find.text(text),
+        ),
+        findsOneWidget,
+      );
+    }
+    await t.tap(find.byKey(const ValueKey('working-now-row-wug')));
+    await t.pumpAndSettle();
+    expect(find.text('Working now'), findsNothing);
+
+    // Nothing is attached above the tab bar.
+    expect(find.byKey(_liveBar), findsNothing);
+    expect(find.byKey(const Key('live-agent-activity-text')), findsNothing);
+    expect(find.byKey(const Key('workspace-mobile-home')), findsOneWidget);
+  });
 
   testWidgets('an agent that stops leaves the summary and its row at once', (
     t,

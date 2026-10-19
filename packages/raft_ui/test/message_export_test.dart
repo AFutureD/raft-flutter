@@ -4,18 +4,14 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'review and selection controls work at mobile width: $family/$dark',
+      'review and selection controls work at mobile width: ${dark ? 'dark' : 'light'}',
       (tester) async {
         var selected = 1, copied = 0, saved = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Align(
                 alignment: Alignment.bottomLeft,

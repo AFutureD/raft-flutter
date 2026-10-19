@@ -5,11 +5,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final (size, keyboard) in [
       (const Size(1280, 720), 0.0),
       (const Size(390, 844), 0.0),
@@ -17,7 +13,7 @@ void main() {
     ]) {
       for (final mouse in [false, true]) {
         testWidgets(
-          '$family/$dark $size IME=$keyboard mouse=$mouse reaches the last model',
+          '${dark ? 'dark' : 'light'} $size IME=$keyboard mouse=$mouse reaches the last model',
           (tester) async {
             tester.view.devicePixelRatio = 1;
             tester.view.physicalSize = size;
@@ -26,7 +22,7 @@ void main() {
             var selected = 0, calls = 0;
             await tester.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 home: Scaffold(
                   body: StatefulBuilder(
                     builder: (context, setState) => Column(

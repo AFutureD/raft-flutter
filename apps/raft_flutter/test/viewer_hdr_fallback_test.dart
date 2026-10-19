@@ -101,7 +101,7 @@ void main() {
       await card.ready;
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: AttachmentPreviewDialog(
             controller: w,
             metadata: {'id': 'a', 'filename': 'clip.mp4'},
@@ -145,7 +145,7 @@ void main() {
     await card.ready;
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: AttachmentPreviewDialog(
           controller: w,
           metadata: {'id': 'a', 'filename': 'clip.mp4'},

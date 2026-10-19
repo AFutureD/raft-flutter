@@ -81,12 +81,9 @@ Future<void> settle(WidgetTester t) async {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.elegant, false),
-    (RaftFamily.brutal, false),
-  ])) {
+  for (final (dark) in raftThemeMatrix([(false)])) {
     testWidgets(
-      '$family/$dark joint peer sender avatar comes from the channel roster, once, and rows update when it arrives',
+      '${dark ? 'dark' : 'light'} joint peer sender avatar comes from the channel roster, once, and rows update when it arrives',
       (t) async {
         final (w, transport) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
@@ -116,7 +113,7 @@ void main() {
             rosterReply.future;
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );

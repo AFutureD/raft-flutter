@@ -69,7 +69,7 @@ Future<(WorkspaceController, _Adapter)> _fixture(String role) async {
 }
 
 Widget host(Widget child) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(body: child),
 );
 void _appRoutes(

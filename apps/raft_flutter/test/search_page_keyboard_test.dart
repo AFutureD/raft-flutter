@@ -88,7 +88,7 @@ void main() {
         locale: locale,
         supportedLocales: const [Locale('en'), Locale('zh')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: ResourceView(
             controller: w,

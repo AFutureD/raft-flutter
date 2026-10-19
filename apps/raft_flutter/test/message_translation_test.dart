@@ -94,11 +94,10 @@ Future<void> _settle(WidgetTester t) async {
   }
 }
 
-Widget _host(WorkspaceController w, {RaftFamily family = RaftFamily.elegant}) =>
-    MaterialApp(
-      theme: raftTheme(family),
-      home: Scaffold(body: RaftChatView(controller: w)),
-    );
+Widget _host(WorkspaceController w) => MaterialApp(
+  theme: raftTheme(),
+  home: Scaffold(body: RaftChatView(controller: w)),
+);
 
 Finder _placeholder(String id) =>
     find.byKey(ValueKey('message-translation-placeholder-$id'));
@@ -121,86 +120,84 @@ Future<void> _openMenu(WidgetTester t, String text) async {
 void main() {
   setUp(() => MessageTranslationStore.deviceLanguages = () => ['en-US']);
 
-  for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
-    testWidgets(
-      '$family auto mode: skeleton, one batched request, translated text and Show original',
-      (t) async {
-        t.view.physicalSize = const Size(1200, 900);
-        t.view.devicePixelRatio = 1;
-        addTearDown(t.view.reset);
-        final (w, a) = (await t.runAsync(_fixture))!;
-        addTearDown(w.dispose);
-        final reply = Completer<dynamic>();
-        a.routes[_batch] = (o) async {
-          await reply.future;
-          return _translated(o);
-        };
-        _ingest(w, [
-          ('m1', 'bob', '你好 m1'),
-          ('m2', 'bob', '你好 m2'),
-          ('own', 'alice', 'My own words'),
-        ]);
-        await t.pumpWidget(_host(w, family: family));
-        await _settle(t);
-        // Auto mode, nothing cached: the body is a one-line skeleton (Web
-        // MessageItem isTranslationPending) while the request is pending.
-        expect(_placeholder('m1'), findsOneWidget);
-        expect(_placeholder('m2'), findsOneWidget);
-        expect(find.text('你好 m1'), findsNothing);
-        expect(find.text('Translating…'), findsNWidgets(2));
-        // The viewer's own message is not auto-translated.
-        expect(_placeholder('own'), findsNothing);
-        expect(find.text('My own words'), findsOneWidget);
-        final batches = _batches(a);
-        expect(batches, hasLength(1));
-        expect(batches.single['messageIds'], unorderedEquals(['m1', 'm2']));
-        expect(batches.single['targetLanguage'], 'en');
-        expect(batches.single['mode'], 'auto');
-        // The skeleton keeps exactly one 14/20 body line.
-        expect(t.getSize(_placeholder('m1')).height, closeTo(20, .001));
+  testWidgets(
+    'auto mode: skeleton, one batched request, translated text and Show original',
+    (t) async {
+      t.view.physicalSize = const Size(1200, 900);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      final (w, a) = (await t.runAsync(_fixture))!;
+      addTearDown(w.dispose);
+      final reply = Completer<dynamic>();
+      a.routes[_batch] = (o) async {
+        await reply.future;
+        return _translated(o);
+      };
+      _ingest(w, [
+        ('m1', 'bob', '你好 m1'),
+        ('m2', 'bob', '你好 m2'),
+        ('own', 'alice', 'My own words'),
+      ]);
+      await t.pumpWidget(_host(w));
+      await _settle(t);
+      // Auto mode, nothing cached: the body is a one-line skeleton (Web
+      // MessageItem isTranslationPending) while the request is pending.
+      expect(_placeholder('m1'), findsOneWidget);
+      expect(_placeholder('m2'), findsOneWidget);
+      expect(find.text('你好 m1'), findsNothing);
+      expect(find.text('Translating…'), findsNWidgets(2));
+      // The viewer's own message is not auto-translated.
+      expect(_placeholder('own'), findsNothing);
+      expect(find.text('My own words'), findsOneWidget);
+      final batches = _batches(a);
+      expect(batches, hasLength(1));
+      expect(batches.single['messageIds'], unorderedEquals(['m1', 'm2']));
+      expect(batches.single['targetLanguage'], 'en');
+      expect(batches.single['mode'], 'auto');
+      // The skeleton keeps exactly one 14/20 body line.
+      expect(t.getSize(_placeholder('m1')).height, closeTo(20, .001));
 
-        reply.complete();
-        await _settle(t);
-        expect(_placeholder('m1'), findsNothing);
-        expect(find.text('EN m1'), findsOneWidget);
-        expect(find.text('EN m2'), findsOneWidget);
-        expect(find.text('Translating…'), findsNothing);
-        expect(
-          find.descendant(
-            of: _indicator('m1'),
-            matching: find.text('Show original'),
-          ),
-          findsOneWidget,
-        );
-        // Show original / Show translation is a per-message toggle.
-        await t.tap(
-          find.descendant(
-            of: _indicator('m1'),
-            matching: find.text('Show original'),
-          ),
-        );
-        await t.pump();
-        expect(find.text('你好 m1'), findsOneWidget);
-        expect(find.text('EN m1'), findsNothing);
-        expect(find.text('EN m2'), findsOneWidget);
-        expect(
-          find.descendant(
-            of: _indicator('m1'),
-            matching: find.text('Show translation'),
-          ),
-          findsOneWidget,
-        );
-        await t.tap(find.text('Show translation'));
-        await t.pump();
-        expect(find.text('EN m1'), findsOneWidget);
-        // Rebuilds and new controller events do not request again.
-        w.notifyListeners();
-        await _settle(t);
-        expect(_batches(a), hasLength(1));
-        await t.pumpWidget(const SizedBox());
-      },
-    );
-  }
+      reply.complete();
+      await _settle(t);
+      expect(_placeholder('m1'), findsNothing);
+      expect(find.text('EN m1'), findsOneWidget);
+      expect(find.text('EN m2'), findsOneWidget);
+      expect(find.text('Translating…'), findsNothing);
+      expect(
+        find.descendant(
+          of: _indicator('m1'),
+          matching: find.text('Show original'),
+        ),
+        findsOneWidget,
+      );
+      // Show original / Show translation is a per-message toggle.
+      await t.tap(
+        find.descendant(
+          of: _indicator('m1'),
+          matching: find.text('Show original'),
+        ),
+      );
+      await t.pump();
+      expect(find.text('你好 m1'), findsOneWidget);
+      expect(find.text('EN m1'), findsNothing);
+      expect(find.text('EN m2'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: _indicator('m1'),
+          matching: find.text('Show translation'),
+        ),
+        findsOneWidget,
+      );
+      await t.tap(find.text('Show translation'));
+      await t.pump();
+      expect(find.text('EN m1'), findsOneWidget);
+      // Rebuilds and new controller events do not request again.
+      w.notifyListeners();
+      await _settle(t);
+      expect(_batches(a), hasLength(1));
+      await t.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets('cache hit on revisit: first frame is translated, no request', (
     t,
@@ -505,7 +502,7 @@ void main() {
       };
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: SingleChildScrollView(
               child: LocaleSettingsPage(controller: w),

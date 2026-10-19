@@ -37,7 +37,7 @@ void main() {
     addTearDown(t.view.reset);
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: RaftToastHost(
@@ -97,7 +97,7 @@ void main() {
     addTearDown(t.view.reset);
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: StorageSettingsPage(
             key: UniqueKey(),
@@ -142,7 +142,7 @@ void main() {
     addTearDown(t.view.reset);
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         locale: const Locale('zh', 'CN'),
         supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -310,7 +310,7 @@ void main() {
         t.view.devicePixelRatio = 1;
         addTearDown(t.view.reset);
         Widget page() => MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
           home: RaftToastHost(
@@ -390,7 +390,7 @@ void main() {
       addTearDown(t.view.reset);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           locale: const Locale('zh', 'CN'),
           supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,

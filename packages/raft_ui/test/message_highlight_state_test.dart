@@ -5,14 +5,10 @@ import 'package:raft_ui/test_themes.dart';
 
 void main() {
   const code = 'flowchart LR\n  A[中文输入] --> B[日本語確認]';
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [411.0, 1280.0]) {
       testWidgets(
-        '[K13a][K13c] highlight expiry preserves Mermaid source and selected text $family/$dark/$width',
+        '[K13a][K13c] highlight expiry preserves Mermaid source and selected text ${dark ? 'dark' : 'light'}/$width',
         (tester) async {
           tester.view.physicalSize = Size(width, 915);
           tester.view.devicePixelRatio = 1;
@@ -22,7 +18,7 @@ void main() {
           addTearDown(highlighted.dispose);
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: Scaffold(
                 body: SingleChildScrollView(
                   child: ValueListenableBuilder(
@@ -86,7 +82,7 @@ void main() {
         },
       );
       testWidgets(
-        '[K13b] highlight expiry preserves expanded long message $family/$dark/$width',
+        '[K13b] highlight expiry preserves expanded long message ${dark ? 'dark' : 'light'}/$width',
         (tester) async {
           tester.view.physicalSize = Size(width, 915);
           tester.view.devicePixelRatio = 1;
@@ -100,7 +96,7 @@ void main() {
           ).join('\n\n');
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: Scaffold(
                 body: SingleChildScrollView(
                   child: ValueListenableBuilder(

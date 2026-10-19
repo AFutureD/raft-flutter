@@ -87,10 +87,9 @@ Widget host(
   Opened log, {
   Future<List<Map<String, dynamic>>> Function(String)? messages,
   ValueNotifier<int>? changes,
-  RaftFamily family = RaftFamily.elegant,
   bool dark = false,
 }) => MaterialApp(
-  theme: raftTheme(family, dark: dark),
+  theme: raftTheme(dark: dark),
   home: Scaffold(
     body: Material(
       type: MaterialType.transparency,
@@ -170,9 +169,8 @@ void main() {
   }
 
   for (final theme in raftThemeMatrix([
-    (name: 'Brutal', family: RaftFamily.brutal, dark: false),
-    (name: 'Elegant', family: RaftFamily.elegant, dark: false),
-    (name: 'Elegant dark', family: RaftFamily.elegant, dark: true),
+    (name: 'Light', dark: false),
+    (name: 'Dark', dark: true),
   ])) {
     testWidgets(
       '[N26] ${theme.name} recent conversations are in the first frame, newest visit first, current excluded',
@@ -192,7 +190,6 @@ void main() {
               exclude: 'c-general',
             ),
             log,
-            family: theme.family,
             dark: theme.dark,
           ),
         );

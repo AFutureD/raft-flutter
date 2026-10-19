@@ -19,13 +19,9 @@ import 'support/app_services_fixture.dart';
 /// the modal looked dimmed under its own backdrop. The surface must show the
 /// theme panel colour exactly, with the scrim only behind it.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'task modal surface paints the theme panel colour, no scrim above it $family/$dark',
+      'task modal surface paints the theme panel colour, no scrim above it ${dark ? 'dark' : 'light'}',
       (t) async {
         t.view.physicalSize = const Size(1280, 844);
         t.view.devicePixelRatio = 1;
@@ -48,13 +44,12 @@ void main() {
             key: root,
             child: MaterialApp(
               debugShowCheckedModeBanner: false,
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
                   appearance: RaftAppearance(
                     mode: dark ? ThemeMode.dark : ThemeMode.light,
-                    light: family,
                   ),
                   onAppearance: (_) async {},
                   onLogout: () async {},

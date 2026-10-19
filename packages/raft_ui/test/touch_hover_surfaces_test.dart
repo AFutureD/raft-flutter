@@ -11,7 +11,7 @@ void main() {
     var presses = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftHoverScope(
             enabled: false,
@@ -49,7 +49,7 @@ void main() {
     testWidgets('touch $surface ignores compatibility hover', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftHoverScope(
               enabled: false,
@@ -89,7 +89,7 @@ void main() {
     RaftInteractionState? state;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: StatefulBuilder(
           builder: (context, setState) {
             update = setState;
@@ -143,7 +143,7 @@ void main() {
       RaftInteractionState? state;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: RaftHoverScope.forPlatform(
             child: Center(
               child: RaftInteractive(

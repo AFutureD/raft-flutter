@@ -136,7 +136,7 @@ void main() {
   }
 
   Widget host(Widget child) => MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     home: Scaffold(
       body: SizedBox(width: child is FleetView ? 640 : 320, child: child),
     ),

@@ -64,7 +64,7 @@ void main() {
 
   Future<void> mount(WidgetTester t) => t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.brutal),
+      theme: raftTheme(),
       home: MediaQuery(
         data: const MediaQueryData(size: Size(390, 844)),
         child: Scaffold(

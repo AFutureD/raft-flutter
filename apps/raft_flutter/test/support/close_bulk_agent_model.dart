@@ -48,7 +48,7 @@ Future<BulkModelCloseHarness> openBulkModelClose(
   );
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: Builder(
           builder: (context) => TextButton(

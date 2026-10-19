@@ -24,11 +24,7 @@ Map<String, dynamic> pendingMention() => {
 };
 
 void main() {
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ]) {
+  for (final (dark) in [(false), (true)]) {
     for (final touch in [false, true]) {
       for (final (label, row, labels) in [
         ('unread channel', channelRow(1, unread: 2), ['Mark as Read', 'Done']),
@@ -43,7 +39,7 @@ void main() {
         ('pending mention', pendingMention(), ['Mark as Unread', 'Done']),
       ]) {
         testWidgets(
-          '$family/$dark ${touch ? 'touch long press' : 'mouse right click'} $label matches Web menu',
+          '${dark ? 'dark' : 'light'} ${touch ? 'touch long press' : 'mouse right click'} $label matches Web menu',
           (tester) async {
             tester.view.devicePixelRatio = 1;
             tester.view.physicalSize = Size(touch ? 390 : 1000, 850);
@@ -60,7 +56,7 @@ void main() {
             var opened = 0;
             await tester.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 home: Scaffold(
                   body: ResourceView(
                     controller: w,

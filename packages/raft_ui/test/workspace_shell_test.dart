@@ -9,11 +9,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     Future<void> mount(
       WidgetTester tester,
       Widget child, {
@@ -24,85 +20,87 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: Scaffold(body: child),
         ),
       );
       await tester.pump();
     }
 
-    testWidgets('$family/$dark Source heading owns its border-box height', (
-      tester,
-    ) async {
-      await mount(
-        tester,
-        const Align(
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: 280,
-            child: RaftChatSidebarHeading(label: 'Chat'),
+    testWidgets(
+      '${dark ? 'dark' : 'light'} Source heading owns its border-box height',
+      (tester) async {
+        await mount(
+          tester,
+          const Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 280,
+              child: RaftChatSidebarHeading(label: 'Chat'),
+            ),
           ),
-        ),
-      );
-      expect(
-        tester.getSize(find.byType(RaftChatSidebarHeading)).height,
-        family == RaftFamily.brutal ? 62 : 56,
-      );
-      final text = tester.widget<Text>(find.text('Chat'));
-      expect(text.style!.fontWeight, FontWeight.w700);
-      expect(text.style!.fontSize, 18);
-      expect(find.byType(RaftDropdownMenu), findsNothing);
-    });
-
-    testWidgets('$family/$dark Source rail slots, short size semantics', (
-      tester,
-    ) async {
-      var clicks = 0;
-      Widget footer() => Align(
-        alignment: Alignment.bottomLeft,
-        child: SizedBox(
-          width: 64,
-          child: RaftWorkspaceRailFooter(
-            children: [
-              RaftWorkspaceRailAction(
-                label: 'Workspace',
-                glyph: RaftGlyph.squareSplitHorizontal,
-                selected: true,
-                onPressed: () => clicks++,
-              ),
-              RaftWorkspaceRailAction(
-                label: 'Settings',
-                glyph: RaftGlyph.settings,
-                onPressed: () {},
-              ),
-            ],
-          ),
-        ),
-      );
-      await mount(tester, footer());
-      expect(tester.getSize(find.byType(RaftWorkspaceRailFooter)).height, 102);
-      final action = find.bySemanticsLabel('Workspace');
-      final semantics = tester.ensureSemantics();
-      expect(
-        tester.getSemantics(action).flagsCollection.isSelected,
-        Tristate.isTrue,
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pump();
-      expect(clicks, 1);
-      final box = find.descendant(
-        of: find.byType(RaftWorkspaceRailAction).first,
-        matching: find.byType(RaftRecipeBox),
-      );
-      expect(tester.getSize(box), const Size(40, 40));
-      await mount(tester, footer(), height: 600);
-      expect(tester.getSize(box), const Size(36, 36));
-      semantics.dispose();
-    });
+        );
+        expect(tester.getSize(find.byType(RaftChatSidebarHeading)).height, 56);
+        final text = tester.widget<Text>(find.text('Chat'));
+        expect(text.style!.fontWeight, FontWeight.w700);
+        expect(text.style!.fontSize, 18);
+        expect(find.byType(RaftDropdownMenu), findsNothing);
+      },
+    );
 
     testWidgets(
-      '$family/$dark actual editor tabs expose selected state on their tab role',
+      '${dark ? 'dark' : 'light'} Source rail slots, short size semantics',
+      (tester) async {
+        var clicks = 0;
+        Widget footer() => Align(
+          alignment: Alignment.bottomLeft,
+          child: SizedBox(
+            width: 64,
+            child: RaftWorkspaceRailFooter(
+              children: [
+                RaftWorkspaceRailAction(
+                  label: 'Workspace',
+                  glyph: RaftGlyph.squareSplitHorizontal,
+                  selected: true,
+                  onPressed: () => clicks++,
+                ),
+                RaftWorkspaceRailAction(
+                  label: 'Settings',
+                  glyph: RaftGlyph.settings,
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+        );
+        await mount(tester, footer());
+        expect(
+          tester.getSize(find.byType(RaftWorkspaceRailFooter)).height,
+          102,
+        );
+        final action = find.bySemanticsLabel('Workspace');
+        final semantics = tester.ensureSemantics();
+        expect(
+          tester.getSemantics(action).flagsCollection.isSelected,
+          Tristate.isTrue,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(clicks, 1);
+        final box = find.descendant(
+          of: find.byType(RaftWorkspaceRailAction).first,
+          matching: find.byType(RaftRecipeBox),
+        );
+        expect(tester.getSize(box), const Size(40, 40));
+        await mount(tester, footer(), height: 600);
+        expect(tester.getSize(box), const Size(36, 36));
+        semantics.dispose();
+      },
+    );
+
+    testWidgets(
+      '${dark ? 'dark' : 'light'} actual editor tabs expose selected state on their tab role',
       (tester) async {
         final semantics = tester.ensureSemantics();
         var selected = 'one';
@@ -167,7 +165,7 @@ void main() {
     );
 
     testWidgets(
-      '$family/$dark Help right/end placement, hover grace and keyboard action',
+      '${dark ? 'dark' : 'light'} Help right/end placement, hover grace and keyboard action',
       (tester) async {
         final controller = RaftMenuController(), editorFocus = FocusNode();
         addTearDown(controller.dispose);

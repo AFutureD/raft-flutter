@@ -100,7 +100,7 @@ void main() {
     f.holds['GET /servers'] = Completer<dynamic>();
     await f.mount(
       t,
-      'elegant-light',
+      'light',
       1280,
       cachedSession: true,
       uri: Uri.parse('/s/alpha'),
@@ -122,7 +122,7 @@ void main() {
   testWidgets('cache-first start: a resume during the revalidation neither '
       'repeats the read nor drops the revocation sweep', (t) async {
     final first = RootFixture();
-    await first.mount(t, 'elegant-light', 1280);
+    await first.mount(t, 'light', 1280);
     await t.tap(find.byKey(const ValueKey('global-server-a')));
     await first.flush(t);
     final uri = first.router(t).currentConfiguration.toString();
@@ -141,7 +141,7 @@ void main() {
     f.holds['GET /servers'] = Completer<dynamic>();
     await f.mount(
       t,
-      'elegant-light',
+      'light',
       1280,
       cachedSession: true,
       preferences: {'$_memory.last': 'alpha', '$_memory.a': uri},

@@ -12,13 +12,9 @@ import 'chat_focus_receipt_test.dart' show contextRows, paintedMessage;
 import 'message_presentation_test.dart' show fixture;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[L02] $family/$dark live message during context preparation preserves old paint and first centered target',
+      '[L02] ${dark ? 'dark' : 'light'} live message during context preparation preserves old paint and first centered target',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(390, 844);
@@ -44,7 +40,7 @@ void main() {
         api.routes['POST /channels/c1/read'] = (_) => {};
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );

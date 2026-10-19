@@ -138,9 +138,8 @@ class _Client extends RaftClient {
 
 void main() {
   for (final theme in raftThemeMatrix([
-    (name: 'Brutal', family: RaftFamily.brutal, dark: false),
-    (name: 'Elegant', family: RaftFamily.elegant, dark: false),
-    (name: 'Elegant dark', family: RaftFamily.elegant, dark: true),
+    (name: 'Light', dark: false),
+    (name: 'Dark', dark: true),
   ])) {
     testWidgets(
       '${theme.name} settings retains one conversation and retires hidden authority',
@@ -163,7 +162,7 @@ void main() {
         });
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(theme.family, dark: theme.dark),
+            theme: raftTheme(dark: theme.dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
@@ -296,7 +295,7 @@ void main() {
         });
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(theme.family, dark: theme.dark),
+            theme: raftTheme(dark: theme.dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
@@ -401,7 +400,7 @@ void main() {
         });
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(theme.family, dark: theme.dark),
+            theme: raftTheme(dark: theme.dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
@@ -486,7 +485,7 @@ void main() {
       });
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: w,
@@ -547,7 +546,7 @@ void main() {
       });
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: w,
@@ -606,7 +605,7 @@ void main() {
       });
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: w,
@@ -660,7 +659,7 @@ void main() {
       final loading = w.selectChannel(client.channelRows.single);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(body: RaftChatView(controller: w)),
         ),
       );
@@ -714,7 +713,7 @@ void main() {
     });
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(body: RaftChatView(controller: w)),
       ),
     );

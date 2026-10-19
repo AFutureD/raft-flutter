@@ -100,7 +100,7 @@ Future<void> _pump(WidgetTester t, WorkspaceController w) async {
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: SingleChildScrollView(
           child: PublicVisibilitySection(

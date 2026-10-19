@@ -74,7 +74,6 @@ class _MemoryStore implements AttachmentImageByteStore {
 
 Future<(_Client, WorkspaceController, _Files)> mountImage(
   WidgetTester tester,
-  RaftFamily family,
   bool dark, {
   AttachmentImageByteStore? store,
 }) async {
@@ -93,7 +92,7 @@ Future<(_Client, WorkspaceController, _Files)> mountImage(
   });
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: Scaffold(
         body: AttachmentView(
           controller: w,
@@ -142,15 +141,11 @@ Future<void> pumpUntilFound(
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[K11a] $family/$dark painted loading image accepts its first click',
+      '[K11a] ${dark ? 'dark' : 'light'} painted loading image accepts its first click',
       (tester) async {
-        final (_, _, files) = await mountImage(tester, family, dark);
+        final (_, _, files) = await mountImage(tester, dark);
         await tester.pump();
         expect(files.reads, 1);
         expect(
@@ -175,9 +170,9 @@ void main() {
     );
     for (final retirement in ['close', 'revoke']) {
       testWidgets(
-        '[K11b] $family/$dark pending image $retirement rejects late preview',
+        '[K11b] ${dark ? 'dark' : 'light'} pending image $retirement rejects late preview',
         (tester) async {
-          final (_, w, files) = await mountImage(tester, family, dark);
+          final (_, w, files) = await mountImage(tester, dark);
           await tester.pump();
           await tester.tap(find.byTooltip('Preview image.png'));
           await tester.pump();
@@ -208,11 +203,10 @@ void main() {
       );
     }
     testWidgets(
-      '[K11c] $family/$dark real pointer survives decoded-before-paint handoff',
+      '[K11c] ${dark ? 'dark' : 'light'} real pointer survives decoded-before-paint handoff',
       (tester) async {
         final (client, _, files) = await mountImage(
           tester,
-          family,
           dark,
           store: _MemoryStore(),
         );
@@ -249,9 +243,9 @@ void main() {
       },
     );
     testWidgets(
-      '$family/$dark accepted loading click displays decode failure without reopening',
+      '${dark ? 'dark' : 'light'} accepted loading click displays decode failure without reopening',
       (tester) async {
-        final (_, _, files) = await mountImage(tester, family, dark);
+        final (_, _, files) = await mountImage(tester, dark);
         await tester.pump();
         await tester.tap(find.byTooltip('Preview image.png'));
         await tester.pump();
@@ -273,7 +267,6 @@ void main() {
   testWidgets('image lightbox: the 0 key resets zoom and pan', (tester) async {
     final (_, _, files) = await mountImage(
       tester,
-      RaftFamily.elegant,
       false,
       store: _MemoryStore(),
     );

@@ -7,11 +7,7 @@ import 'package:raft_ui/test_themes.dart';
 import 'app_global_server_selector_test.dart' show RootFixture;
 
 void main() {
-  for (final theme in raftThemeMatrix([
-    'brutal',
-    'elegant-light',
-    'elegant-dark',
-  ])) {
+  for (final theme in raftThemeMatrix(['light', 'dark'])) {
     testWidgets('Home bell remains tappable inside Android back edge: $theme', (
       t,
     ) async {

@@ -229,11 +229,7 @@ final _states = <_State>[
 ];
 
 void main() {
-  for (final theme in raftThemeMatrix([
-    'brutal',
-    'elegant-light',
-    'elegant-dark',
-  ], full: true)) {
+  for (final theme in raftThemeMatrix(['light', 'dark'], full: true)) {
     for (final state in _states) {
       testWidgets('login flow state ${state.name} ($theme, 390x844)', (
         t,
@@ -257,16 +253,8 @@ void main() {
   }
 
   // Pages the app mounts without an auth shell around them.
-  for (final theme in raftThemeMatrix([
-    'brutal',
-    'elegant-light',
-    'elegant-dark',
-  ], full: true)) {
-    final (family, dark) = switch (theme) {
-      'brutal' => (RaftFamily.brutal, false),
-      'elegant-light' => (RaftFamily.elegant, false),
-      _ => (RaftFamily.elegant, true),
-    };
+  for (final theme in raftThemeMatrix(['light', 'dark'], full: true)) {
+    final dark = theme == 'dark';
     Future<void> pump(WidgetTester t, Widget page) async {
       t.view.physicalSize = const Size(390, 844);
       t.view.devicePixelRatio = 1;
@@ -275,7 +263,7 @@ void main() {
       // The page as the app routes it: a bare MaterialPage child.
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: page,
         ),
       );
@@ -330,16 +318,13 @@ void main() {
   ) async {
     // main() preloads DevicePreferences before runApp: the splash is already
     // painted in the saved dark theme, not in the default brutal cream.
-    SharedPreferences.setMockInitialValues({
-      'raft.mode': 'dark',
-      'raft.light': 'elegant',
-    });
+    SharedPreferences.setMockInitialValues({'raft.mode': 'dark'});
     DevicePreferences.adopt(await SharedPreferences.getInstance());
     addTearDown(DevicePreferences.reset);
     _held.clear();
     final f = RootFixture();
     _hold(f, 'GET /auth/me');
-    await f.mount(t, 'elegant-dark', 390, settle: false);
+    await f.mount(t, 'dark', 390, settle: false);
     expect(find.text('Restoring session…'), findsOneWidget);
     final tokens = RaftTokens.of(t.element(find.text('Restoring session…')));
     expect(tokens.dark, isTrue);

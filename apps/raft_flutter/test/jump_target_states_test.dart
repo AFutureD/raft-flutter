@@ -20,15 +20,11 @@ import 'support/app_services_fixture.dart';
 /// never shows the previous conversation under the new slot, the destination's
 /// stale cached tail, an empty-channel state, or a stage that goes backwards.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final source in ['search', 'activity']) {
       for (final known in [true, false]) {
         testWidgets(
-          '[K03] $family/$dark desktop $source click on a ${known ? 'known' : 'not yet loaded'} channel target shows one ordered progression',
+          '[K03] ${dark ? 'dark' : 'light'} desktop $source click on a ${known ? 'known' : 'not yet loaded'} channel target shows one ordered progression',
           (tester) async {
             SharedPreferences.setMockInitialValues({});
             tester.view.physicalSize = const Size(1440, 900);
@@ -92,11 +88,11 @@ void main() {
             };
             await tester.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 home: withAppServices(
                   WorkspaceView(
                     controller: w,
-                    appearance: RaftAppearance(light: family),
+                    appearance: RaftAppearance(),
                     onAppearance: (_) async {},
                     onLogout: () async {},
                   ),

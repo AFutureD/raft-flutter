@@ -7,7 +7,7 @@ import 'package:raft_ui/raft_ui.dart';
 /// Slice B of the transient-notice audit: a notice must end with its cause.
 /// Each test fails on the code before the fix.
 Widget _app(Widget child) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(body: child),
 );
 

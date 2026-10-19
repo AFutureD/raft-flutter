@@ -25,11 +25,7 @@ void main() {
       tester.view.reset();
       debugDefaultTargetPlatformOverride = null;
     });
-    for (final theme in [
-      raftTheme(RaftFamily.brutal),
-      raftTheme(RaftFamily.elegant),
-      raftTheme(RaftFamily.elegant, dark: true),
-    ]) {
+    for (final theme in [raftTheme(), raftTheme(), raftTheme(dark: true)]) {
       await tester.pumpWidget(
         MaterialApp(
           theme: theme,
@@ -97,11 +93,7 @@ void main() {
   testWidgets(
     'theme changes update transparent system bars and icon contrast',
     (tester) async {
-      for (final theme in [
-        raftTheme(RaftFamily.brutal),
-        raftTheme(RaftFamily.elegant),
-        raftTheme(RaftFamily.elegant, dark: true),
-      ]) {
+      for (final theme in [raftTheme(), raftTheme(), raftTheme(dark: true)]) {
         await tester.pumpWidget(
           MaterialApp(
             theme: theme,

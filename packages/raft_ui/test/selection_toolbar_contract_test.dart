@@ -10,19 +10,15 @@ import 'package:raft_ui/test_themes.dart';
 Finder button(String label) =>
     find.byWidgetPredicate((w) => w is RaftButton && w.tooltip == label);
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark compact row, busy permissions and top/end menu',
+      '${dark ? 'dark' : 'light'} compact row, busy permissions and top/end menu',
       (t) async {
         t.view.physicalSize = const Size(1400, 900);
         t.view.devicePixelRatio = 1;
         addTearDown(t.view.resetPhysicalSize);
         addTearDown(t.view.resetDevicePixelRatio);
-        final theme = raftTheme(family, dark: dark);
+        final theme = raftTheme(dark: dark);
         final tokens = theme.extension<RaftTokens>()!;
         var width = 1200.0, busy = false, cancel = 0, copy = 0, preview = 0;
         late StateSetter update;
@@ -79,9 +75,7 @@ void main() {
         );
         update(() => width = 320);
         await t.pumpAndSettle();
-        if (family == RaftFamily.brutal) {
-          expect(t.widget<RaftButton>(button('Copy Link')).label, isEmpty);
-        }
+
         expect(t.takeException(), isNull);
         final trigger = t.getRect(button('More'));
         await t.tap(button('More'));
@@ -154,11 +148,11 @@ void main() {
       },
     );
     testWidgets(
-      '$family/$dark zero selected and disabled forward remain admitted correctly',
+      '${dark ? 'dark' : 'light'} zero selected and disabled forward remain admitted correctly',
       (t) async {
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: RaftSelectionToolbar(
                 selected: 0,
@@ -189,7 +183,7 @@ void main() {
       try {
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.elegant),
+            theme: raftTheme(),
             home: Scaffold(
               body: RaftSelectionToolbar(
                 selected: 1,
@@ -218,26 +212,19 @@ void main() {
       }
     },
   );
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'production inherited face compacts Copy link into one authored row $family/$dark',
+      'production inherited face compacts Copy link into one authored row ${dark ? 'dark' : 'light'}',
       (t) async {
         t.view.physicalSize = const Size(390, 844);
         t.view.devicePixelRatio = 1;
         addTearDown(t.view.resetPhysicalSize);
         addTearDown(t.view.resetDevicePixelRatio);
-        final theme = raftTheme(family, dark: dark);
+        final theme = raftTheme(dark: dark);
         final tokens = theme.extension<RaftTokens>()!;
         await t.runAsync(() async {
           for (final (name, file) in [
-            (
-              tokens.bodyFont,
-              family == RaftFamily.brutal ? 'HankenGrotesk.ttf' : 'Geist.ttf',
-            ),
+            (tokens.bodyFont, 'Geist.ttf'),
             (tokens.monoFont, 'GeistMono.ttf'),
           ]) {
             ByteData data;
@@ -275,13 +262,8 @@ void main() {
         for (final label in ['Forward', 'Copy Link', 'More']) {
           expect(t.getRect(button(label)).top, closeTo(top, .01));
         }
-        if (family == RaftFamily.brutal) {
-          expect(t.widget<RaftButton>(button('Copy Link')).label, isEmpty);
-        }
-        expect(
-          t.getRect(find.byType(RaftSelectionToolbar)).height,
-          family == RaftFamily.brutal ? 46 : 45,
-        );
+
+        expect(t.getRect(find.byType(RaftSelectionToolbar)).height, 45);
         expect(t.takeException(), isNull);
       },
     );

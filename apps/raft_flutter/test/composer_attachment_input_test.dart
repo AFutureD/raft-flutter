@@ -59,7 +59,7 @@ Future<(WorkspaceController, MessageAdapter)> _chat(WidgetTester tester) async {
   };
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(body: RaftChatView(controller: w)),
     ),
   );

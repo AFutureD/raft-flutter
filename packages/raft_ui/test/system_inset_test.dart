@@ -18,9 +18,8 @@ void main() {
     t.view.viewInsets = FakeViewPadding(bottom: keyboard);
   }
 
-  Future<void> pump(WidgetTester t, Widget child) => t.pumpWidget(
-    MaterialApp(theme: raftTheme(RaftFamily.elegant), home: child),
-  );
+  Future<void> pump(WidgetTester t, Widget child) =>
+      t.pumpWidget(MaterialApp(theme: raftTheme(), home: child));
 
   tearDown(() {});
 

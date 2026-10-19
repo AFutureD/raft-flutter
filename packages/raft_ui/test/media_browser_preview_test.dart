@@ -7,11 +7,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final (name, preview, size) in <(String, Widget Function(), Size)>[
       ('phone', mediaBrowserPhonePreview, const Size(390, 844)),
       ('hidden', mediaBrowserPhoneHiddenPreview, const Size(390, 844)),
@@ -19,14 +15,14 @@ void main() {
       ('no caption', mediaBrowserPhoneNoCaptionPreview, const Size(390, 844)),
       ('desktop', mediaBrowserDesktopPreview, const Size(1280, 800)),
     ]) {
-      testWidgets('media browser $name $family/$dark', (t) async {
+      testWidgets('media browser $name ${dark ? 'dark' : 'light'}', (t) async {
         t.view.physicalSize = size;
         t.view.devicePixelRatio = 1;
         addTearDown(t.view.reset);
         final semantics = t.ensureSemantics();
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: preview()),
           ),
         );

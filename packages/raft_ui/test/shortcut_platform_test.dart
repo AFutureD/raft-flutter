@@ -32,7 +32,7 @@ void main() {
         var closed = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.elegant),
+            theme: raftTheme(),
             home: RaftAttachmentPreviewShell(
               filename: 'notes.txt',
               onClose: () => closed++,

@@ -15,13 +15,9 @@ import 'message_presentation_test.dart' show fixture;
 /// "not found" from the plan history limit is a separate product gap (see the
 /// L05 defect report), so this proof is intentionally untagged.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark failed target keeps the painted rows until the latest page lands',
+      '${dark ? 'dark' : 'light'} failed target keeps the painted rows until the latest page lands',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(390, 844);
@@ -48,7 +44,7 @@ void main() {
         api.routes['POST /channels/c1/read'] = (_) => {};
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );

@@ -10,11 +10,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final (name, preview) in <(String, Widget Function())>[
       ('dm', mobileDmSettingsPreview),
       ('image', mobileAttachmentImagePreview),
@@ -22,7 +18,7 @@ void main() {
       ('loading', mobileAttachmentLoadingPreview),
       ('error', mobileAttachmentErrorPreview),
     ]) {
-      testWidgets('Mobile preview $name $family/$dark', (t) async {
+      testWidgets('Mobile preview $name ${dark ? 'dark' : 'light'}', (t) async {
         t.view.physicalSize = const Size(390, 844);
         t.view.devicePixelRatio = 1;
         addTearDown(t.view.reset);
@@ -30,7 +26,7 @@ void main() {
         final capture = GlobalKey();
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: RepaintBoundary(key: capture, child: preview()),
             ),
@@ -44,18 +40,10 @@ void main() {
           // Native-only pages wear Web's phone PanelHeader: h-62 brutal / 56
           // elegant, the boxed PanelAction Back after px-5.
           final back = find.byType(RaftPanelAction);
-          expect(
-            t.getSize(back),
-            family == RaftFamily.brutal
-                ? const Size(26, 28)
-                : const Size(32, 32),
-          );
+          expect(t.getSize(back), const Size(32, 32));
           expect(t.getTopLeft(back).dx, 20);
           // Centred in the header's border-box (brutal 62 less its 2px edge).
-          expect(
-            t.getCenter(back).dy,
-            family == RaftFamily.brutal ? (62 - 2) / 2 : 56 / 2,
-          );
+          expect(t.getCenter(back).dy, 56 / 2);
         }
         final title = name == 'dm'
             ? 'Conversation settings'
@@ -75,7 +63,7 @@ void main() {
           final data = await image.toByteData(format: ui.ImageByteFormat.png);
           image.dispose();
           final file = File(
-            '../../.local/mobile-detail-previews/$name-${family.name}-$dark.png',
+            '../../.local/mobile-detail-previews/$name-$dark.png',
           );
           await file.parent.create(recursive: true);
           await file.writeAsBytes(data!.buffer.asUint8List());

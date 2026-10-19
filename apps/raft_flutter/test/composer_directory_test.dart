@@ -20,13 +20,9 @@ Future<void> settled() async {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'mention avatar follows borrowed activity and revocation $family/$dark',
+      'mention avatar follows borrowed activity and revocation ${dark ? 'dark' : 'light'}',
       (tester) async {
         final (w, a) = (await tester.runAsync(() => fixture('owner')))!;
         const agent = {
@@ -59,7 +55,7 @@ void main() {
         final candidate = directory.people.single;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: candidate.avatar),
           ),
         );
@@ -97,7 +93,7 @@ void main() {
         );
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: candidate.mutedAvatar),
           ),
         );

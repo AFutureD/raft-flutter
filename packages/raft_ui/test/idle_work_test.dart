@@ -105,7 +105,7 @@ void main() {
 
   group('perpetual animations stop when their subtree is not shown', () {
     Widget host(Widget child) => MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(body: Center(child: child)),
     );
     const animated = <String, Widget>{

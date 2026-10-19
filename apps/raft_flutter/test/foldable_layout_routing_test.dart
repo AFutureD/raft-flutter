@@ -33,7 +33,7 @@ Future<RootFixture> mount(WidgetTester t, Size dp, String path) async {
       'status': 'online',
     },
   ];
-  await f.mount(t, 'elegant-light', dp.width, uri: Uri.parse(path));
+  await f.mount(t, 'light', dp.width, uri: Uri.parse(path));
   t.view.devicePixelRatio = _dpr;
   t.view.physicalSize = dp * _dpr;
   const top = 40 * _dpr;
@@ -423,7 +423,7 @@ class RootFixtureHolder {
   final RootFixture fixture;
   Future<void> mount(WidgetTester t, Size dp, String path) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    await fixture.mount(t, 'elegant-light', dp.width, uri: Uri.parse(path));
+    await fixture.mount(t, 'light', dp.width, uri: Uri.parse(path));
     t.view.devicePixelRatio = _dpr;
     t.view.physicalSize = dp * _dpr;
     const top = 40 * _dpr;

@@ -31,19 +31,15 @@ void main() {
       isFalse,
     );
   });
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'keyboard binds selected duplicate handle identity and failed retry retains it: $family/$dark',
+      'keyboard binds selected duplicate handle identity and failed retry retains it: ${dark ? 'dark' : 'light'}',
       (tester) async {
         final sends = <List<Map<String, dynamic>>>[];
         var success = false;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Column(
                 children: [
@@ -110,7 +106,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: Column(
             children: [
@@ -202,7 +198,7 @@ void main() {
       addTearDown(t.view.resetDevicePixelRatio);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Scaffold(
             body: Column(
               children: [
@@ -251,7 +247,7 @@ void main() {
       List<Map<String, dynamic>>? payload;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: Column(
               children: [
@@ -318,7 +314,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: Column(
             children: [

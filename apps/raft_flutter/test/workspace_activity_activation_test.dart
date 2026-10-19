@@ -46,11 +46,7 @@ Map<String, dynamic> message(String id, String channel) => {
 };
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final scenario in ['thread', 'channel', 'dm']) {
       final channelAfterThread = scenario != 'thread';
       final dm = scenario == 'dm';
@@ -61,7 +57,7 @@ void main() {
             ? '[N24c] DM-single'
             : channelAfterThread
             ? '[N24b] channel-after-thread'
-            : '[N24a] thread-single'} $family/$dark actual Activity slot has no channel detour',
+            : '[N24a] thread-single'} ${dark ? 'dark' : 'light'} actual Activity slot has no channel detour',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           tester.view.physicalSize = const Size(1440, 900);
@@ -128,11 +124,11 @@ void main() {
           };
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),
@@ -273,7 +269,7 @@ void main() {
     }
     for (final thread in [true, false]) {
       testWidgets(
-        '[N24d] double-${thread ? 'thread' : 'channel'} $family/$dark actual Activity upgrades immediate preview and pushes one canonical route',
+        '[N24d] double-${thread ? 'thread' : 'channel'} ${dark ? 'dark' : 'light'} actual Activity upgrades immediate preview and pushes one canonical route',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           tester.view.physicalSize = const Size(1440, 900);
@@ -314,11 +310,11 @@ void main() {
           };
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),

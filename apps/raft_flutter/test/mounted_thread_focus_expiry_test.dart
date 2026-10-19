@@ -11,15 +11,11 @@ import 'mounted_message_navigation_test.dart'
     show pageFixture, mountPage, pageFrames;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final surface in ['activity', 'search', 'canonical']) {
       final preview = surface != 'canonical', consumes = surface == 'activity';
       testWidgets(
-        '[N24f] $family/$dark actual ${surface == 'activity'
+        '[N24f] ${dark ? 'dark' : 'light'} actual ${surface == 'activity'
             ? 'Activity consumes msg'
             : surface == 'search'
             ? 'Search retains msg'
@@ -58,7 +54,7 @@ void main() {
               navigate: false,
             ),
           );
-          await mountPage(tester, w, family, dark);
+          await mountPage(tester, w, dark);
           final rect = paintedMessage(tester, 'reply-40');
           expect(rect, isNotNull);
           final focus = find.byKey(const ValueKey('message-reply-40'));

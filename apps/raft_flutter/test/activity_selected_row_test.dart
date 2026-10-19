@@ -162,7 +162,6 @@ class _Client extends RaftClient {
 
 Future<(WorkspaceController, _Client)> _mount(
   WidgetTester t,
-  RaftFamily family,
   bool dark, {
   Locale? locale,
   GlobalKey? capture,
@@ -192,10 +191,7 @@ Future<(WorkspaceController, _Client)> _mount(
   final workspace = withAppServices(
     WorkspaceView(
       controller: w,
-      appearance: RaftAppearance(
-        mode: dark ? ThemeMode.dark : ThemeMode.light,
-        light: family,
-      ),
+      appearance: RaftAppearance(mode: dark ? ThemeMode.dark : ThemeMode.light),
       onAppearance: (_) async {},
       onLogout: () async {},
     ),
@@ -203,7 +199,7 @@ Future<(WorkspaceController, _Client)> _mount(
   await t.pumpWidget(
     MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: raftTheme(family, dark: dark).copyWith(
+      theme: raftTheme(dark: dark).copyWith(
         // Hover-revealed row actions: a desktop pointer, not touch density.
         platform: capture == null ? null : TargetPlatform.linux,
       ),
@@ -233,15 +229,11 @@ List<String> _selected(WidgetTester t) => [
 ];
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'desktop Activity selected row follows the open preview $family/$dark',
+      'desktop Activity selected row follows the open preview ${dark ? 'dark' : 'light'}',
       (t) async {
-        final (w, client) = await _mount(t, family, dark);
+        final (w, client) = await _mount(t, dark);
         w.setForeground(true);
         await _rail(t, 'activity');
         Finder row(String id) => find.byKey(ValueKey('activity-channel-$id'));
@@ -298,14 +290,13 @@ void main() {
     );
 
     testWidgets(
-      'final desktop Activity screenshot $family/$dark',
+      'final desktop Activity screenshot ${dark ? 'dark' : 'light'}',
       skip: Platform.environment['ACTIVITY_SELECTED_OUT'] == null,
       (t) async {
         await t.runAsync(loadParityFonts);
         final capture = GlobalKey();
         final (w, client) = await _mount(
           t,
-          family,
           dark,
           locale: const Locale('zh'),
           capture: capture,
@@ -340,11 +331,7 @@ void main() {
           final image = await render.toImage(pixelRatio: 1);
           final data = await image.toByteData(format: ui.ImageByteFormat.png);
           image.dispose();
-          final theme = dark
-              ? 'elegant-dark'
-              : family == RaftFamily.brutal
-              ? 'brutal-light'
-              : 'elegant-light';
+          final theme = dark ? 'dark' : 'light';
           final file = File(
             '${Platform.environment['ACTIVITY_SELECTED_OUT']}/final-$theme.png',
           );

@@ -48,7 +48,7 @@ void main() {
       transport.routes['POST /v2/messages'] = (_) => ack.future;
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(body: RaftChatView(controller: w)),
         ),
       );
@@ -152,7 +152,7 @@ void main() {
       };
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(body: RaftChatView(controller: w)),
         ),
       );

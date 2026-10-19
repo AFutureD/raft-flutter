@@ -95,12 +95,7 @@ void main() {
   testWidgets('phone channel scroll and first frame stay put', (t) async {
     final f = RootFixture();
     useChannelHistory(f, count: 40);
-    await f.mount(
-      t,
-      'elegant-light',
-      390,
-      uri: Uri.parse('/s/alpha/channel/ca'),
-    );
+    await f.mount(t, 'light', 390, uri: Uri.parse('/s/alpha/channel/ca'));
     final tail = find.text('Row 40');
     expect(tail, findsOneWidget);
     final settled = t.getRect(tail);
@@ -150,12 +145,7 @@ void main() {
 
   testWidgets('a covered direct chat does not read, focus, or tick', (t) async {
     final f = RootFixture();
-    await f.mount(
-      t,
-      'elegant-light',
-      390,
-      uri: Uri.parse('/s/alpha/channel/ca'),
-    );
+    await f.mount(t, 'light', 390, uri: Uri.parse('/s/alpha/channel/ca'));
     expect(find.text('Accepted a'), findsOneWidget);
     final page = t.widget<RaftChatView>(channelChat()).controller;
     expect(
@@ -255,12 +245,7 @@ void main() {
         'hasOlder': false,
         'hasNewer': false,
       };
-      await f.mount(
-        t,
-        'elegant-light',
-        390,
-        uri: Uri.parse('/s/alpha/channel/ca'),
-      );
+      await f.mount(t, 'light', 390, uri: Uri.parse('/s/alpha/channel/ca'));
       expect(find.text('Row 50'), findsWidgets);
       final outer = f.workspace(t);
       final paging = outer.messageDomain.older();
@@ -320,7 +305,7 @@ void main() {
       };
       await f.mount(
         t,
-        'elegant-light',
+        'light',
         390,
         uri: Uri.parse('/s/alpha/channel/ca?thread=ca:ma'),
       );
@@ -347,12 +332,7 @@ void main() {
 
   testWidgets('a wide channel keeps the classic timeline', (t) async {
     final f = RootFixture();
-    await f.mount(
-      t,
-      'elegant-light',
-      1280,
-      uri: Uri.parse('/s/alpha/channel/ca'),
-    );
+    await f.mount(t, 'light', 1280, uri: Uri.parse('/s/alpha/channel/ca'));
     expect(find.byType(RaftChatView), findsWidgets);
     expect(find.byType(MobileChatDirectRead), findsNothing);
     expect(t.takeException(), isNull);

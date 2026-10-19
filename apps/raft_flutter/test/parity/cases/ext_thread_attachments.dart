@@ -26,8 +26,7 @@ import 'package:raft_flutter/features/attachment_html_preview.dart';
 import 'package:raft_flutter/features/media_image_page.dart';
 import 'package:raft_flutter/features/attachment_preview_dialog.dart';
 import 'package:raft_flutter/platform/attachment_html.dart';
-import 'package:raft_ui/raft_ui.dart'
-    show RaftFamily, RaftGlyph, RaftLightboxIconAction;
+import 'package:raft_ui/raft_ui.dart' show RaftGlyph, RaftLightboxIconAction;
 
 import '../parity_harness.dart';
 import 'thread_composer/fake_workspace.dart';
@@ -169,9 +168,9 @@ Widget _viewport(ParityContext ctx, Widget child) => Align(
 );
 
 /// Header strip height: `h-14` plus the border (`border-b-2` always on the
-/// image lightbox; the preview shell has `border-b`, `-2` only in brutal).
+/// image lightbox; the preview shell has `border-b`).
 double _headerHeight(ParityContext ctx) =>
-    56 + (ctx.family == RaftFamily.brutal || ctx.props['host'] == 'image' ? 2 : 1);
+    56 + (ctx.props['host'] == 'image' ? 2 : 1);
 
 class _NeverHtmlLoader extends AttachmentHtmlLoader {
   @override

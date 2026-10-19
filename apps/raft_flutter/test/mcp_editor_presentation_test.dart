@@ -24,7 +24,6 @@ const _server = {
 Future<void> _mount(
   WidgetTester tester,
   double width, {
-  RaftFamily family = RaftFamily.elegant,
   bool dark = false,
   double scale = 1,
   GlobalKey? capture,
@@ -34,7 +33,7 @@ Future<void> _mount(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       builder: (context, child) => RepaintBoundary(
         key: capture,
         child: MediaQuery(
@@ -74,15 +73,11 @@ void main() {
       containsAll(['packages/raft_ui/Geist', 'packages/raft_ui/Inter']),
     );
   });
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final dark in raftThemeMatrix([false, true], full: true)) {
     for (final width in [390.0, 1200.0]) {
       for (final scale in [1.0, 3.1]) {
         testWidgets(
-          '${family.name}/$dark/$width/$scale editor actions and semantics',
+          '${dark ? 'dark' : 'light'}/$width/$scale editor actions and semantics',
           (tester) async {
             final semantics = tester.ensureSemantics();
             final capture = GlobalKey();
@@ -90,7 +85,6 @@ void main() {
               await _mount(
                 tester,
                 width,
-                family: family,
                 dark: dark,
                 scale: scale,
                 capture: capture,
@@ -121,7 +115,7 @@ void main() {
                       format: ui.ImageByteFormat.png,
                     ))!;
                     final target = File(
-                      '$out/${family.name}-${dark ? 'dark' : 'light'}-${width.toInt()}-$scale.png',
+                      '$out/${dark ? 'dark' : 'light'}-${width.toInt()}-$scale.png',
                     );
                     await target.parent.create(recursive: true);
                     await target.writeAsBytes(bytes.buffer.asUint8List());

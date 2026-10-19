@@ -73,13 +73,12 @@ void main() {
   Future<void> open(
     WidgetTester t, {
     Future<AgentAvatarUpload?> Function()? pick,
-    RaftFamily family = RaftFamily.brutal,
     bool dark = false,
     bool fleet = false,
   }) async {
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(family, dark: dark),
+        theme: raftTheme(dark: dark),
         home: Scaffold(
           body: Builder(
             builder: (context) => TextButton(
@@ -287,15 +286,11 @@ void main() {
       expect(t.takeException(), isNull);
     },
   );
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'avatar close button supports keyboard without bypassing dirty guard $family/$dark',
+      'avatar close button supports keyboard without bypassing dirty guard ${dark ? 'dark' : 'light'}',
       (t) async {
-        await open(t, family: family, dark: dark);
+        await open(t, dark: dark);
         expect(find.text('Close'), findsNothing);
         final close = find.byType(RaftRecipeButton);
         expect(t.getSize(close), const Size(32, 32));
@@ -331,9 +326,9 @@ void main() {
       },
     );
     testWidgets(
-      'preset controls have real 40px targets and keyboard activation $family/$dark',
+      'preset controls have real 40px targets and keyboard activation ${dark ? 'dark' : 'light'}',
       (t) async {
-        await open(t, family: family, dark: dark);
+        await open(t, dark: dark);
         final target = find.byKey(const ValueKey('avatar-choice-tree'));
         expect(t.getSize(target), const Size(40, 40));
         final focus = find.descendant(

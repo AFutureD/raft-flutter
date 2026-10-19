@@ -38,7 +38,7 @@ void main() {
     String? copied;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftMessageBody(
             content: '```ts\nconst n = 3;\n```',
@@ -60,7 +60,7 @@ void main() {
     Uint8List? leased, copied;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: RaftMermaidBlock(
             source: 'flowchart LR\n A[Draft] --> B[Ship]',
@@ -108,7 +108,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant, dark: true),
+        theme: raftTheme(dark: true),
         home: const Scaffold(
           body: SingleChildScrollView(
             child: RaftMermaidBlock(

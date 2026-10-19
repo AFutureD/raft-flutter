@@ -16,7 +16,7 @@ void main() {
     t,
   ) async {
     final f = RootFixture();
-    await f.mount(t, 'elegant-light', 390, uri: Uri.parse('/s/alpha/tasks'));
+    await f.mount(t, 'light', 390, uri: Uri.parse('/s/alpha/tasks'));
     await settle(t);
     expect(find.byType(MobileResourceDirectPage), findsOneWidget);
     await f.close(t);
@@ -25,7 +25,7 @@ void main() {
   for (final route in ['tasks', 'saved']) {
     testWidgets('direct $route ignores messages and presence', (t) async {
       final f = RootFixture();
-      await f.mount(t, 'elegant-light', 390, uri: Uri.parse('/s/alpha/$route'));
+      await f.mount(t, 'light', 390, uri: Uri.parse('/s/alpha/$route'));
       await settle(t);
       expect(find.byType(MobileResourceDirectPage), findsOneWidget);
       final list = t.widget<ResourceView>(find.byType(ResourceView));
@@ -95,7 +95,7 @@ void main() {
 
   testWidgets('direct tasks layout follows the window width', (t) async {
     final f = RootFixture();
-    await f.mount(t, 'elegant-light', 390, uri: Uri.parse('/s/alpha/tasks'));
+    await f.mount(t, 'light', 390, uri: Uri.parse('/s/alpha/tasks'));
     await settle(t);
     expect(find.byType(MobileResourceDirectPage), findsOneWidget);
     expect(find.byKey(const ValueKey('task-drop-todo')), findsNothing);
@@ -108,7 +108,7 @@ void main() {
 
   testWidgets('a covered tasks list is not mounted', (t) async {
     final f = RootFixture();
-    await f.mount(t, 'elegant-light', 390, uri: Uri.parse('/s/alpha/tasks'));
+    await f.mount(t, 'light', 390, uri: Uri.parse('/s/alpha/tasks'));
     await settle(t);
     expect(find.byType(ResourceView), findsOneWidget);
     await t.tap(find.byKey(const Key('mobile-tab-settings')));
@@ -128,7 +128,7 @@ void main() {
     t,
   ) async {
     final f = RootFixture();
-    await f.mount(t, 'elegant-light', 1280, uri: Uri.parse('/s/alpha/tasks'));
+    await f.mount(t, 'light', 1280, uri: Uri.parse('/s/alpha/tasks'));
     await settle(t);
     expect(find.byType(MobileResourceDirectPage), findsNothing);
     expect(find.byType(ResourceView), findsOneWidget);

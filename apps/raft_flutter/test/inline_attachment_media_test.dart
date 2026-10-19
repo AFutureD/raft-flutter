@@ -89,7 +89,7 @@ void main() {
     final player = _Player();
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(body: build(w, null, player)),
       ),
     );

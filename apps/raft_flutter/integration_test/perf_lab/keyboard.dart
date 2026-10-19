@@ -35,7 +35,6 @@ const _prose =
 Future<Future<void> Function()> mountKeyboardChat(
   WidgetTester t, {
   required LabImages images,
-  required RaftFamily family,
   required bool dark,
   bool useTestViewport = false,
 }) async {
@@ -79,7 +78,6 @@ Future<Future<void> Function()> mountKeyboardChat(
   SharedPreferences.setMockInitialValues({
     'raft.origin': client.origin,
     'raft.mode': dark ? 'dark' : 'light',
-    'raft.light': family == RaftFamily.elegant ? 'elegant' : 'brutal',
     MobileTabbarStore.preferenceKey: tabs.encode(),
   });
   final dir = await Directory.systemTemp.createTemp('raft-lab-keyboard-');

@@ -44,12 +44,11 @@ class _Rig {
 
 Widget _host(
   Widget child, {
-  RaftFamily family = RaftFamily.elegant,
   bool dark = false,
   double scale = 1,
   double keyboard = 0,
 }) => MaterialApp(
-  theme: raftTheme(family, dark: dark),
+  theme: raftTheme(dark: dark),
   builder: (context, home) => MediaQuery(
     data: MediaQuery.of(context).copyWith(
       textScaler: TextScaler.linear(scale),
@@ -119,12 +118,8 @@ void _setValue(WidgetTester tester, String text, int base, [int? extent]) {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    group('expand button $family/$dark', () {
+  for (final dark in raftThemeMatrix([false, true])) {
+    group('expand button ${dark ? 'dark' : 'light'}', () {
       testWidgets('appears from 3 lines, not at 1 or 2', (tester) async {
         _size(tester, _desktop);
         final rig = _Rig();
@@ -141,7 +136,6 @@ void main() {
                 key: ValueKey(text),
                 child: rig.composer(draft: text),
               ),
-              family: family,
               dark: dark,
             ),
           );
@@ -159,13 +153,7 @@ void main() {
         _size(tester, const Size(500, 800));
         final rig = _Rig();
         final long = List.filled(60, 'word').join(' ');
-        await tester.pumpWidget(
-          _host(
-            rig.composer(draft: long),
-            family: family,
-            dark: dark,
-          ),
-        );
+        await tester.pumpWidget(_host(rig.composer(draft: long), dark: dark));
         expect(_expandButton, findsOneWidget);
         await tester.pumpWidget(
           _host(
@@ -173,7 +161,6 @@ void main() {
               key: const ValueKey('short'),
               child: rig.composer(draft: 'short'),
             ),
-            family: family,
             dark: dark,
           ),
         );
@@ -185,9 +172,7 @@ void main() {
       ) async {
         _size(tester, const Size(520, 800));
         final rig = _Rig();
-        await tester.pumpWidget(
-          _host(rig.composer(), family: family, dark: dark),
-        );
+        await tester.pumpWidget(_host(rig.composer(), dark: dark));
         await tester.tap(_fields.first);
         await tester.pump();
         // Grow the draft one word at a time through the 2 -> 3 line threshold.
@@ -226,11 +211,7 @@ void main() {
           _size(tester, _desktop);
           final rig = _Rig();
           await tester.pumpWidget(
-            _host(
-              rig.composer(draft: 'a\nb'),
-              family: family,
-              dark: dark,
-            ),
+            _host(rig.composer(draft: 'a\nb'), dark: dark),
           );
           await tester.tap(_fields.first);
           await tester.pump();
@@ -248,13 +229,7 @@ void main() {
       ) async {
         _size(tester, _desktop);
         final rig = _Rig();
-        await tester.pumpWidget(
-          _host(
-            rig.composer(draft: _three),
-            family: family,
-            dark: dark,
-          ),
-        );
+        await tester.pumpWidget(_host(rig.composer(draft: _three), dark: dark));
         await tester.tap(_fields.first);
         await tester.pump();
         _controller(tester).value = const TextEditingValue(
@@ -731,7 +706,7 @@ void main() {
       late TextSpan out;
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Builder(
             builder: (context) {
               out = c.buildTextSpan(
@@ -790,8 +765,7 @@ void main() {
       expect(s.toPlainText(), '**bold** 中文');
       bool anyStyled(TextSpan s) =>
           s.style?.fontWeight == FontWeight.w700 ||
-          s.style?.fontFamily ==
-              RaftTokens.theme(RaftFamily.elegant).monoFont ||
+          s.style?.fontFamily == RaftTokens.theme().monoFont ||
           (s.children ?? []).any((x) => x is TextSpan && anyStyled(x));
       expect(anyStyled(s), isFalse);
     });

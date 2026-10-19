@@ -31,7 +31,7 @@ Future<void> main() async {
   w.channels = [w.channel!];
   runApp(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       debugShowCheckedModeBanner: false,
       home: _Probe(w),
     ),

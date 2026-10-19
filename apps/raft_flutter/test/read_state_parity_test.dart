@@ -423,7 +423,7 @@ void main() {
       w.messageDomain.visibleIds['c'] = rows.map((r) => r['id'] as String).toSet();
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(body: RaftChatView(controller: w)),
         ),
       );
@@ -461,9 +461,9 @@ void main() {
     },
   );
 
-  for (final (family, dark) in [(RaftFamily.elegant, false)]) {
+  for (final (dark) in [(false)]) {
     testWidgets(
-      '$family/$dark live message while scrolled up stays unread; scrolling to the bottom reads it',
+      '${dark ? 'dark' : 'light'} live message while scrolled up stays unread; scrolling to the bottom reads it',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1280, 800);
@@ -488,7 +488,7 @@ void main() {
         w.messageDomain.visibleIds['c'] = rows.map((r) => r['id'] as String).toSet();
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );

@@ -186,7 +186,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           locale: Locale(language),
           supportedLocales: const [Locale('en'), Locale('zh')],
           localizationsDelegates: GlobalMaterialLocalizations.delegates,

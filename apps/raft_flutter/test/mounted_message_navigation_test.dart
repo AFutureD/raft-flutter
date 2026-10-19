@@ -74,7 +74,6 @@ Future<(WorkspaceController, MessageAdapter)> pageFixture(
 Future<void> mountPage(
   WidgetTester tester,
   WorkspaceController w,
-  RaftFamily family,
   bool dark, {
   double width = 1440,
 }) async {
@@ -83,11 +82,11 @@ Future<void> mountPage(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       home: withAppServices(
         WorkspaceView(
           controller: w,
-          appearance: RaftAppearance(light: family),
+          appearance: RaftAppearance(),
           onAppearance: (_) async {},
           onLogout: () async {},
         ),
@@ -109,14 +108,10 @@ Future<void> pageFrames(
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final switchThread in [false, true]) {
       testWidgets(
-        '${switchThread ? '[N07b]' : '[N07a]'} $family/$dark actual side-thread ${switchThread ? 'retarget' : 'close'} replaces only its slot',
+        '${switchThread ? '[N07b]' : '[N07a]'} ${dark ? 'dark' : 'light'} actual side-thread ${switchThread ? 'retarget' : 'close'} replaces only its slot',
         (tester) async {
           final (w, api) = await pageFixture(tester);
           final p1 = row('p1', 'c1', 1), p2 = row('p2', 'c1', 2);
@@ -148,7 +143,7 @@ void main() {
             'messages': [row('r1', 't1', 1)],
           };
           api.routes['GET /messages/channel/t2'] = (_) => pending.future;
-          await mountPage(tester, w, family, dark);
+          await mountPage(tester, w, dark);
           // Source MainLayout1330–1420 puts the independent task modal above
           // the channel. Its backdrop covers the replies badge. Close that
           // actual overlay before using the exposed channel controls; closing
@@ -242,7 +237,7 @@ void main() {
 
     for (final back in [true, false]) {
       testWidgets(
-        '[N09] $family/$dark mounted ${back ? 'Back' : 'new route'} rejects held old parent and replies',
+        '[N09] ${dark ? 'dark' : 'light'} mounted ${back ? 'Back' : 'new route'} rejects held old parent and replies',
         (tester) async {
           final (w, api) = await pageFixture(tester);
           w.messageDomain.ledger.ingest([
@@ -254,7 +249,7 @@ void main() {
           api.routes['GET /messages/context/parent'] = (_) => parent.future;
           api.routes['GET /messages/context/reply'] = (_) => replies.future;
           api.routes['GET /channels/inbox'] = (_) => {'items': []};
-          await mountPage(tester, w, family, dark, width: back ? 390 : 1440);
+          await mountPage(tester, w, dark, width: back ? 390 : 1440);
           late Future<void> opening;
           await tester.runAsync(() async {
             opening = w.openThreadIdentity(
@@ -335,7 +330,7 @@ void main() {
 
     for (final failLast in [false, true]) {
       testWidgets(
-        '[L04] $family/$dark actual Activity last click ${failLast ? 'fails without reviving old context' : 'wins over late old context'}',
+        '[L04] ${dark ? 'dark' : 'light'} actual Activity last click ${failLast ? 'fails without reviving old context' : 'wins over late old context'}',
         (tester) async {
           final (w, api) = await pageFixture(tester);
           w.channels.add(
@@ -374,7 +369,7 @@ void main() {
           api.routes['GET /messages/context/first'] = (_) => first.future;
           api.routes['GET /messages/context/second'] = (_) => second.future;
           api.routes['GET /messages/channel/c2'] = (_) => latest.future;
-          await mountPage(tester, w, family, dark);
+          await mountPage(tester, w, dark);
           await tester.tap(find.byKey(const ValueKey('activity-channel-c1')));
           // Different item identities switch previews even inside the time window.
           await tester.pump(const Duration(milliseconds: 220));

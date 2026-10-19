@@ -11,7 +11,6 @@ import 'source_channel_files_view_test.dart' show fileRow;
 Future<void> mountFiles(
   WidgetTester tester,
   SourceChannelFilesStore store, {
-  RaftFamily family = RaftFamily.elegant,
   bool dark = false,
   double textScale = 1,
 }) async {
@@ -23,7 +22,7 @@ Future<void> mountFiles(
   });
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(textScale)),
@@ -44,13 +43,9 @@ Future<void> mountFiles(
 }
 
 void main() {
-  for (final (family, dark, scale) in [
-    (RaftFamily.brutal, false, 1.0),
-    (RaftFamily.elegant, false, 1.0),
-    (RaftFamily.elegant, true, 3.1),
-  ]) {
+  for (final (dark, scale) in [(false, 1.0), (true, 3.1)]) {
     testWidgets(
-      '$family/$dark page error retries only after an explicit action',
+      '${dark ? 'dark' : 'light'} page error retries only after an explicit action',
       (tester) async {
         final cursors = <String?>[];
         final retry = Completer<dynamic>();
@@ -74,13 +69,7 @@ void main() {
           },
         );
         await store.load();
-        await mountFiles(
-          tester,
-          store,
-          family: family,
-          dark: dark,
-          textScale: scale,
-        );
+        await mountFiles(tester, store, dark: dark, textScale: scale);
         await tester.tap(find.text('Load More'));
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('channel-file-a')), findsOneWidget);

@@ -18,7 +18,6 @@ Intro paragraph with `inline code`, **bold** and a [link](https://raft.build).
 ''';
 
 Widget frame(
-  RaftFamily family,
   bool dark, {
   List<RaftAnnouncementPage> pages = const [
     RaftAnnouncementPage(title: 'Welcome', body: body),
@@ -29,7 +28,7 @@ Widget frame(
   ValueChanged<String>? onLink,
   Locale? locale,
 }) => MaterialApp(
-  theme: raftTheme(family, dark: dark),
+  theme: raftTheme(dark: dark),
   home: Scaffold(
     body: Builder(
       builder: (context) => Localizations.override(
@@ -50,15 +49,9 @@ Widget frame(
 void main() {
   // Leak debt (other): see docs/development.md, Leak tracking.
   leakDebt(const ['TapGestureRecognizer']);
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    testWidgets('renders every block in ${family.name}${dark ? ' dark' : ''}', (
-      t,
-    ) async {
-      await t.pumpWidget(frame(family, dark));
+  for (final dark in raftThemeMatrix([false, true])) {
+    testWidgets('renders every block in${dark ? ' dark' : ''}', (t) async {
+      await t.pumpWidget(frame(dark));
       expect(t.takeException(), isNull);
       expect(find.text('What is new'), findsOneWidget);
       expect(find.text('Welcome'), findsOneWidget);
@@ -80,7 +73,6 @@ void main() {
     final links = <String>[];
     await t.pumpWidget(
       frame(
-        RaftFamily.elegant,
         false,
         onClose: () => closes++,
         onConfirm: () => confirms++,
@@ -110,7 +102,6 @@ void main() {
   testWidgets('single page: OK only, no indicator; zh copy', (t) async {
     await t.pumpWidget(
       frame(
-        RaftFamily.brutal,
         false,
         pages: const [RaftAnnouncementPage(body: 'Only page.')],
         locale: const Locale('zh', 'CN'),

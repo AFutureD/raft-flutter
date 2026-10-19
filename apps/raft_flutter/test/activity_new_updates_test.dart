@@ -17,12 +17,8 @@ import 'activity_incremental_refresh_test.dart'
 /// Web ThreadsInbox: a reader scrolled away from the top keeps their place
 /// when rows land above them, and an "N new updates" pill leads back up.
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    final label = '${family.name}${dark ? ' dark' : ''}';
+  for (final dark in raftThemeMatrix([false, true])) {
+    final label = dark ? 'dark' : 'light';
     late ActivityClient client;
     late ActivityWorkspace w;
     setUp(() => (client, w) = activityFixture());
@@ -37,7 +33,7 @@ void main() {
     }) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: Scaffold(
             body: ResourceView(
               controller: w,

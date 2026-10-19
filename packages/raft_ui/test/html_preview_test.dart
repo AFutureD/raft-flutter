@@ -41,13 +41,9 @@ void main() {
     expect(raftStaticHtml(large), contains('[Image: Chart]'));
     expect(() => raftStaticHtml('<p>x</p>' * 4001), throwsFormatException);
   });
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'native HTML controls and links work without overflow: $family/$dark',
+      'native HTML controls and links work without overflow: ${dark ? 'dark' : 'light'}',
       (tester) async {
         tester.view.reset();
         tester.view.physicalSize = const Size(360, 640);
@@ -57,7 +53,7 @@ void main() {
         String? opened;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: RaftHtmlPreview(
                 html: '<h2>中文と日本語</h2><p><a href="https://example.com">Reference</a></p>',

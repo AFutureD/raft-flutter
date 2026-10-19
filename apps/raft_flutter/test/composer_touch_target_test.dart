@@ -145,7 +145,7 @@ Rect probeHitRegion(WidgetTester t, Finder action) {
 
 void main() {
   for (final kind in _Kind.values) {
-    for (final theme in const ['brutal', 'elegant-light']) {
+    for (final theme in const ['light']) {
       testWidgets(
         'composer attach and send keep a phone-sized tap area on Android gesture navigation ${kind.name} $theme',
         (t) async {

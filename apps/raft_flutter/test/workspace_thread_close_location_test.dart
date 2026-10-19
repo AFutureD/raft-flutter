@@ -13,13 +13,9 @@ import 'workspace_activity_activation_test.dart' show message;
 import 'support/app_services_fixture.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[N07a] $family/$dark desktop Close replaces the mounted pending thread slot',
+      '[N07a] ${dark ? 'dark' : 'light'} desktop Close replaces the mounted pending thread slot',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1440, 900);
@@ -44,11 +40,11 @@ void main() {
         api.routes['POST /channels/c1/read'] = (_) => {};
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),

@@ -2,9 +2,9 @@
 // mobile routes on a simulated Android phone whose system navigation bar is
 // transparent (edge-to-edge), tints the bar region in the PNGs, and asserts:
 //  * no opaque strip under the bar (no colour step at the bar line, uniform
-//    colour in the band; brutal tab roots own a panel-coloured band),
+//    colour in the band),
 //  * scroll lists can scroll their last text clear of the bar (and of the
-//    floating tab capsule on elegant tab roots),
+//    floating tab capsule on tab roots),
 //  * bottom-anchored controls reach the screen bottom,
 //  * keyboard up: composer sits on the keyboard with no double inset padding,
 //    and the home tab bar never follows the keyboard.
@@ -325,11 +325,11 @@ class Scenario {
   /// screen bottom.
   final bool bottomControl;
 
-  /// Also captured in the dark elegant theme.
+  /// Also captured in the dark theme.
   final bool dark;
 
-  /// The Bottom bar settings preview keeps the same Brutal bottom border as
-  /// the real tab bar. That intentional line is not an opaque system-bar strip.
+  /// The Bottom bar settings preview is a tab bar surface: its nav sits at
+  /// the system bar line.
   final bool tabBarSurface;
 }
 
@@ -598,20 +598,14 @@ Future<void> assertEdgeToEdge(
   Map<String, Object?> m,
 ) async {
   final label = '${s.name} $theme ${s.nav.id}';
-  final brutalRoot = (s.root || s.tabBarSurface) && theme == 'brutal';
-  if (brutalRoot) {
-    // The in-flow brutal tab bar owns the bar band and paints it panel-coloured.
-    expect(m['bandUniform'], isTrue, reason: '$label: band not uniform');
-  } else {
-    expect(
-      m['noStep'],
-      isTrue,
-      reason:
-          '$label: opaque strip: colour above the bar ${m['colourAboveBar']} '
-          'differs from the band ${m['bandColour']}',
-    );
-    expect(m['bandUniform'], isTrue, reason: '$label: band not uniform');
-  }
+  expect(
+    m['noStep'],
+    isTrue,
+    reason:
+        '$label: opaque strip: colour above the bar ${m['colourAboveBar']} '
+        'differs from the band ${m['bandColour']}',
+  );
+  expect(m['bandUniform'], isTrue, reason: '$label: band not uniform');
   if (s.bottomControl) {
     expect(
       bottomControlReachesEdge(t),
@@ -633,7 +627,7 @@ Future<void> assertEdgeToEdge(
   final gap = scrollGap(t);
   if (gap != null && gap < 1) {
     final inset = s.nav.px / _dpr;
-    final floating = s.root && theme != 'brutal';
+    final floating = s.root;
     // Capsule: 8 gap + 52 capsule + 8 + inset = Web's 68 + inset.
     final barTop = _size.height / _dpr - inset - (floating ? 60 : 0);
     final lowest = await lowestTextAfterScrollToEnd(t);
@@ -719,9 +713,9 @@ void main() {
   // matrix: nightly-full -- the gate runs the 3-button scenarios on the default
   // theme only (gesture bar scenarios keep every theme); RAFT_TEST_TIER=full
   // runs them all.
-  const themes = ['brutal', 'elegant-light', 'elegant-dark'];
+  const themes = ['light', 'dark'];
   for (final theme in raftThemeMatrix(themes, full: true)) {
-    final dark = theme == 'elegant-dark';
+    final dark = theme == 'dark';
     for (final s in scenarios) {
       if (dark && (!s.dark || s.nav != Nav.gesture)) continue;
       if (!raftMatrixCell(theme: themes.indexOf(theme), size: s.nav.index)) {
@@ -807,9 +801,7 @@ void main() {
       await t.pumpWidget(
         MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: raftTheme(
-            theme == 'brutal' ? RaftFamily.brutal : RaftFamily.elegant,
-          ),
+          theme: raftTheme(),
           home: RaftSystemBars(
             child: IncomingSharePicker(
               client: PickerClient(),

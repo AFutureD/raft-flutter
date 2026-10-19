@@ -11,82 +11,79 @@ VoidCallback? _onPressed(WidgetTester tester, String key) =>
     tester.widget<RaftButton>(_button(key)).onPressed;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
-    testWidgets('$family/$dark confirm → stopping → stopped → resume', (
-      tester,
-    ) async {
-      final stop = Completer<String?>();
-      final resume = Completer<String?>();
-      final guidance = <String>[];
-      var closed = 0;
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(family, dark: dark),
-          home: Scaffold(
-            body: Center(
-              child: RaftSosDialog(
-                channelName: 'release',
-                onStop: () => stop.future,
-                onResume: (text) {
-                  guidance.add(text);
-                  return resume.future;
-                },
-                onClose: () => closed++,
+  for (final dark in raftThemeMatrix([false, true])) {
+    testWidgets(
+      '${dark ? 'dark' : 'light'} confirm → stopping → stopped → resume',
+      (tester) async {
+        final stop = Completer<String?>();
+        final resume = Completer<String?>();
+        final guidance = <String>[];
+        var closed = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(dark: dark),
+            home: Scaffold(
+              body: Center(
+                child: RaftSosDialog(
+                  channelName: 'release',
+                  onStop: () => stop.future,
+                  onResume: (text) {
+                    guidance.add(text);
+                    return resume.future;
+                  },
+                  onClose: () => closed++,
+                ),
               ),
             ),
           ),
-        ),
-      );
-      expect(find.text('Stop Agents'), findsNWidgets(2));
-      expect(
-        find.text(
-          'All running agents in #release will stop immediately. You can provide new guidance before resuming them.',
-        ),
-        findsOneWidget,
-      );
-      await tester.tap(_button('sos-stop'));
-      await tester.pump();
-      // Optimistic busy state: the action reads Stopping… and cannot repeat.
-      expect(find.text('Stopping…'), findsOneWidget);
-      expect(_onPressed(tester, 'sos-stop'), isNull);
-      stop.complete(null);
-      await tester.pumpAndSettle();
-      expect(find.text('Agents Stopped'), findsOneWidget);
-      expect(find.text('All agents have been stopped.'), findsOneWidget);
-      // Resume requires non-blank guidance.
-      expect(_onPressed(tester, 'sos-resume'), isNull);
-      final field = find.descendant(
-        of: _button('sos-guidance'),
-        matching: find.byType(EditableText),
-      );
-      expect(tester.widget<EditableText>(field).focusNode.hasFocus, isTrue);
-      await tester.enterText(field, '   ');
-      await tester.pump();
-      expect(_onPressed(tester, 'sos-resume'), isNull);
-      await tester.enterText(field, '  Only touch the frontend.  ');
-      await tester.pump();
-      await tester.tap(_button('sos-resume'));
-      await tester.pump();
-      expect(guidance, ['Only touch the frontend.']);
-      expect(find.text('Resuming…'), findsOneWidget);
-      expect(_onPressed(tester, 'sos-keep-stopped'), isNull);
-      expect(_onPressed(tester, 'sos-resume'), isNull);
-      resume.complete(null);
-      await tester.pumpAndSettle();
-      expect(closed, 1);
-      expect(tester.takeException(), isNull);
-    });
+        );
+        expect(find.text('Stop Agents'), findsNWidgets(2));
+        expect(
+          find.text(
+            'All running agents in #release will stop immediately. You can provide new guidance before resuming them.',
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(_button('sos-stop'));
+        await tester.pump();
+        // Optimistic busy state: the action reads Stopping… and cannot repeat.
+        expect(find.text('Stopping…'), findsOneWidget);
+        expect(_onPressed(tester, 'sos-stop'), isNull);
+        stop.complete(null);
+        await tester.pumpAndSettle();
+        expect(find.text('Agents Stopped'), findsOneWidget);
+        expect(find.text('All agents have been stopped.'), findsOneWidget);
+        // Resume requires non-blank guidance.
+        expect(_onPressed(tester, 'sos-resume'), isNull);
+        final field = find.descendant(
+          of: _button('sos-guidance'),
+          matching: find.byType(EditableText),
+        );
+        expect(tester.widget<EditableText>(field).focusNode.hasFocus, isTrue);
+        await tester.enterText(field, '   ');
+        await tester.pump();
+        expect(_onPressed(tester, 'sos-resume'), isNull);
+        await tester.enterText(field, '  Only touch the frontend.  ');
+        await tester.pump();
+        await tester.tap(_button('sos-resume'));
+        await tester.pump();
+        expect(guidance, ['Only touch the frontend.']);
+        expect(find.text('Resuming…'), findsOneWidget);
+        expect(_onPressed(tester, 'sos-keep-stopped'), isNull);
+        expect(_onPressed(tester, 'sos-resume'), isNull);
+        resume.complete(null);
+        await tester.pumpAndSettle();
+        expect(closed, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('failures keep the phase and show the error', (tester) async {
     var closed = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: Center(
             child: RaftSosDialog(
@@ -117,7 +114,7 @@ void main() {
     var closed = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
+        theme: raftTheme(),
         home: Scaffold(
           body: Center(
             child: RaftSosDialog(
@@ -150,7 +147,7 @@ void main() {
   testWidgets('copy is localized', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: Builder(
             builder: (context) => Localizations.override(

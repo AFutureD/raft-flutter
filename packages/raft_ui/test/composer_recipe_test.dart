@@ -8,13 +8,12 @@ import 'package:raft_ui/test_themes.dart';
 
 Widget host(
   Widget child,
-  RaftFamily family,
   bool dark, {
   double width = 390,
   double inset = 0,
   RaftDensity density = RaftDensity.desktop,
 }) => MaterialApp(
-  theme: raftTheme(family, dark: dark),
+  theme: raftTheme(dark: dark),
   home: MediaQuery(
     data: MediaQueryData(
       size: Size(width, 700),
@@ -30,13 +29,9 @@ Widget host(
 );
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
     testWidgets(
-      'touch actions keep source flow, disjoint edge hits and editor focus: $family/$dark',
+      'touch actions keep source flow, disjoint edge hits and editor focus: ${dark ? 'dark' : 'light'}',
       (tester) async {
         var images = 0, files = 0, sends = 0;
         await tester.pumpWidget(
@@ -50,7 +45,6 @@ void main() {
                 return false;
               },
             ),
-            family,
             dark,
             density: RaftDensity.touch,
           ),
@@ -63,16 +57,16 @@ void main() {
         final image = tester.getRect(action('Attach media'));
         final file = tester.getRect(action('Attach file'));
         final send = tester.getRect(action('Send'));
-        final size = family == RaftFamily.brutal ? 26.0 : 28.0;
+        final size = 28.0;
         expect(image.size, Size.square(size));
         expect(file.size, Size.square(size));
         expect(send.size, const Size.square(28));
-        expect(file.left - image.right, family == RaftFamily.brutal ? 8 : 6);
+        expect(file.left - image.right, 6);
         expect(
           tester
               .getSize(find.byKey(const ValueKey('composer-toolbar-slot')))
               .height,
-          family == RaftFamily.brutal ? 28 : 42,
+          42,
         );
         await tester.tap(find.byType(TextField));
         await tester.tapAt(Offset(image.left + 1, image.center.dy));
@@ -130,12 +124,11 @@ void main() {
     );
 
     testWidgets(
-      'mounted host/editor bounds, safe inset counted once: $family/$dark',
+      'mounted host/editor bounds, safe inset counted once: ${dark ? 'dark' : 'light'}',
       (tester) async {
         await tester.pumpWidget(
           host(
             RaftComposer(bottomSafeInset: 7, onSend: (_) async => false),
-            family,
             dark,
             inset: 29,
           ),
@@ -149,7 +142,7 @@ void main() {
         expect(recipe.hostInset, const EdgeInsets.fromLTRB(12, 12, 12, 23));
         expect(recipe.editorMinimum, 20);
         expect(recipe.editorMaximum, 128);
-        expect(recipe.shellRadius, family == RaftFamily.brutal ? 0 : 8);
+        expect(recipe.shellRadius, 8);
         final actualHost = tester.widget<Container>(
           find.byKey(const ValueKey('composer-host-slot')),
         );
@@ -168,12 +161,7 @@ void main() {
                     )
                     .decoration!
                 as BoxDecoration;
-        expect(
-          decoration.border,
-          family == RaftFamily.brutal
-              ? Border.all(color: Colors.black, width: 2)
-              : null,
-        );
+        expect(decoration.border, null);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         await tester.pump();
@@ -181,7 +169,7 @@ void main() {
     );
 
     testWidgets(
-      'Send tap keeps an unfocused composer unfocused: $family/$dark',
+      'Send tap keeps an unfocused composer unfocused: ${dark ? 'dark' : 'light'}',
       (tester) async {
         // Source MessageInput only prevents the Send pointer-down blur; it never
         // focuses the textarea after a send, so no keyboard pops on Android.
@@ -195,7 +183,6 @@ void main() {
                 return true;
               },
             ),
-            family,
             dark,
           ),
         );
@@ -215,7 +202,7 @@ void main() {
     );
 
     testWidgets(
-      'empty disabled, pointer focus, late ACK preserves changed draft: $family/$dark',
+      'empty disabled, pointer focus, late ACK preserves changed draft: ${dark ? 'dark' : 'light'}',
       (tester) async {
         final delivered = Completer<bool>();
         var sends = 0;
@@ -227,7 +214,6 @@ void main() {
                 return delivered.future;
               },
             ),
-            family,
             dark,
           ),
         );
@@ -266,7 +252,7 @@ void main() {
     );
 
     testWidgets(
-      'popup outside shell keeps card height; real option tap retains editor focus: $family/$dark',
+      'popup outside shell keeps card height; real option tap retains editor focus: ${dark ? 'dark' : 'light'}',
       (tester) async {
         await tester.pumpWidget(
           host(
@@ -276,7 +262,6 @@ void main() {
                 RaftComposerSuggestion(type: 'user', id: 'one', name: 'Alice'),
               ],
             ),
-            family,
             dark,
           ),
         );
@@ -333,7 +318,7 @@ void main() {
       },
     );
     testWidgets(
-      'long mention label shrinks beside badge and handle without changing keyboard insertion: $family/$dark',
+      'long mention label shrinks beside badge and handle without changing keyboard insertion: ${dark ? 'dark' : 'light'}',
       (tester) async {
         const name = 'Android-Developer-4-with-a-long-handle';
         await tester.pumpWidget(
@@ -353,7 +338,6 @@ void main() {
                 ],
               ),
             ),
-            family,
             dark,
           ),
         );
@@ -404,7 +388,6 @@ void main() {
               return false;
             },
           ),
-          RaftFamily.elegant,
           false,
         ),
       );
@@ -435,7 +418,6 @@ void main() {
               return true;
             },
           ),
-          RaftFamily.elegant,
           false,
         ),
       );
@@ -465,7 +447,6 @@ void main() {
             onAttach: () {},
             onSend: (_) async => false,
           ),
-          RaftFamily.elegant,
           false,
           width: 900,
         ),

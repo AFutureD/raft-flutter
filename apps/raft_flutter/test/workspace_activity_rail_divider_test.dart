@@ -11,20 +11,16 @@ import 'workspace_source_location_contract_test.dart' show pageFixture, frames;
 // Activity retains its thin divider, but navigation slots keep the regular
 // border-box geometry on every route (Kevin bd97261a).
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark Activity divider does not move actual navigation slots',
+      '${dark ? 'dark' : 'light'} Activity divider does not move actual navigation slots',
       (t) async {
         final (w, _) = await pageFixture(t, section: 'activity');
         w.navigation.navigate(RaftLocation.parse('/s/demo/activity'));
         await shellFonts(t);
-        await mountShell(t, w, family, dark);
+        await mountShell(t, w, dark);
         final help = find.byKey(const Key('rail-help'));
-        final expectedCenter = family == RaftFamily.brutal ? 31.0 : 28.0;
+        final expectedCenter = 28.0;
         void checkGeometry(double borderWidth) {
           expect(t.getRect(help).width, 40);
           expect(t.getCenter(help).dx, expectedCenter);
@@ -41,16 +37,7 @@ void main() {
                   decoration.border is Border;
             }),
           );
-          if (family == RaftFamily.brutal) {
-            expect(border, findsOneWidget);
-            final decoration = t.widget<DecoratedBox>(border).decoration;
-            expect(
-              ((decoration as BoxDecoration).border! as Border).right.width,
-              borderWidth,
-            );
-          } else {
-            expect(border, findsNothing);
-          }
+          expect(border, findsNothing);
         }
 
         expect(t.getRect(help).width, 40);

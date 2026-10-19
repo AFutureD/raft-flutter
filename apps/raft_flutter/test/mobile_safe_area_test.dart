@@ -14,7 +14,7 @@ void windowMetrics(WidgetTester t, double bottom, {double keyboard = 0}) {
 void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     final inset = platform == TargetPlatform.iOS ? 34.0 : 48.0;
-    for (final theme in ['brutal', 'elegant-light', 'elegant-dark']) {
+    for (final theme in ['light', 'dark']) {
       testWidgets(
         '$platform $theme root controls clear the system gesture area',
         (t) async {
@@ -34,31 +34,25 @@ void main() {
                 lessThanOrEqualTo(screenBottom - inset),
               );
             }
-            if (theme != 'brutal') {
-              final capsule = find.byKey(
-                const ValueKey('mobile-nav-source-capsule'),
-              );
-              expect(
-                t.getRect(capsule).bottom,
-                closeTo(screenBottom - inset - 8, .01),
-              );
-            }
+            final capsule = find.byKey(
+              const ValueKey('mobile-nav-source-capsule'),
+            );
+            expect(
+              t.getRect(capsule).bottom,
+              closeTo(screenBottom - inset - 8, .01),
+            );
           }
 
           expectBarClearance();
           // The floating home list extends to the bottom, and its scroll padding
           // lets the last row clear both the capsule and the home indicator.
           final sidebar = find.byKey(const Key('workspace-sidebar'));
-          if (theme != 'brutal') {
-            expect(t.getRect(sidebar).bottom, screenBottom);
-            final sliver = t.widget<CustomScrollView>(sidebar).slivers.first;
-            expect(
-              (sliver as SliverPadding).padding
-                  .resolve(TextDirection.ltr)
-                  .bottom,
-              68 + inset,
-            );
-          }
+          expect(t.getRect(sidebar).bottom, screenBottom);
+          final sliver = t.widget<CustomScrollView>(sidebar).slivers.first;
+          expect(
+            (sliver as SliverPadding).padding.resolve(TextDirection.ltr).bottom,
+            68 + inset,
+          );
 
           // The keyboard covers the tab bar rather than lifting it. Its dismissal
           // restores the same geometry, with the safe inset consumed once.

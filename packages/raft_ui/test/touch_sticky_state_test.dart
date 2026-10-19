@@ -8,7 +8,7 @@ import 'package:raft_ui/raft_ui.dart';
 /// after the finger has left. These cases drive real touch gestures.
 void main() {
   Widget host(Widget child) => MaterialApp(
-    theme: raftTheme(RaftFamily.elegant),
+    theme: raftTheme(),
     home: Scaffold(
       body: SingleChildScrollView(
         child: Column(children: [child, const SizedBox(height: 2000)]),
@@ -115,7 +115,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: ListView(
             children: [
@@ -147,7 +147,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: ListView(
             children: [
@@ -207,7 +207,7 @@ void main() {
     // input, touch again on the next finger. The app must not pin either.
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: Center(
             child: RaftControl(
@@ -237,7 +237,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,

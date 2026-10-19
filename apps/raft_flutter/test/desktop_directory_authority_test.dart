@@ -49,14 +49,10 @@ class _DirectoryClient extends RaftClient {
 }
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
-        'directory $family/$dark/$width retains Source avatar, row and pointer selection',
+        'directory ${dark ? 'dark' : 'light'}/$width retains Source avatar, row and pointer selection',
         (t) async {
           t.view.physicalSize = Size(width, 844);
           t.view.devicePixelRatio = 1;
@@ -72,7 +68,7 @@ void main() {
           DesktopContentTarget? selected;
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: Scaffold(
                 body: DesktopDirectoryView(
                   controller: w,
@@ -101,14 +97,8 @@ void main() {
             matching: find.byType(RaftControl),
           );
           // SidebarItem has independent 4px/2px margin and md:py-1/1.5.
-          expect(
-            t.getSize(control).height,
-            family == RaftFamily.brutal ? (width < 768 ? 40 : 32) : 34,
-          );
-          expect(
-            t.getSize(row).height - t.getSize(control).height,
-            family == RaftFamily.brutal ? 4 : 2,
-          );
+          expect(t.getSize(control).height, 34);
+          expect(t.getSize(row).height - t.getSize(control).height, 2);
           await t.tap(row);
           expect(selected!.kind, DesktopContentKind.agent);
           expect(selected!.id, 'agent');
@@ -130,7 +120,7 @@ void main() {
       DesktopContentTarget? selected;
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: SizedBox(
               width: 240,
@@ -181,7 +171,7 @@ void main() {
       });
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Scaffold(
             body: DesktopDirectoryView(controller: w, onSelected: (_) {}),
           ),

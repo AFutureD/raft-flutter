@@ -19,7 +19,7 @@ void main() {
       });
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: RaftModalBackdrop(
               child: Column(
@@ -61,7 +61,7 @@ void main() {
       });
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: const Scaffold(
             body: RaftModalBackdrop(child: SizedBox(height: 100, width: 200)),
           ),

@@ -113,7 +113,7 @@ void main() {
     t,
   ) async {
     final f = fixture();
-    await f.mount(t, 'brutal', 430, uri: Uri(path: '/s/alpha'));
+    await f.mount(t, 'light', 430, uri: Uri(path: '/s/alpha'));
     final w = f.workspace(t);
     t.widget<WorkspaceView>(find.byType(WorkspaceView).first).onChooseServer!();
     await f.flush(t);
@@ -129,7 +129,7 @@ void main() {
     t,
   ) async {
     final f = fixture();
-    await f.mount(t, 'brutal', 390, uri: Uri.parse('/s/alpha'));
+    await f.mount(t, 'light', 390, uri: Uri.parse('/s/alpha'));
     final w = f.workspace(t);
     final pages = t.widget<MobileWorkspacePages>(
       find.byType(MobileWorkspacePages),
@@ -150,11 +150,7 @@ void main() {
     await f.close(t);
   });
 
-  for (final theme in raftThemeMatrix([
-    'brutal',
-    'elegant-light',
-    'elegant-dark',
-  ])) {
+  for (final theme in raftThemeMatrix(['light', 'dark'])) {
     testWidgets(
       '$theme Settings → Computers → detail uses one URL-owned stack',
       (t) async {

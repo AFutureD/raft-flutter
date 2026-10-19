@@ -217,10 +217,10 @@ void main() {
 
   test('light and dark colours come from the design tokens', () {
     final html = OAuthReturnPage.render().html;
-    // elegant light / dark layer-canvas and foreground-strong.
+    // Raft 0.7.1 light / dark layer-canvas and foreground-strong.
     expect(html, contains('--canvas:#ffffff'));
-    expect(html, contains('--canvas:#141411'));
-    expect(html, contains('--ink:#0a0a0a'));
+    expect(html, contains('--canvas:#1b1b19'));
+    expect(html, contains('--ink:#141111'));
     expect(html, contains('--ink:#e5e5e2'));
   });
 }

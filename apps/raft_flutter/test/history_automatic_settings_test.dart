@@ -89,7 +89,6 @@ class _Capacity implements HistoryCapacity {
 Future<void> _pump(
   WidgetTester t,
   _Capacity cap, {
-  RaftFamily family = RaftFamily.elegant,
   bool dark = false,
   double scale = 1,
   Locale locale = const Locale('en'),
@@ -99,7 +98,7 @@ Future<void> _pump(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family, dark: dark),
+      theme: raftTheme(dark: dark),
       locale: locale,
       supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -119,13 +118,9 @@ Future<void> _pump(
 }
 
 void main() {
-  for (final theme in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ]) {
+  for (final dark in [false, true]) {
     testWidgets(
-      'automatic history exposes only capacity in $theme, including reopen',
+      'automatic history exposes only capacity in ${dark ? 'dark' : 'light'}, including reopen',
       (t) async {
         addTearDown(() async {
           await t.pumpWidget(const SizedBox.shrink());
@@ -135,7 +130,7 @@ void main() {
           ..full = true
           ..pending = true;
         for (var visit = 0; visit < 2; visit++) {
-          await _pump(t, cap, family: theme.$1, dark: theme.$2, scale: 3.1);
+          await _pump(t, cap, dark: dark, scale: 3.1);
           await t.pumpAndSettle();
           expect(find.byKey(const Key('history-budget')), findsOneWidget);
           for (final action in ['keep', 'refresh', 'clean', 'measure']) {

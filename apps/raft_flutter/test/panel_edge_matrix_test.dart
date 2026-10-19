@@ -69,7 +69,6 @@ void main() {
   Future<void> pumpUi(
     WidgetTester t,
     double width,
-    RaftFamily family,
     bool dark,
     Widget home,
   ) async {
@@ -78,7 +77,7 @@ void main() {
     addTearDown(t.view.reset);
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(family, dark: dark),
+        theme: raftTheme(dark: dark),
         home: Scaffold(body: home),
       ),
     );
@@ -88,7 +87,6 @@ void main() {
   Future<void> pumpWorkspace(
     WidgetTester t,
     double width,
-    RaftFamily family,
     bool dark, {
     required bool openThread,
   }) async {
@@ -118,11 +116,11 @@ void main() {
     api.routes['POST /feature-flags/evaluate'] = (_) => {'evaluations': []};
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(family, dark: dark),
+        theme: raftTheme(dark: dark),
         home: withAppServices(
           WorkspaceView(
             controller: w,
-            appearance: RaftAppearance(light: family),
+            appearance: RaftAppearance(),
             onAppearance: (_) async {},
             onLogout: () async {},
           ),
@@ -141,17 +139,12 @@ void main() {
 
   double leftOf(WidgetTester t, Finder f) => t.getTopLeft(f.first).dx;
 
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ], full: true)) {
+  for (final (dark) in raftThemeMatrix([(false), (true)], full: true)) {
     final mounts = <String, _Mount>{
       'settings-panel': (t, width) async {
         await pumpUi(
           t,
           width,
-          family,
           dark,
           const RaftSettingsPanelFrame(
             header: SizedBox(height: 56),
@@ -164,7 +157,6 @@ void main() {
         await pumpUi(
           t,
           width,
-          family,
           dark,
           RaftOverflowSheet(
             title: '#general',
@@ -179,7 +171,6 @@ void main() {
         await pumpUi(
           t,
           width,
-          family,
           dark,
           RaftOverflowBareSheet(
             page: width < 768,
@@ -192,7 +183,6 @@ void main() {
         await pumpUi(
           t,
           width,
-          family,
           dark,
           RaftChannelSettingsSheet(
             page: width < 768,
@@ -209,18 +199,17 @@ void main() {
         );
       },
       'task-thread-panel': (t, width) async {
-        await pumpUi(t, width, family, dark, taskModalPreview());
+        await pumpUi(t, width, dark, taskModalPreview());
         // The modal frame has its own all-round border; the thread panel's
         // edge starts one border width inside it.
         final frame = find.byKey(const ValueKey('task-thread-modal'));
         if (width < 768 || frame.evaluate().isEmpty) return 0;
-        return leftOf(t, frame) + (family == RaftFamily.brutal ? 2 : 1);
+        return leftOf(t, frame) + (1);
       },
       'workspace-thread-panel': (t, width) async {
         await pumpUi(
           t,
           width,
-          family,
           dark,
           RaftAdaptiveWorkspace(
             rail: const SizedBox.shrink(),
@@ -241,7 +230,6 @@ void main() {
         await pumpUi(
           t,
           width,
-          family,
           dark,
           RaftAdaptiveWorkspace(
             rail: const SizedBox.shrink(),
@@ -259,14 +247,14 @@ void main() {
         );
       },
       'activity-inbox': (t, width) async {
-        await pumpWorkspace(t, width, family, dark, openThread: false);
+        await pumpWorkspace(t, width, dark, openThread: false);
         return leftOf(t, find.byKey(const Key('desktop-master-panel')));
       },
       'activity-thread-detail': (t, width) async {
         // A phone tap opens the conversation as a page (no detail beside the
         // list): nothing to look for.
         if (width < 768) return null;
-        await pumpWorkspace(t, width, family, dark, openThread: true);
+        await pumpWorkspace(t, width, dark, openThread: true);
         expect(find.byKey(const Key('desktop-content-detail')), findsOneWidget);
         return leftOf(t, find.byKey(const Key('desktop-content-detail')));
       },
@@ -274,7 +262,6 @@ void main() {
         await pumpUi(
           t,
           width,
-          family,
           dark,
           const DesktopMasterDetail(
             master: SizedBox.expand(),
@@ -288,19 +275,15 @@ void main() {
     for (final surface in panelEdgeSurfaces) {
       for (final width in widths) {
         testWidgets(
-          '[edge] ${surface.id} $family/${dark ? 'dark' : 'light'} @$width: '
+          '[edge] ${surface.id}/${dark ? 'dark' : 'light'} @$width: '
           '${width < 768 ? 'phone page draws no left edge' : 'left edge is painted'}',
           (t) async {
             final mount = mounts[surface.id];
             expect(mount, isNotNull, reason: '${surface.id} has no mount');
             final edgeX = await mount!(t, width);
             if (edgeX == null) return;
-            final drawn =
-                width >= 768 &&
-                (family == RaftFamily.brutal || surface.elegantDraws);
-            final lineWidth = family == RaftFamily.brutal
-                ? surface.brutalWidth
-                : 1.0;
+            final drawn = width >= 768 && surface.elegantDraws;
+            final lineWidth = 1.0;
             final rules = paintedRules().where((r) => r.height >= 200);
             // The line is the surface's own border (starts at its left edge)
             // or a neighbour's border that ends there (sidebar / master).
@@ -324,7 +307,7 @@ void main() {
                 isNotEmpty,
                 reason:
                     '${surface.id} paints no ${lineWidth}px left edge at '
-                    'x=$edgeX (width $width, $family). Rules: ${rules.toList()}',
+                    'x=$edgeX (width $width,). Rules: ${rules.toList()}',
               );
             } else {
               expect(
@@ -332,7 +315,7 @@ void main() {
                 isEmpty,
                 reason:
                     '${surface.id} paints a left edge on the phone page at '
-                    'x=$edgeX (width $width, $family): $own',
+                    'x=$edgeX (width $width,): $own',
               );
             }
           },

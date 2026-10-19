@@ -5,18 +5,14 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final theme in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'selection buttons preserve keyboard, checked and disabled ${theme.$1}/${theme.$2}',
+      'selection buttons preserve keyboard, checked and disabled ${dark ? 'dark' : 'light'}',
       (tester) async {
         var clears = 0, selected = 0, disabled = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(theme.$1, dark: theme.$2),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Center(
                 child: RaftSelectionPopover(

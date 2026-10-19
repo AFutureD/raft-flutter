@@ -129,11 +129,7 @@ class DesktopFixtureClient extends RaftClient {
   }
 }
 
-const _themes = {
-  'brutal': (RaftFamily.brutal, false),
-  'elegant-light': (RaftFamily.elegant, false),
-  'elegant-dark': (RaftFamily.elegant, true),
-};
+const _themes = {'elegant-light': (false), 'elegant-dark': (true)};
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -167,7 +163,7 @@ void main() {
         (visualCase['variants'] as List).first['props'],
       );
       final flow = props['flutter'] as String;
-      final (family, dark) = _themes[visualCase['theme']]!;
+      final (dark) = _themes[visualCase['theme']]!;
       final viewport = Size(
         (visualCase['viewport']['width'] as num).toDouble(),
         (visualCase['viewport']['height'] as num).toDouble(),
@@ -231,8 +227,8 @@ void main() {
             locale: const Locale('en'),
             supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
-            theme: raftTheme(family),
-            darkTheme: raftTheme(RaftFamily.elegant, dark: true),
+            theme: raftTheme(),
+            darkTheme: raftTheme(dark: true),
             themeMode: dark ? ThemeMode.dark : ThemeMode.light,
             builder: (context, child) => Align(
               alignment: Alignment.topLeft,
@@ -260,7 +256,6 @@ void main() {
                 presentation: presentation,
                 appearance: RaftAppearance(
                   mode: dark ? ThemeMode.dark : ThemeMode.light,
-                  light: family,
                 ),
                 onAppearance: (_) async {},
                 onLogout: () async {},

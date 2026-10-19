@@ -54,7 +54,7 @@ void main() {
       };
       await f.mount(
         t,
-        'elegant-light',
+        'light',
         390,
         uri: Uri.parse('/s/alpha/channel/alpha'),
       );

@@ -39,13 +39,9 @@ Map<String, dynamic> flag(bool enabled) => {
 };
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '[N24h] $family/$dark flag-enabled ACK survives Saved facets and cached All return',
+      '[N24h] ${dark ? 'dark' : 'light'} flag-enabled ACK survives Saved facets and cached All return',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1440, 900);
@@ -70,11 +66,11 @@ void main() {
         };
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),
@@ -116,7 +112,7 @@ void main() {
       variant: const TargetPlatformVariant({TargetPlatform.linux}),
     );
     testWidgets(
-      '[N24h] $family/$dark late selected-server evaluation cannot enable the new server page',
+      '[N24h] ${dark ? 'dark' : 'light'} late selected-server evaluation cannot enable the new server page',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1440, 900);
@@ -137,11 +133,11 @@ void main() {
         api.routes['GET /channels/inbox'] = (_) => {'items': [], 'groups': []};
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),
@@ -172,7 +168,7 @@ void main() {
       variant: const TargetPlatformVariant({TargetPlatform.linux}),
     );
     testWidgets(
-      '[N24h] $family/$dark late Saved and active facet windows cannot replace the selected Done page',
+      '[N24h] ${dark ? 'dark' : 'light'} late Saved and active facet windows cannot replace the selected Done page',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = const Size(1440, 900);
@@ -203,11 +199,11 @@ void main() {
         };
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),
@@ -286,7 +282,7 @@ void main() {
     for (final enabled in [false, true]) {
       for (final width in [1440.0, 390.0]) {
         testWidgets(
-          '[N24h] $family/$dark ${enabled ? 'flag-enabled' : 'flag-disabled'} ${width == 390 ? 'mobile' : 'desktop'} actual Activity sources',
+          '[N24h] ${dark ? 'dark' : 'light'} ${enabled ? 'flag-enabled' : 'flag-disabled'} ${width == 390 ? 'mobile' : 'desktop'} actual Activity sources',
           (tester) async {
             SharedPreferences.setMockInitialValues({});
             tester.view.physicalSize = Size(width, 900);
@@ -349,11 +345,11 @@ void main() {
             };
             await tester.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 home: withAppServices(
                   WorkspaceView(
                     controller: w,
-                    appearance: RaftAppearance(light: family),
+                    appearance: RaftAppearance(),
                     onAppearance: (_) async {},
                     onLogout: () async {},
                   ),
@@ -418,7 +414,7 @@ void main() {
                     find.byKey(const ValueKey('activity-enabled-toolbar')),
                   )
                   .height,
-              width >= 768 ? (family == RaftFamily.brutal ? 90 : 89) : 54,
+              width >= 768 ? (89) : 54,
             );
             expect(find.byType(RaftSegmentedControl<String>), findsNothing);
             Future<void> select(String view) async {

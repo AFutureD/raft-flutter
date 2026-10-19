@@ -147,7 +147,6 @@ class _ShellState extends State<_Shell> {
       controller: w,
       appearance: RaftAppearance(
         mode: widget.ctx.dark ? ThemeMode.dark : ThemeMode.light,
-        light: widget.ctx.family,
       ),
       onAppearance: (_) async {},
       onLogout: () async {},
@@ -315,7 +314,6 @@ ParityCase _channelCase(String key) {
       ...c.fixtures,
       'ext:channelsettings': c.fixtures['ext:members-pages-channel'],
     },
-    family: c.family,
     dark: c.dark,
   );
   return ParityCase(

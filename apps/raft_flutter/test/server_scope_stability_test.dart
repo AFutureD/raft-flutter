@@ -148,11 +148,11 @@ void main() {
       addTearDown(t.view.reset);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: withAppServices(
             WorkspaceView(
               controller: w,
-              appearance: const RaftAppearance(light: RaftFamily.elegant),
+              appearance: const RaftAppearance(),
               onAppearance: (_) async {},
               onLogout: () async {},
             ),
@@ -248,7 +248,7 @@ void main() {
       await _settle(t);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(body: RaftChatView(controller: w)),
         ),
       );
@@ -335,7 +335,7 @@ void main() {
       late BuildContext context;
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: Builder(
               builder: (c) {
@@ -389,7 +389,7 @@ void main() {
       };
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(body: SourceFeedbackView(controller: w)),
         ),
       );
@@ -438,7 +438,7 @@ void main() {
       };
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(body: SourceFeedbackView(controller: w)),
         ),
       );

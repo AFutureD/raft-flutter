@@ -4,13 +4,9 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark mobile add uses source flow and real bounded hit; permission/count/desktop gates',
+      '${dark ? 'dark' : 'light'} mobile add uses source flow and real bounded hit; permission/count/desktop gates',
       (t) async {
         var opens = 0;
         Widget host({
@@ -18,7 +14,7 @@ void main() {
           bool permitted = true,
           int count = 2,
         }) => MaterialApp(
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: MediaQuery(
             data: MediaQueryData(size: Size(width, 720)),
             child: Scaffold(

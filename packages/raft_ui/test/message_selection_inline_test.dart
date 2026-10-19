@@ -40,7 +40,7 @@ RaftReferenceAppearance? _appearance(String href) => href.contains('mention')
 final _shot = GlobalKey();
 
 Widget _host(Widget child, {double width = 600}) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant, dark: false),
+  theme: raftTheme(dark: false),
   home: Scaffold(
     body: Align(
       alignment: Alignment.topLeft,

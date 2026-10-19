@@ -11,14 +11,10 @@ import 'message_presentation_test.dart' show fixture;
 import 'task_surface_test.dart' show taskRoutes, modernTask, taskHost, flush;
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
-        '[K10d] $family/$dark/$width displayed History accepts pointer during reply handoff',
+        '[K10d] ${dark ? 'dark' : 'light'}/$width displayed History accepts pointer during reply handoff',
         (t) async {
           t.view.physicalSize = Size(width, 844);
           t.view.devicePixelRatio = 1;
@@ -38,7 +34,7 @@ void main() {
               },
             ],
           };
-          await t.pumpWidget(taskHost(w, family, dark));
+          await t.pumpWidget(taskHost(w, dark));
           await flush(t);
           await t.tap(find.text('Scoped actual task'));
           await flush(t);
@@ -80,7 +76,7 @@ void main() {
           // task surface and its discussion controller.
           await t.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: const Scaffold(body: SizedBox()),
             ),
           );

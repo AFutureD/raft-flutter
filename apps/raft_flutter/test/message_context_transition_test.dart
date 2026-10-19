@@ -562,12 +562,7 @@ void main() {
       final f = RootFixture();
       final context = Completer<Map<String, dynamic>>();
       f.holds['GET /messages/context/target'] = context;
-      await f.mount(
-        t,
-        'elegant-light',
-        390,
-        uri: Uri(path: '/s/alpha/channel/ca'),
-      );
+      await f.mount(t, 'light', 390, uri: Uri(path: '/s/alpha/channel/ca'));
       expect(find.text('Accepted a'), findsOneWidget);
       expect(find.byType(MobileChatDirectRead), findsWidgets);
       final before = t.getRect(find.text('Accepted a'));

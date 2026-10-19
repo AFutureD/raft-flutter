@@ -474,11 +474,11 @@ void main() {
         ];
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.elegant, dark: false),
+            theme: raftTheme(dark: false),
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: const RaftAppearance(light: RaftFamily.elegant),
+                appearance: const RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),

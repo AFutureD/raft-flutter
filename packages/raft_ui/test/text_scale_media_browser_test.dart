@@ -14,7 +14,7 @@ void main() {
     addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         builder: (context, child) => RaftTextScaling(child: child!),
         home: Scaffold(body: preview),
       ),

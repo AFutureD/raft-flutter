@@ -297,7 +297,6 @@ Future<List<String>> _measure(
   _Case c,
   String name, {
   required bool android,
-  required bool brutal,
 }) async {
   final snap = await InkSnapshot.capture(t, capture);
   final shots = Platform.environment['RAFT_CENTRE_SHOTS'];
@@ -319,8 +318,8 @@ Future<List<String>> _measure(
     final labels = _labels(box).toList();
     final icons = find.descendant(of: box, matching: find.byType(RaftIcon));
     // Padding + border: measure inside the border.
-    // Inside the border (brutal 2px, elegant 1px, plus antialiasing).
-    final border = brutal ? 2.5 : 1.5;
+    // Inside the border (1px, plus antialiasing).
+    const border = 1.5;
     final band = (boxRect.top + border, boxRect.bottom - border);
     void check(
       String what,
@@ -382,83 +381,79 @@ void main() {
     for (final label in c.labels) {
       for (final profile in _profiles) {
         for (final scale in _scales) {
-          for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
-            final id =
-                '${c.name}${label.isEmpty ? '' : ' "$label"'} ${profile.name} ${scale}x ${family.name}';
-            testWidgets(id, (t) async {
-              await loadAuditFonts(t, AuditFonts.real);
-              addTearDown(t.view.resetPhysicalSize);
-              addTearDown(t.view.resetDevicePixelRatio);
-              t.view.physicalSize = const Size(420, 480);
-              t.view.devicePixelRatio = 1;
-              t.platformDispatcher.textScaleFactorTestValue = scale;
-              addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
-              final capture = GlobalKey();
-              final android = profile.platform == TargetPlatform.android;
-              final theme = raftTheme(
-                family,
+          final id =
+              '${c.name}${label.isEmpty ? '' : ' "$label"'} ${profile.name} ${scale}x';
+          testWidgets(id, (t) async {
+            await loadAuditFonts(t, AuditFonts.real);
+            addTearDown(t.view.resetPhysicalSize);
+            addTearDown(t.view.resetDevicePixelRatio);
+            t.view.physicalSize = const Size(420, 480);
+            t.view.devicePixelRatio = 1;
+            t.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
+            final capture = GlobalKey();
+            final android = profile.platform == TargetPlatform.android;
+            final theme = raftTheme(
+              locale: profile.locale,
+              platform: profile.platform,
+              // As app_root.dart does on Android: the device's sans family
+              // with its CJK fallback (the harness maps both to Noto Sans
+              // CJK, the face the Android Chinese profile was measured on).
+              systemFonts: android,
+              systemFontFamilies: android
+                  ? const RaftFontFamilies(
+                      mono: 'packages/raft_ui/GeistMono',
+                      fallback: ['Noto Sans CJK SC'],
+                    )
+                  : const RaftFontFamilies(),
+              textLocale: profile.locale,
+            );
+            await t.pumpWidget(
+              MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: theme.copyWith(platform: profile.platform),
                 locale: profile.locale,
-                platform: profile.platform,
-                // As app_root.dart does on Android: the device's sans family
-                // with its CJK fallback (the harness maps both to Noto Sans
-                // CJK, the face the Android Chinese profile was measured on).
-                systemFonts: android,
-                systemFontFamilies: android
-                    ? const RaftFontFamilies(
-                        mono: 'packages/raft_ui/GeistMono',
-                        fallback: ['Noto Sans CJK SC'],
-                      )
-                    : const RaftFontFamilies(),
-                textLocale: profile.locale,
-              );
-              await t.pumpWidget(
-                MaterialApp(
-                  debugShowCheckedModeBanner: false,
-                  theme: theme.copyWith(platform: profile.platform),
-                  locale: profile.locale,
-                  supportedLocales: [profile.locale],
-                  localizationsDelegates: GlobalMaterialLocalizations.delegates,
-                  builder: (context, child) => RaftTextScaling(
-                    child: RepaintBoundary(key: capture, child: child),
-                  ),
-                  home: Scaffold(
-                    body: c.page
-                        ? c.build(label)
-                        : Align(
-                            alignment: Alignment.topLeft,
-                            child: Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: c.build(label),
-                            ),
-                          ),
-                  ),
+                supportedLocales: [profile.locale],
+                localizationsDelegates: GlobalMaterialLocalizations.delegates,
+                builder: (context, child) => RaftTextScaling(
+                  child: RepaintBoundary(key: capture, child: child),
                 ),
-              );
-              await t.pump(const Duration(milliseconds: 400));
-              expect(t.takeException(), isNull, reason: id);
-              final failures = await _measure(
-                t,
-                capture,
-                c,
-                id,
-                android: android,
-                brutal: family == RaftFamily.brutal,
-              );
-              // (Whole pages hold inline widgets in paragraphs the audit cannot
-              // measure; they get the ink check only.)
-              // The text-scale audit's detectors on the same frame: ink cut by a
-              // clip (a label squeezed into a box shorter than its line), line
-              // boxes that escape a fixed height, overflow, off-centre labels.
-              if (!c.page) {
-                final report = AuditReport(id, AuditMode(id, textScale: scale));
-                final marks = ValueNotifier<List<(Rect, Color)>>(const []);
-                await inspectPumped(t, report, marks: marks, centring: true);
-                failures.addAll([for (final f in report.failures) '$f']);
-                marks.dispose();
-              }
-              expect(failures, isEmpty, reason: failures.join('\n'));
-            });
-          }
+                home: Scaffold(
+                  body: c.page
+                      ? c.build(label)
+                      : Align(
+                          alignment: Alignment.topLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: c.build(label),
+                          ),
+                        ),
+                ),
+              ),
+            );
+            await t.pump(const Duration(milliseconds: 400));
+            expect(t.takeException(), isNull, reason: id);
+            final failures = await _measure(
+              t,
+              capture,
+              c,
+              id,
+              android: android,
+            );
+            // (Whole pages hold inline widgets in paragraphs the audit cannot
+            // measure; they get the ink check only.)
+            // The text-scale audit's detectors on the same frame: ink cut by a
+            // clip (a label squeezed into a box shorter than its line), line
+            // boxes that escape a fixed height, overflow, off-centre labels.
+            if (!c.page) {
+              final report = AuditReport(id, AuditMode(id, textScale: scale));
+              final marks = ValueNotifier<List<(Rect, Color)>>(const []);
+              await inspectPumped(t, report, marks: marks, centring: true);
+              failures.addAll([for (final f in report.failures) '$f']);
+              marks.dispose();
+            }
+            expect(failures, isEmpty, reason: failures.join('\n'));
+          });
         }
       }
     }

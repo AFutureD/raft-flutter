@@ -5,13 +5,9 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family dark=$dark mobile channel retains identity description and scoped actions',
+      '${dark ? 'dark' : 'light'} mobile channel retains identity description and scoped actions',
       (t) async {
         t.view.physicalSize = const Size(390, 844);
         t.view.devicePixelRatio = 1;
@@ -20,7 +16,7 @@ void main() {
         var backs = 0, searches = 0, settings = 0;
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Column(
                 children: [
@@ -38,26 +34,16 @@ void main() {
           ),
         );
         expect(find.text('首页专修'), findsOneWidget);
-        final titleBox = find.ancestor(
-          of: find.text('首页专修'),
-          matching: find.byType(RaftCssText),
-        );
         // Below md Web renders the same PanelHeader recipe (`max-md:` variants
-        // resolved at 390px): h-62 brutal / 56 elegant, boxed PanelAction
+        // resolved at 390px): h-56, boxed PanelAction
         // Back, identity icon cell, title + meta.
         final header = find.byType(RaftConversationHeader);
-        expect(t.getSize(header).height, family == RaftFamily.brutal ? 62 : 56);
+        expect(t.getSize(header).height, 56);
         expect(find.byType(RaftMobilePageHeader), findsNothing);
         final back = find.byType(RaftPanelAction);
-        expect(
-          t.getSize(back),
-          family == RaftFamily.brutal ? const Size(26, 28) : const Size(32, 32),
-        );
-        // Brutal `px-5`, elegant `max-md:pl-5`.
+        expect(t.getSize(back), const Size(32, 32));
+        // `max-md:pl-5`.
         expect(t.getTopLeft(back).dx, 20);
-        if (family == RaftFamily.brutal) {
-          expect(t.getSize(titleBox).height, 20);
-        }
         for (final label in ['Search this channel', 'Channel settings']) {
           expect(t.getSize(find.bySemanticsLabel(label)), const Size(28, 28));
         }
@@ -82,12 +68,12 @@ void main() {
       },
     );
     testWidgets(
-      '$family dark=$dark header icon preserves touch and keyboard access',
+      '${dark ? 'dark' : 'light'} header icon preserves touch and keyboard access',
       (t) async {
         var searches = 0;
         Future<void> mount({required bool enabled}) => t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Center(
                 child: RaftDensityScope(
@@ -125,7 +111,7 @@ void main() {
       },
     );
     testWidgets(
-      '$family dark=$dark DM header keeps its layout when agent status arrives',
+      '${dark ? 'dark' : 'light'} DM header keeps its layout when agent status arrives',
       (t) async {
         t.view.physicalSize = const Size(1000, 800);
         t.view.devicePixelRatio = 1;
@@ -135,7 +121,7 @@ void main() {
         Future<void> mount({RaftActivityTone? activity, String? text}) =>
             t.pumpWidget(
               MaterialApp(
-                theme: raftTheme(family, dark: dark),
+                theme: raftTheme(dark: dark),
                 home: Scaffold(
                   body: Column(
                     children: [
@@ -188,7 +174,7 @@ void main() {
       },
     );
     testWidgets(
-      '$family dark=$dark channel description collapses authored newlines',
+      '${dark ? 'dark' : 'light'} channel description collapses authored newlines',
       (t) async {
         t.view.physicalSize = const Size(1000, 800);
         t.view.devicePixelRatio = 1;
@@ -196,7 +182,7 @@ void main() {
         addTearDown(t.view.resetDevicePixelRatio);
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: const Scaffold(
               body: Column(
                 children: [
@@ -214,10 +200,7 @@ void main() {
           findsOneWidget,
         );
         // One line: the header keeps its shell height.
-        expect(
-          t.getSize(find.byType(RaftChannelHeader)).height,
-          family == RaftFamily.brutal ? 62 : 56,
-        );
+        expect(t.getSize(find.byType(RaftChannelHeader)).height, 56);
         expect(t.takeException(), isNull);
       },
     );

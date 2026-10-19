@@ -65,7 +65,7 @@ void main() {
     addTearDown(() => t.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
     Future<void> pump(AuthAuditLog log) => t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(body: SignInDiagnosticsCard(key: ValueKey(log), log: log)),
       ),
     );

@@ -41,7 +41,7 @@ void main() {
             .toSet();
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.elegant),
+            theme: raftTheme(),
             home: Scaffold(body: RaftChatView(controller: w)),
           ),
         );

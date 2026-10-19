@@ -46,7 +46,7 @@ void main() {
         t.view.devicePixelRatio = 1;
         addTearDown(t.view.reset);
         Widget panel(bool private) => MaterialApp(
-          theme: raftTheme(RaftFamily.brutal),
+          theme: raftTheme(),
           home: Scaffold(
             body: AgentDetailPanel(
               key: const Key('agent'),

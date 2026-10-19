@@ -168,7 +168,7 @@ Rect _window(ParityContext ctx) {
   if (ctx.props['platform'] == 'mobile') {
     return Rect.fromLTWH(0, top, ctx.width, h);
   }
-  final rail = ctx.family == RaftFamily.brutal ? 64.0 : 56.0;
+  final rail = 56.0;
   return switch (ctx.props['surface']) {
     'thread' => Rect.fromLTWH(ctx.width - 400, top, 400, h),
     _ => Rect.fromLTWH(rail + 240, top, ctx.width - rail - 240, h),
@@ -224,7 +224,6 @@ class _HostState extends State<_Host> {
       controller: w,
       appearance: RaftAppearance(
         mode: widget.ctx.dark ? ThemeMode.dark : ThemeMode.light,
-        light: widget.ctx.family,
       ),
       onAppearance: (_) async {},
       onLogout: () async {},
@@ -329,8 +328,7 @@ final ParityCase _externalDetailCase = ParityCase(
   build: (ctx) {
     final w = _workspace(ctx);
     final mobile = ctx.props['platform'] == 'mobile';
-    final brutal = ctx.family == RaftFamily.brutal;
-    final tokens = RaftTokens.theme(ctx.family, dark: ctx.dark);
+    final tokens = RaftTokens.theme(dark: ctx.dark);
     return Align(
       alignment: Alignment.topLeft,
       child: ctx.target(
@@ -340,10 +338,7 @@ final ParityCase _externalDetailCase = ParityCase(
           child: Container(
             decoration: BoxDecoration(
               color: tokens.panel,
-              border: Border.all(
-                color: brutal ? Colors.black : tokens.colors['line-muted']!,
-                width: brutal ? 2 : 1,
-              ),
+              border: Border.all(color: tokens.colors['line-muted']!, width: 1),
             ),
             child: Material(
               type: MaterialType.transparency,

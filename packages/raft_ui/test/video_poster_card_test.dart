@@ -8,11 +8,7 @@ import 'package:raft_ui/test_themes.dart';
 import 'package:raft_ui/video_poster_card_previews.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final (name, preview, size) in <(String, Widget Function(), Size)>[
       ('landscape', videoPosterCardLandscapePreview, const Size(390, 500)),
       ('portrait', videoPosterCardPortraitPreview, const Size(390, 900)),
@@ -20,14 +16,14 @@ void main() {
       ('placeholder', videoPosterCardPlaceholderPreview, const Size(390, 400)),
       ('uploading', videoPosterCardUploadingPreview, const Size(390, 400)),
     ]) {
-      testWidgets('poster card $name $family/$dark', (t) async {
+      testWidgets('poster card $name ${dark ? 'dark' : 'light'}', (t) async {
         t.view.physicalSize = size;
         t.view.devicePixelRatio = 1;
         addTearDown(t.view.reset);
         final semantics = t.ensureSemantics();
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(body: preview()),
           ),
         );
@@ -62,7 +58,7 @@ void main() {
     var opened = 0;
     await t.pumpWidget(
       MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
+        theme: raftTheme(),
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,

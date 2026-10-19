@@ -66,7 +66,7 @@ void main() {
           'name': 'Taylor',
           'displayName': 'Taylor',
         };
-        await mountShell(t, w, RaftFamily.brutal, false, width: width);
+        await mountShell(t, w, false, width: width);
         final avatar = find.byKey(const Key('dm-header-avatar-button'));
         if (peerType == 'missing') {
           expect(avatar, findsNothing);
@@ -101,7 +101,7 @@ void main() {
         var selecting = true;
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(RaftFamily.brutal),
+            theme: raftTheme(),
             home: Scaffold(
               body: WorkspaceDmHeader(
                 headerKey: const Key('selection-guard-header'),

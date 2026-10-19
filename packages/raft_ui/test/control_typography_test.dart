@@ -22,11 +22,7 @@ List<InlineSpan> labelSpans(WidgetTester tester, Finder root) => [
 ];
 
 Widget host(Widget child, {Locale locale = zh, TargetPlatform? platform}) {
-  final theme = raftTheme(
-    RaftFamily.brutal,
-    locale: locale,
-    platform: platform,
-  );
+  final theme = raftTheme(locale: locale, platform: platform);
   return MaterialApp(
     theme: theme.copyWith(platform: platform),
     home: Builder(
@@ -113,11 +109,7 @@ void main() {
         theme.textButtonTheme.style?.textStyle?.resolve(const {});
 
     test('control families take the profile on Android Chinese only', () {
-      final theme = raftTheme(
-        RaftFamily.brutal,
-        locale: zh,
-        platform: TargetPlatform.android,
-      );
+      final theme = raftTheme(locale: zh, platform: TargetPlatform.android);
       for (final style in [
         buttonText(theme),
         theme.outlinedButtonTheme.style?.textStyle?.resolve(const {}),
@@ -134,13 +126,9 @@ void main() {
       expect(isProfile(theme.textTheme.bodyMedium), isFalse);
       expect(isProfile(theme.textTheme.labelLarge), isFalse);
       for (final other in [
-        raftTheme(RaftFamily.brutal),
-        raftTheme(RaftFamily.brutal, locale: zh, platform: TargetPlatform.iOS),
-        raftTheme(
-          RaftFamily.elegant,
-          locale: const Locale('en'),
-          platform: TargetPlatform.android,
-        ),
+        raftTheme(),
+        raftTheme(locale: zh, platform: TargetPlatform.iOS),
+        raftTheme(locale: const Locale('en'), platform: TargetPlatform.android),
       ]) {
         expect(isProfile(buttonText(other)), isFalse);
         expect(isProfile(other.chipTheme.labelStyle), isFalse);

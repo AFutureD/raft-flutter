@@ -89,7 +89,7 @@ Map<String, dynamic> _result(String label, {bool manage = true}) => {
 Future<void> _flush() => Future<void>.delayed(Duration.zero);
 
 Widget _view(WorkspaceController w, {String thread = 't1'}) => MaterialApp(
-  theme: raftTheme(RaftFamily.elegant),
+  theme: raftTheme(),
   home: Scaffold(
     body: Align(
       alignment: Alignment.topRight,

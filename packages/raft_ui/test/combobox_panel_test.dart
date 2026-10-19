@@ -5,20 +5,16 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final theme in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      'Combobox filters, selects by keyboard and rejects disabled interaction $theme',
+      'Combobox filters, selects by keyboard and rejects disabled interaction ${dark ? 'dark' : 'light'}',
       (tester) async {
         final selected = <String>[];
         var enabled = true, dismissed = 0;
         late StateSetter update;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(theme.$1, dark: theme.$2),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: Align(
                 alignment: Alignment.topLeft,
@@ -73,60 +69,63 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
-    testWidgets('Combobox rejects retired selections $theme', (tester) async {
-      final selected = <String>[];
-      var options = const {'general': '#general'};
-      var enabled = true;
-      late StateSetter update;
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(theme.$1, dark: theme.$2),
-          home: Scaffold(
-            body: SizedBox(
-              width: 220,
-              child: StatefulBuilder(
-                builder: (context, set) {
-                  update = set;
-                  return RaftComboboxPanel(
-                    label: 'Channels',
-                    options: options,
-                    enabled: enabled,
-                    onSelected: selected.add,
-                    onDismiss: () {},
-                  );
-                },
+    testWidgets(
+      'Combobox rejects retired selections ${dark ? 'dark' : 'light'}',
+      (tester) async {
+        final selected = <String>[];
+        var options = const {'general': '#general'};
+        var enabled = true;
+        late StateSetter update;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(dark: dark),
+            home: Scaffold(
+              body: SizedBox(
+                width: 220,
+                child: StatefulBuilder(
+                  builder: (context, set) {
+                    update = set;
+                    return RaftComboboxPanel(
+                      label: 'Channels',
+                      options: options,
+                      enabled: enabled,
+                      onSelected: selected.add,
+                      onDismiss: () {},
+                    );
+                  },
+                ),
               ),
             ),
           ),
-        ),
-      );
-      final select = tester
-          .widget<RaftInteractive>(
-            find.ancestor(
-              of: find.text('#general'),
-              matching: find.byType(RaftInteractive),
-            ),
-          )
-          .onPressed!;
-      update(() => options = const {});
-      await tester.pump();
-      select();
-      expect(selected, isEmpty);
-      update(() {
-        options = const {'general': '#general'};
-        enabled = false;
-      });
-      await tester.pump();
-      select();
-      expect(selected, isEmpty);
-      update(() => enabled = true);
-      await tester.pump();
-      select();
-      expect(selected, ['general']);
-      await tester.pumpWidget(const SizedBox());
-      select();
-      expect(selected, ['general']);
-      expect(tester.takeException(), isNull);
-    });
+        );
+        final select = tester
+            .widget<RaftInteractive>(
+              find.ancestor(
+                of: find.text('#general'),
+                matching: find.byType(RaftInteractive),
+              ),
+            )
+            .onPressed!;
+        update(() => options = const {});
+        await tester.pump();
+        select();
+        expect(selected, isEmpty);
+        update(() {
+          options = const {'general': '#general'};
+          enabled = false;
+        });
+        await tester.pump();
+        select();
+        expect(selected, isEmpty);
+        update(() => enabled = true);
+        await tester.pump();
+        select();
+        expect(selected, ['general']);
+        await tester.pumpWidget(const SizedBox());
+        select();
+        expect(selected, ['general']);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 }

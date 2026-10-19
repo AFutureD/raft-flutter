@@ -3,27 +3,27 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/page_layout.dart';
 import 'package:raft_ui/raft_ui.dart';
 
-/// Brutal Activity column header at a 768×900 window.
+/// Activity column header at a 768×900 window.
 ///
 /// The recorded failure is this bar, not the search toolbar under it.
 /// [RaftTextScaling] over a platform scale of 2 makes the title and
-/// subtitle column overflow that fixed 62px bar by 15px on the bottom.
-/// Default scale stays on the 62px shell header.
+/// subtitle column overflow a fixed-height bar. Default scale stays on the
+/// 56px shell header (the Brutal 62px bar no longer exists).
 void main() {
-  testWidgets('Brutal Activity header stays 62px at the default text size', (
+  testWidgets('Activity header stays 56px at the default text size', (
     tester,
   ) async {
     await pumpActivityHeader(tester, scale: 1);
-    expect(headerHeight(tester), 62);
+    expect(headerHeight(tester), 56);
     expect(find.text('3 active'), findsOneWidget);
   });
 
   testWidgets(
-    'Brutal Activity header shows its subtitle at 2x text without overflow',
+    'Activity header shows its subtitle at 2x text without overflow',
     (tester) async {
       await pumpActivityHeader(tester, scale: 2);
       final height = headerHeight(tester);
-      expect(height, greaterThan(62));
+      expect(height, greaterThan(56));
       final header = tester.getRect(
         find.byKey(const Key('page-header-surface')),
       );
@@ -43,7 +43,7 @@ Future<void> pumpActivityHeader(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.brutal),
+      theme: raftTheme(),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(scale)),

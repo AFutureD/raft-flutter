@@ -29,13 +29,9 @@ void main() {
     expect(sourceChannelFileSize(10 * 1024), '10 KB');
     expect(sourceChannelFileSize(1024 * 1024 * 1024), '1.0 GB');
   });
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     testWidgets(
-      '$family/$dark real row/overflow actions and stale callback admission',
+      '${dark ? 'dark' : 'light'} real row/overflow actions and stale callback admission',
       (tester) async {
         var owner = 'current', previews = 0, jumps = 0, downloads = 0;
         final store = SourceChannelFilesStore(
@@ -49,7 +45,7 @@ void main() {
         await store.load();
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: RaftDensityScope(
                 density: RaftDensity.desktop,
@@ -101,12 +97,12 @@ void main() {
       },
     );
     testWidgets(
-      '$family/$dark wide row keeps preview and actions distinct and uses content-box breakpoint',
+      '${dark ? 'dark' : 'light'} wide row keeps preview and actions distinct and uses content-box breakpoint',
       (tester) async {
         var previews = 0, jumps = 0, downloads = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: RaftDensityScope(
                 density: RaftDensity.desktop,
@@ -133,7 +129,7 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('channel-file-jump-a')));
         await tester.pump();
         expect((previews, jumps, downloads), (0, 1, 1));
-        final t = raftTheme(family, dark: dark).extension<RaftTokens>()!;
+        final t = raftTheme(dark: dark).extension<RaftTokens>()!;
         final recipe = SourceChannelFilesRecipe(t);
         final boundary = 560 + 24 + recipe.border(false).width * 2;
         expect(recipe.collapsedActions(boundary), true);
@@ -142,12 +138,12 @@ void main() {
       },
     );
     testWidgets(
-      '$family/$dark wrapped metadata grows naturally and keyboard preview stays independent',
+      '${dark ? 'dark' : 'light'} wrapped metadata grows naturally and keyboard preview stays independent',
       (tester) async {
         var previews = 0, downloads = 0;
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: RaftDensityScope(
                 density: RaftDensity.desktop,
@@ -196,7 +192,7 @@ void main() {
       },
     );
     testWidgets(
-      '$family/$dark loading-error-retry does not fabricate empty list',
+      '${dark ? 'dark' : 'light'} loading-error-retry does not fabricate empty list',
       (tester) async {
         final pending = Completer<dynamic>();
         var calls = 0;
@@ -210,7 +206,7 @@ void main() {
         final request = store.load();
         await tester.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             home: Scaffold(
               body: SourceChannelFilesProjectionView(
                 store: store,

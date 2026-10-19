@@ -69,10 +69,9 @@ Future<void> _mount(
   ChatAgentPresentation activity,
   PersonalPresentationStore store,
   void Function() onBuild,
-  RaftFamily family,
 ) => t.pumpWidget(
   MaterialApp(
-    theme: raftTheme(family),
+    theme: raftTheme(),
     home: Scaffold(
       body: Align(
         alignment: Alignment.topRight,
@@ -94,97 +93,91 @@ Future<void> _mount(
 );
 
 void main() {
-  for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
-    testWidgets(
-      'expiry changes the summary only when someone leaves ($family)',
-      (t) async {
-        final start = t.binding.clock.now();
-        final activity = await _fixture(
-          () => DateTime.utc(
-            2026,
-            10,
-            17,
-          ).add(t.binding.clock.now().difference(start)),
-        );
-        final store = PersonalPresentationStore(storage: _Storage());
-        await store.bind(activity.w.client.origin, 'alice');
-        addTearDown(store.dispose);
-        _signal(activity, 'older');
-        await t.pump(const Duration(seconds: 30));
-        _signal(activity, 'latest');
-        var builds = 0, notifications = 0;
-        activity.addListener(() => notifications++);
-        await _mount(t, activity, store, () => builds++, family);
-        await t.pumpAndSettle();
-        final settledBuilds = builds;
-        expect(find.text('2'), findsOneWidget);
-        expect(find.byKey(const Key('working-agents-summary')), findsOneWidget);
-
-        // The real expiry Timer runs with the injected clock following the
-        // widget test's clock: 90 seconds without a signal takes the older
-        // agent out, in the order they started.
-        await t.pump(const Duration(seconds: 61));
-        expect(activity.items.map((item) => item.agentId), ['latest']);
-        expect(notifications, 1);
-        expect(builds, settledBuilds + 1);
-        expect(find.text('1'), findsOneWidget);
-        expect(find.text('2'), findsNothing);
-
-        await t.pump(const Duration(seconds: 30));
-        expect(activity.items, isEmpty);
-        expect(notifications, 2);
-        expect(builds, settledBuilds + 2);
-        expect(find.byKey(const Key('working-agents-summary')), findsNothing);
-        expect(find.text('0'), findsNothing);
-
-        activity.prune();
-        activity.prune();
-        await t.pump();
-        expect(notifications, 2);
-        expect(builds, settledBuilds + 2);
-        await t.pumpWidget(const SizedBox.shrink());
-      },
+  testWidgets('expiry changes the summary only when someone leaves', (t) async {
+    final start = t.binding.clock.now();
+    final activity = await _fixture(
+      () => DateTime.utc(
+        2026,
+        10,
+        17,
+      ).add(t.binding.clock.now().difference(start)),
     );
+    final store = PersonalPresentationStore(storage: _Storage());
+    await store.bind(activity.w.client.origin, 'alice');
+    addTearDown(store.dispose);
+    _signal(activity, 'older');
+    await t.pump(const Duration(seconds: 30));
+    _signal(activity, 'latest');
+    var builds = 0, notifications = 0;
+    activity.addListener(() => notifications++);
+    await _mount(t, activity, store, () => builds++);
+    await t.pumpAndSettle();
+    final settledBuilds = builds;
+    expect(find.text('2'), findsOneWidget);
+    expect(find.byKey(const Key('working-agents-summary')), findsOneWidget);
 
-    testWidgets(
-      'an idle agent stays 5 seconds, a resumed one never leaves ($family)',
-      (t) async {
-        final start = t.binding.clock.now();
-        final activity = await _fixture(
-          () => DateTime.utc(
-            2026,
-            10,
-            17,
-          ).add(t.binding.clock.now().difference(start)),
-        );
-        final store = PersonalPresentationStore(storage: _Storage());
-        await store.bind(activity.w.client.origin, 'alice');
-        addTearDown(store.dispose);
-        _signal(activity, 'older');
-        _signal(activity, 'latest');
-        await _mount(t, activity, store, () {}, family);
-        await t.pumpAndSettle();
-        expect(find.text('2'), findsOneWidget);
+    // The real expiry Timer runs with the injected clock following the
+    // widget test's clock: 90 seconds without a signal takes the older
+    // agent out, in the order they started.
+    await t.pump(const Duration(seconds: 61));
+    expect(activity.items.map((item) => item.agentId), ['latest']);
+    expect(notifications, 1);
+    expect(builds, settledBuilds + 1);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2'), findsNothing);
 
-        _signal(activity, 'older', kind: 'online');
-        await t.pump(const Duration(seconds: 4));
-        expect(find.text('2'), findsOneWidget, reason: 'grace period');
+    await t.pump(const Duration(seconds: 30));
+    expect(activity.items, isEmpty);
+    expect(notifications, 2);
+    expect(builds, settledBuilds + 2);
+    expect(find.byKey(const Key('working-agents-summary')), findsNothing);
+    expect(find.text('0'), findsNothing);
 
-        // It resumes before the grace ends: nothing changed.
-        _signal(activity, 'older');
-        await t.pump(const Duration(seconds: 10));
-        expect(find.text('2'), findsOneWidget);
+    activity.prune();
+    activity.prune();
+    await t.pump();
+    expect(notifications, 2);
+    expect(builds, settledBuilds + 2);
+    await t.pumpWidget(const SizedBox.shrink());
+  });
 
-        _signal(activity, 'older', kind: 'online');
-        await t.pump(const Duration(seconds: 4, milliseconds: 900));
-        expect(find.text('2'), findsOneWidget);
-        await t.pump(const Duration(milliseconds: 200));
-        expect(find.text('1'), findsOneWidget, reason: '5 seconds after idle');
-        // The last agent goes silent: the expiry timer drains.
-        await t.pump(const Duration(seconds: 100));
-        expect(find.byKey(const Key('working-agents-summary')), findsNothing);
-        await t.pumpWidget(const SizedBox.shrink());
-      },
+  testWidgets('an idle agent stays 5 seconds, a resumed one never leaves', (
+    t,
+  ) async {
+    final start = t.binding.clock.now();
+    final activity = await _fixture(
+      () => DateTime.utc(
+        2026,
+        10,
+        17,
+      ).add(t.binding.clock.now().difference(start)),
     );
-  }
+    final store = PersonalPresentationStore(storage: _Storage());
+    await store.bind(activity.w.client.origin, 'alice');
+    addTearDown(store.dispose);
+    _signal(activity, 'older');
+    _signal(activity, 'latest');
+    await _mount(t, activity, store, () {});
+    await t.pumpAndSettle();
+    expect(find.text('2'), findsOneWidget);
+
+    _signal(activity, 'older', kind: 'online');
+    await t.pump(const Duration(seconds: 4));
+    expect(find.text('2'), findsOneWidget, reason: 'grace period');
+
+    // It resumes before the grace ends: nothing changed.
+    _signal(activity, 'older');
+    await t.pump(const Duration(seconds: 10));
+    expect(find.text('2'), findsOneWidget);
+
+    _signal(activity, 'older', kind: 'online');
+    await t.pump(const Duration(seconds: 4, milliseconds: 900));
+    expect(find.text('2'), findsOneWidget);
+    await t.pump(const Duration(milliseconds: 200));
+    expect(find.text('1'), findsOneWidget, reason: '5 seconds after idle');
+    // The last agent goes silent: the expiry timer drains.
+    await t.pump(const Duration(seconds: 100));
+    expect(find.byKey(const Key('working-agents-summary')), findsNothing);
+    await t.pumpWidget(const SizedBox.shrink());
+  });
 }

@@ -65,7 +65,7 @@ Future<void> openFromButton(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: Builder(
           builder: (context) => Center(
@@ -283,7 +283,7 @@ Future<SurfaceProbe> fromIntegrations(
       };
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(body: IntegrationsView(controller: w)),
     ),
   );
@@ -333,7 +333,7 @@ Future<SurfaceProbe> fromProviders(
   api.routes['GET /provider-connections/p1/probes'] = (_) => {'receipts': []};
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(body: ProviderConnectionsView(controller: w)),
     ),
   );
@@ -569,7 +569,7 @@ void registerCloseDialogTests(TestPart part) {
       await t.runAsync(store.loadList);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: SourceFeedbackProjectionView(
               store: store,
@@ -682,7 +682,7 @@ void registerCloseDialogTests(TestPart part) {
       addTearDown(t.view.reset);
       await t.pumpWidget(
         MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
+          theme: raftTheme(),
           home: Scaffold(
             body: Column(
               children: [
@@ -990,7 +990,7 @@ Future<SurfaceProbe> openBulkReset(WidgetTester t, Size size) async {
   Future<void> none() async {}
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: RaftComputerDetailView(
           key: UniqueKey(),

@@ -10,8 +10,7 @@ import 'message_presentation_test.dart' show fixture;
 import 'support/app_services_fixture.dart';
 
 /// Vertical borders of the desktop shell, per page, as Web draws them:
-/// - rail: Brutal `border-r-2` (1px on the Activity page: LeftRail
-///   `thinDivider`), Elegant none;
+/// - rail: none;
 /// - Chat: the Sidebar column owns the divider on its right edge, nothing sits
 ///   between the rail and the sidebar;
 /// - Activity: the sidebar column is hidden and the inbox panel (raft-ui Panel
@@ -22,18 +21,14 @@ import 'support/app_services_fixture.dart';
 /// The desktop expectations are the measured Web DOM
 /// (components.shell.*.activity.frame).
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     for (final (page, mobile) in [
       ('chat', false),
       ('activity', false),
       ('activity', true),
     ]) {
       testWidgets(
-        '[WP1] $family/$dark ${mobile ? 'mobile ' : ''}$page vertical borders',
+        '[WP1] ${dark ? 'dark' : 'light'} ${mobile ? 'mobile ' : ''}$page vertical borders',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           tester.view.physicalSize = mobile
@@ -53,11 +48,11 @@ void main() {
           };
           await tester.pumpWidget(
             MaterialApp(
-              theme: raftTheme(family, dark: dark),
+              theme: raftTheme(dark: dark),
               home: withAppServices(
                 WorkspaceView(
                   controller: w,
-                  appearance: RaftAppearance(light: family),
+                  appearance: RaftAppearance(),
                   onAppearance: (_) async {},
                   onLogout: () async {},
                 ),
@@ -65,7 +60,7 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          final railWidth = family == RaftFamily.brutal ? 64.0 : 56.0;
+          final railWidth = 56.0;
           final found = <String>[];
           void visit(RenderObject node) {
             if (node is RenderDecoratedBox && node.hasSize) {
@@ -89,14 +84,11 @@ void main() {
           }
 
           visit(tester.binding.renderViews.first);
-          final brutal = family == RaftFamily.brutal;
           final expected = mobile
               ? <String>[]
               : page == 'chat'
-              ? (brutal ? ['R@64.0:2.0', 'R@304.0:2.0'] : ['R@296.0:1.0'])
-              : (brutal
-                    ? ['R@64.0:1.0', 'L@64.0:1.0']
-                    : ['L@${railWidth.toStringAsFixed(1)}:1.0']);
+              ? ['R@296.0:1.0']
+              : ['L@${railWidth.toStringAsFixed(1)}:1.0'];
           expect(found..sort(), expected..sort());
         },
       );

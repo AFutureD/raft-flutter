@@ -101,7 +101,7 @@ Future<void> _mountThread(
   w.messageDomain.visibleIds['thread-c1'] = {'r1', 'r2', 'r3'};
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(),
       home: Scaffold(
         body: RaftDensityScope(
           density: RaftDensity.desktop,

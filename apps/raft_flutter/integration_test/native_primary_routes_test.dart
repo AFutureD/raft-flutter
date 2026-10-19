@@ -135,10 +135,9 @@ void main() {
         expect(check(), isTrue);
       }
 
-      for (final (family, dark, theme) in [
-        (RaftFamily.brutal, false, 'brutal-light'),
-        (RaftFamily.elegant, false, 'elegant-light'),
-        (RaftFamily.elegant, true, 'elegant-dark'),
+      for (final (dark, theme) in [
+        (false, 'elegant-light'),
+        (true, 'elegant-dark'),
       ]) {
         final fixture = primaryRouteTabsFixture();
         final client = _PublicClient(fixture)..loading = Completer<void>();
@@ -156,7 +155,7 @@ void main() {
         final shotKey = GlobalKey();
         await t.pumpWidget(
           MaterialApp(
-            theme: raftTheme(family, dark: dark),
+            theme: raftTheme(dark: dark),
             builder: (context, child) => Align(
               alignment: Alignment.topLeft,
               child: RepaintBoundary(
@@ -182,7 +181,7 @@ void main() {
             home: withAppServices(
               WorkspaceView(
                 controller: w,
-                appearance: RaftAppearance(light: family),
+                appearance: RaftAppearance(),
                 onAppearance: (_) async {},
                 onLogout: () async {},
               ),

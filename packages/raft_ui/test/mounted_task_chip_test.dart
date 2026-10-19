@@ -6,11 +6,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in raftThemeMatrix([
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
-    (RaftFamily.elegant, true),
-  ])) {
+  for (final dark in raftThemeMatrix([false, true])) {
     Future<void> mount(
       WidgetTester tester,
       Widget child, {
@@ -19,7 +15,7 @@ void main() {
     }) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: raftTheme(family, dark: dark),
+          theme: raftTheme(dark: dark),
           home: Scaffold(
             body: RaftDensityScope(
               density: density,
@@ -50,34 +46,35 @@ void main() {
       onOpen: onOpen,
     );
 
-    test('$family/$dark source status palette and mounted border', () {
-      final t = raftTheme(family, dark: dark).extension<RaftTokens>()!;
-      for (final status in RaftMessageTaskStatus.values) {
-        final r = RaftMessageTaskChipRecipe(t, status);
-        expect(r.chipHeight, family == RaftFamily.brutal ? 18.25 : 19);
-        expect(r.borderWidth, family == RaftFamily.brutal ? 1 : .5);
-        expect(r.textStyle.fontSize, 13);
-        expect(
-          r.textStyle.fontWeight,
-          family == RaftFamily.brutal ? FontWeight.w500 : FontWeight.w400,
+    test(
+      '${dark ? 'dark' : 'light'} source status palette and mounted border',
+      () {
+        final t = raftTheme(dark: dark).extension<RaftTokens>()!;
+        for (final status in RaftMessageTaskStatus.values) {
+          final r = RaftMessageTaskChipRecipe(t, status);
+          expect(r.chipHeight, 19);
+          expect(r.borderWidth, .5);
+          expect(r.textStyle.fontSize, 13);
+          expect(r.textStyle.fontWeight, FontWeight.w400);
+          expect(r.transformsOnInteraction, isFalse);
+          expect(r.overlayGradient, isNull);
+          expect(r.insetHighlightAlpha, 0);
+          expect(
+            r.shadows(hovered: true, focused: true, pressed: true),
+            isEmpty,
+          );
+          expect(r.focusOutlineWidth, 2);
+          expect(r.focusOutlineOffset, 2);
+          expect(
+            r.backgroundForInteraction(hovered: true, pressed: true),
+            r.background,
+          );
+        }
+        final todo = RaftMessageTaskChipRecipe(t, RaftMessageTaskStatus.todo);
+        final closed = RaftMessageTaskChipRecipe(
+          t,
+          RaftMessageTaskStatus.closed,
         );
-        expect(r.transformsOnInteraction, isFalse);
-        expect(r.overlayGradient, isNull);
-        expect(r.insetHighlightAlpha, 0);
-        expect(r.shadows(hovered: true, focused: true, pressed: true), isEmpty);
-        expect(r.focusOutlineWidth, 2);
-        expect(r.focusOutlineOffset, 2);
-        expect(
-          r.backgroundForInteraction(hovered: true, pressed: true),
-          r.background,
-        );
-      }
-      final todo = RaftMessageTaskChipRecipe(t, RaftMessageTaskStatus.todo);
-      final closed = RaftMessageTaskChipRecipe(t, RaftMessageTaskStatus.closed);
-      if (family == RaftFamily.brutal) {
-        expect(closed.background, t.colors['color-brutal-stone']);
-        expect(todo.background, t.colors['color-brutal-orange']);
-      } else {
         expect(closed.background, todo.background);
         expect(closed.iconForeground, t.colors['inactive']);
         expect(todo.iconForeground, t.colors['foreground-placeholder']);
@@ -94,11 +91,11 @@ void main() {
           ).foreground,
           t.colors[dark ? 'primary-strong' : 'color-brutal-yellow-800'],
         );
-      }
-    });
+      },
+    );
 
     testWidgets(
-      '$family/$dark footer paints identifier/claimant, title only aria',
+      '${dark ? 'dark' : 'light'} footer paints identifier/claimant, title only aria',
       (tester) async {
         final semantics = tester.ensureSemantics();
         try {
@@ -121,10 +118,7 @@ void main() {
                 .label,
             'Open task #10: Actual public task 中文 日本語',
           );
-          expect(
-            tester.getSize(control).height,
-            family == RaftFamily.brutal ? 18.25 : 19,
-          );
+          expect(tester.getSize(control).height, 19);
           final rect = tester.getRect(find.byType(RaftMessageTaskStatusIcon));
           expect(rect.size, const Size(12, 12));
           await tester.tap(control);
@@ -138,7 +132,7 @@ void main() {
     );
 
     testWidgets(
-      '$family/$dark hover brightness has no Button transform or shadow',
+      '${dark ? 'dark' : 'light'} hover brightness has no Button transform or shadow',
       (tester) async {
         await mount(tester, chip(onOpen: () {}));
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -149,7 +143,7 @@ void main() {
         ColorFilter filter() => tester
             .widget<ColorFiltered>(find.byType(ColorFiltered))
             .colorFilter;
-        final b = family == RaftFamily.brutal ? .90 : .96;
+        final b = .96;
         expect(
           filter(),
           ColorFilter.matrix([
@@ -219,7 +213,7 @@ void main() {
     );
 
     testWidgets(
-      '$family/$dark keyboard opens once and disabled/loading rejects',
+      '${dark ? 'dark' : 'light'} keyboard opens once and disabled/loading rejects',
       (tester) async {
         var calls = 0;
         final focus = FocusNode();
@@ -250,7 +244,7 @@ void main() {
     );
 
     testWidgets(
-      '$family/$dark constrained claimant and explicit native touch flow',
+      '${dark ? 'dark' : 'light'} constrained claimant and explicit native touch flow',
       (tester) async {
         var calls = 0;
         await mount(
@@ -277,7 +271,7 @@ void main() {
             matching: find.byType(AnimatedContainer),
           ),
         );
-        expect(paint.height, family == RaftFamily.brutal ? 18.25 : 19);
+        expect(paint.height, 19);
         final slot = tester.getRect(control);
         await tester.tapAt(Offset(slot.center.dx, slot.bottom - 1));
         expect(calls, 1);
