@@ -143,21 +143,18 @@ class AgentBrain {
     ].join('\n\n');
   }
 
-  /// Sends a summary of a voice session to the agent so it can keep the
-  /// parts worth remembering (never the transcript itself). [generate] is the
-  /// text model for the summary (tests give a fake one). Returns false when
-  /// nothing was sent.
+  /// Sends the record of a voice session to the agent, which picks what to
+  /// remember itself (the session's text Agent writes its own memory; no
+  /// other model summarizes for it). Returns false when nothing was sent.
   Future<bool> sendSummary(
     AgentBrainChoice brain,
     List<(AgentSpeaker, String)> transcript,
     List<AgentToolOutcome> outcomes, {
-    Future<String?> Function(String system, String prompt)? generate,
     String? header,
   }) async {
-    final text = await AgentSessionSummary.build(
+    final text = AgentSessionSummary.forAgent(
       transcript,
       outcomes,
-      generate: generate,
       header: header,
     );
     if (text == null) return false;

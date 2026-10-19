@@ -108,8 +108,8 @@ void main() {
         generate: (s, p) async => '{"lines":["批准了第 10 步"]}',
         header: AgentSessionSummary.orbHeader,
       );
-      expect(mode, startsWith('【语音对话摘要 · 来自 Agent 模式】'));
-      expect(orb, startsWith('【语音对话摘要 · 来自 Agent 悬浮球】'));
+      expect(mode, startsWith('【语音对话 · 来自 Agent 模式】'));
+      expect(orb, startsWith('【语音对话 · 来自 Agent 悬浮球】'));
       expect(orb, isNot(contains('来自 Agent 模式')));
       expect(orb, contains(AgentSessionSummary.instruction));
     });
@@ -212,7 +212,7 @@ void main() {
       await hangUp(t);
       expect(sent, hasLength(1));
       expect(sent.single.$1, 'Cody');
-      expect(sent.single.$2, '【语音对话摘要 · 来自 Agent 悬浮球】');
+      expect(sent.single.$2, '【语音对话 · 来自 Agent 悬浮球】');
       expect(sent.single.$3, 2);
       expect(sent.single.$4, ['navigate', 'approve_step']);
     });

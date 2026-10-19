@@ -110,17 +110,50 @@ typedef AgentSessionEnd = void Function(
   List<AgentToolOutcome> outcomes,
 );
 
-/// Makes the message sent to the agent after a voice session: a summary,
-/// never the transcript itself.
+/// Makes the message sent to the agent after a voice session. The text Agent
+/// of the voice session writes its own memory from the record
+/// ([forAgent]); [build] is the older app-side summary, kept for the
+/// rule-based fallback and its tests.
 class AgentSessionSummary {
   AgentSessionSummary._();
 
-  static const header = '【语音对话摘要 · 来自 Agent 模式】';
+  static const header = '【语音对话 · 来自 Agent 模式】';
 
   /// The same summary when it comes from the Agent orb.
-  static const orbHeader = '【语音对话摘要 · 来自 Agent 悬浮球】';
+  static const orbHeader = '【语音对话 · 来自 Agent 悬浮球】';
   static const instruction =
       '这是我刚才和你的语音形态的对话，请把值得长期记住的部分（我的偏好、决定、待办）记进你的记忆，不需要回复。';
+
+  /// What the Agent is asked to do with the record: pick what is worth
+  /// keeping itself, by the same rules the app-side summary used.
+  static const agentInstruction =
+      '这是我刚才和你的语音形态的对话记录。请你自己挑出值得长期记住的内容记进你的记忆，不需要回复。'
+      '只记：我明确说出的偏好和习惯、我做的决定、我自己提出或答应的待办和承诺、我说出的重要事实（人、时间、约定）。'
+      '读给我听的消息、简报和页面内容不是我的待办；打开页面、朗读、界面开关不用记。'
+      '【操作结果】里已经成功的写操作 Raft 里已有记录，不用记；只记没做完的（失败、取消、出了预览还在等我确认）。'
+      '没有值得记的就什么都不记。';
+
+  /// The message for the session's text Agent: [agentInstruction] and the
+  /// record of the session (what the person said, a little of what the voice
+  /// said, and the actions with their outcomes). Null when the person said
+  /// nothing. Read-only and screen tools are left out of the record.
+  static String? forAgent(
+    List<(AgentSpeaker, String)> transcript,
+    List<AgentToolOutcome> outcomes, {
+    String? header,
+  }) {
+    final said = [
+      for (final (who, text) in transcript)
+        if (who == AgentSpeaker.you && text.trim().isNotEmpty) text,
+    ];
+    if (said.isEmpty) return null;
+    final actions = [
+      for (final o in outcomes)
+        if (o.isAction) o,
+    ];
+    return '${header ?? AgentSessionSummary.header}\n$agentInstruction\n\n'
+        '${_record(transcript, actions, agentClip: 100, agentLast: 10, heading: '我说的话', outcomesHeading: '操作结果')}';
+  }
 
   /// How long the text model gets before the rule-based summary is used.
   static const modelTimeout = Duration(seconds: 15);
@@ -181,6 +214,19 @@ class AgentSessionSummary {
     List<(AgentSpeaker, String)> transcript,
     List<AgentToolOutcome> actions,
   ) {
+    return '请输出 JSON。\n${_record(transcript, actions)}';
+  }
+
+  /// The record of a session: the person's lines, the voice's lines (for
+  /// reference), and the outcomes of the actions.
+  static String _record(
+    List<(AgentSpeaker, String)> transcript,
+    List<AgentToolOutcome> actions, {
+    int agentClip = 150,
+    int agentLast = 20,
+    String heading = '用户说的话',
+    String outcomesHeading = '工具结果',
+  }) {
     String section(AgentSpeaker who, int clip, int last) {
       final lines = [
         for (final (s, text) in transcript)
@@ -191,11 +237,11 @@ class AgentSessionSummary {
           .join('\n');
     }
 
-    return '请输出 JSON。\n'
-        '【用户说的话】\n${section(AgentSpeaker.you, 300, 30)}\n'
-        '【语音助手说的话（仅供参考）】\n${section(AgentSpeaker.agent, 150, 20)}\n'
-        '【工具结果】\n'
-        '${actions.isEmpty ? '（没有）' : [for (final o in actions.skip(actions.length > 40 ? actions.length - 40 : 0)) '- ${o.line}'].join('\n')}';
+    final shown = actions.skip(actions.length > 40 ? actions.length - 40 : 0);
+    return '【$heading】\n${section(AgentSpeaker.you, 300, 30)}\n'
+        '【语音助手说的话（仅供参考）】\n${section(AgentSpeaker.agent, agentClip, agentLast)}\n'
+        '【$outcomesHeading】\n'
+        '${actions.isEmpty ? '（没有）' : [for (final o in shown) '- ${o.line}'].join('\n')}';
   }
 
   /// The lines of a model reply (`{"lines":[...]}` or a bare list), each

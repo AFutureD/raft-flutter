@@ -40,6 +40,30 @@ void main() {
     ),
   ];
 
+  group('the record for the text Agent', () {
+    test('the Agent gets the instruction and the record, and picks itself', () {
+      final message = AgentSessionSummary.forAgent(
+        transcript,
+        outcomes,
+        header: AgentSessionSummary.orbHeader,
+      )!;
+      expect(message, startsWith('${AgentSessionSummary.orbHeader}\n'));
+      expect(message, contains(AgentSessionSummary.agentInstruction));
+      expect(message, contains('【我说的话】\n- 明天提醒我看选型'));
+      // The voice's long lines are clipped and only a few are kept.
+      expect(message, isNot(contains(longAgent)));
+      expect(message, contains('【操作结果】'));
+      expect(message, contains('snooze_item(id=task-94, until=明天) -> '));
+      expect(message, contains('send_message(channel=general) -> failed'));
+      // Screen-only tools are not actions.
+      expect(message, isNot(contains('spotlight')));
+    });
+
+    test('nothing is sent when the person said nothing', () {
+      expect(AgentSessionSummary.forAgent([(agent, '你好')], outcomes), isNull);
+    });
+  });
+
   group('the message', () {
     test('a model summary replaces the transcript', () async {
       String? sentSystem;
@@ -56,7 +80,7 @@ void main() {
         },
       );
       expect(message, startsWith('${AgentSessionSummary.header}\n'));
-      expect(message, startsWith('【语音对话摘要 · 来自 Agent 模式】'));
+      expect(message, startsWith('【语音对话 · 来自 Agent 模式】'));
       expect(message, contains(AgentSessionSummary.instruction));
       expect(message, contains('不需要回复'));
       expect(message, contains('- 想明天看选型，已设提醒但还在等确认'));
