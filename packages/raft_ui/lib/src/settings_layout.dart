@@ -419,16 +419,13 @@ TextStyle raftSettingsBody(
   double line = 24,
   FontWeight weight = FontWeight.w400,
   Color? color,
-}) =>
-    RaftTypography.inherited(
-      t,
-      size: size,
-      line: line,
-      weight: weight,
-      color: color ?? t.strong,
-    ).copyWith(
-      leadingDistribution: TextLeadingDistribution.even,
-    );
+}) => RaftTypography.inherited(
+  t,
+  size: size,
+  line: line,
+  weight: weight,
+  color: color ?? t.strong,
+).copyWith(leadingDistribution: TextLeadingDistribution.even);
 
 /// SectionHeader.tsx: `flex items-center gap-2`, a 16px icon in
 /// `text-foreground-muted theme-brutal:text-black/60`, and SectionEyebrow
