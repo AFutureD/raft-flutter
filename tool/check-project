@@ -67,6 +67,7 @@ if sys.version_info < (3, 11):
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # also when loaded by the host tests
 import affected_tests  # noqa: E402
 import gate_events  # noqa: E402
+import test_budget  # noqa: E402
 
 root = pathlib.Path(__file__).resolve().parent.parent
 local = root / '.local'
@@ -384,13 +385,17 @@ def slow_summary(plan):
     return lines
 
 
-def format_summary(shards, failures, totals, slowest, limit=None, themes=None, stop=None, flaky=(), retry_failed=(), slow=None):
+def format_summary(shards, failures, totals, slowest, limit=None, themes=None, stop=None, flaky=(), retry_failed=(), slow=None, budget=None):
     """Human-readable gate summary; failures are listed by test name (first `limit` if given)."""
     lines = [f"Dart tests: {totals['passed']} passed, {totals['skipped']} skipped, {len(failures)} failed across {len(shards)} shard(s)" + (f' (themes: {themes}).' if themes else '.')]
     if totals.get('hidden'):
         lines.append(f"  ({totals['hidden']} hidden setUpAll/tearDownAll entries are not counted as tests.)")
     if slow:
         lines.extend(slow_summary(slow))
+    if budget and (budget['violations'] or budget['notes']):
+        lines.append(f"Test budget: {len(budget['violations'])} file(s) over budget (tool/test_budget.py).")
+        lines.extend(f'  FAIL {line}' for line in budget['violations'])
+        lines.extend(f'  note {line}' for line in budget['notes'])
     if stop:
         lines.append(f"Run stopped early: {stop['message']}")
         lines.extend(f'  {line}' for line in stop['lines'])
@@ -1127,6 +1132,8 @@ def run_gate(check_env, emit, started):
     if watch.compile and not any(f['file'] == watch.compile['file'] for f in failures):
         failures.append({'name': '(load/compile error)', 'file': watch.compile['file'], 'status': 'failed', 'shard': watch.compile['shard'],
                          'error': watch.compile['lines'][0] if watch.compile['lines'] else 'failed to load'})
+    budget = test_budget.check(test_budget.measure(durations), test_budget.load_baseline(), lambda name: test_budget.is_exempt(root / name),
+                               lambda name: (root / name).is_file())
     flaky, retry_failed = [], []
     if not all(s['passed'] for s in shards) and shards:
         retries = int(env_number('RAFT_CHECK_RETRIES', DEFAULT_RETRIES))
@@ -1147,14 +1154,15 @@ def run_gate(check_env, emit, started):
                     results[f"test-shard-{shard['index']}.txt"] = True
         elif failures or not other_ok:
             print(f"check-project: not retrying: {decision['skip']}.", file=sys.stderr)
+    results['test-budget.txt'] = not budget['violations']  # after the retry decision: a budget failure is not a reason to skip retries
     tests_passed = all(s['passed'] for s in shards) and bool(shards)
     results['all-project-tests.txt'] = tests_passed
-    ordered = {key: results[key] for key in ['workspace-pub-get.txt', 'structure-audit.txt', 'host-collector-tests.txt', 'bindings-generator-pub-get.txt', 'raft-lints-pub-get.txt', 'all-project-tests.txt', 'analyze-all.txt', 'raft-lints.txt']}
+    ordered = {key: results[key] for key in ['workspace-pub-get.txt', 'structure-audit.txt', 'host-collector-tests.txt', 'bindings-generator-pub-get.txt', 'raft-lints-pub-get.txt', 'all-project-tests.txt', 'analyze-all.txt', 'raft-lints.txt', 'test-budget.txt']}
     ordered.update({key: value for key, value in results.items() if key.startswith('test-shard-')})
     results = ordered
 
     slowest = slowest_tests(all_results)
-    summary_text = format_summary(shards, failures, totals, slowest, themes=themes_mode(check_env), stop=stop, flaky=flaky, retry_failed=retry_failed, slow=slow)
+    summary_text = format_summary(shards, failures, totals, slowest, themes=themes_mode(check_env), stop=stop, flaky=flaky, retry_failed=retry_failed, slow=slow, budget=budget)
     (local / 'check-summary.txt').write_text(summary_text, encoding='utf-8')
     write_aggregate_log(shards, summary_text, tests_passed)
     previous = read_json(local / 'check-durations.json').get('files', {})
@@ -1163,7 +1171,7 @@ def run_gate(check_env, emit, started):
     (local / 'check-durations.json').write_text(json.dumps({
         'sourceHash': source_hash, 'wallSeconds': round(time.monotonic() - started, 1), 'shards': len(shards), 'jobsPerShard': jobs,
         'slowestTests': slowest, 'files': dict(sorted(merged.items()))}, indent=2), encoding='utf-8')
-    sys.stderr.write(format_summary(shards, failures, totals, slowest, limit=40, themes=themes_mode(check_env), stop=stop, flaky=flaky, retry_failed=retry_failed, slow=slow))
+    sys.stderr.write(format_summary(shards, failures, totals, slowest, limit=40, themes=themes_mode(check_env), stop=stop, flaky=flaky, retry_failed=retry_failed, slow=slow, budget=budget))
 
     changed = stamp() != source_hash
     ok = all(results.values()) and not changed and not stop
