@@ -539,51 +539,60 @@ void main() {
   });
 
   for (final density in RaftDensity.values) {
-    testWidgets('image download reveals on hover / focus ($density)', (
+    testWidgets('image actions stay absent on hover / focus ($density)', (
       tester,
     ) async {
-      double opacity() => tester
-          .widget<Opacity>(find.byKey(const ValueKey('image-actions')))
-          .opacity;
-      await tester.pumpWidget(
-        surfaceHost(
-          RaftDensityScope(
-            density: density,
-            child: RaftAttachmentCard(
-              filename: 'shot.png',
-              mimeType: 'image/png',
-              imageWidth: 320,
-              imageHeight: 200,
-              preview: const ColoredBox(color: Color(0xff336699)),
-              onOpen: () {},
-              onDownload: () {},
+      var opened = 0, downloaded = 0, shared = 0;
+      TestGesture? mouse;
+      void expectNoActions() {
+        expect(find.byKey(const ValueKey('image-actions')), findsNothing);
+        expect(find.byTooltip('Share shot.png'), findsNothing);
+        expect(find.byTooltip('Download shot.png'), findsNothing);
+      }
+
+      try {
+        await tester.pumpWidget(
+          surfaceHost(
+            RaftDensityScope(
+              density: density,
+              child: RaftAttachmentCard(
+                filename: 'shot.png',
+                mimeType: 'image/png',
+                imageWidth: 320,
+                imageHeight: 200,
+                preview: const ColoredBox(color: Color(0xff336699)),
+                onOpen: () => opened++,
+                onDownload: () => downloaded++,
+                onShare: () => shared++,
+              ),
             ),
           ),
-        ),
-      );
-      if (density == RaftDensity.touch) {
-        expect(opacity(), 1);
-        return;
-      }
-      expect(opacity(), 0);
-      final mouse = await hoverAt(
-        tester,
-        tester.getCenter(find.byType(RaftAttachmentCard)),
-      );
-      await tester.pump();
-      expect(opacity(), 1);
-      await mouse.moveTo(Offset.zero);
-      await tester.pump();
-      expect(opacity(), 0);
-      await mouse.removePointer();
-      // Keyboard reaches the hidden download and reveals it.
-      for (var i = 0; i < 4 && opacity() == 0; i++) {
+        );
+        expectNoActions();
+        mouse = await hoverAt(
+          tester,
+          tester.getCenter(find.byType(RaftAttachmentCard)),
+        );
+        await tester.pump();
+        expectNoActions();
+        await mouse.moveTo(Offset.zero);
+        await tester.pump();
+        expectNoActions();
+        // Keyboard focus still opens the image, without extra action targets.
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
+        expectNoActions();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(opened, 1);
+        expect(downloaded, 0);
+        expect(shared, 0);
+        expectNoActions();
+      } finally {
+        await mouse?.removePointer();
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 1));
       }
-      expect(opacity(), 1);
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 1));
     });
   }
 }
