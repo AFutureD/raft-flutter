@@ -14,6 +14,8 @@ import 'package:raft_flutter/data/source_time_formatter.dart'
     show initializeSourceTimeFormatting;
 import 'package:raft_ui/raft_ui.dart' show RaftHotImages, RaftImageBytes;
 
+import '../../../tool/testing/matrix_leaks.dart';
+
 /// Wraps the codecs `PaintingBinding.instantiateImageCodecWithSize` hands to
 /// every `ImageProvider` (Image widgets, `precacheImage`, `MemoryImage` ...).
 ///
@@ -158,6 +160,7 @@ void leakDebt(List<String> classes) {
 
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   _enableLeakTracking();
+  trackMatrixLeaksOnce();
   // No test reaches a real platform probe (a native channel or libmpv); a test
   // that wants one passes its own to the card.
   VideoFrameProbe.debugOverride = () => null;

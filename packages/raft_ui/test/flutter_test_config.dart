@@ -10,6 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 import 'package:raft_ui/raft_ui.dart' show RaftHotImages, RaftImageBytes;
 
+import '../../../tool/testing/matrix_leaks.dart';
+
 /// Wraps the codecs `PaintingBinding.instantiateImageCodecWithSize` hands to
 /// every `ImageProvider` (Image widgets, `precacheImage`, `MemoryImage` ...).
 ///
@@ -165,6 +167,7 @@ void leakDebt(List<String> classes) {
 
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   _enableLeakTracking();
+  trackMatrixLeaksOnce();
   final binding = RaftTestBinding();
   final seconds =
       int.tryParse(Platform.environment['RAFT_TEST_TIMEOUT_SECONDS'] ?? '') ??
