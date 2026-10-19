@@ -794,3 +794,34 @@ class FlakyEvidenceTests(unittest.TestCase):
         self.assertEqual(len(errors), 2)
         self.assertTrue(errors[1].endswith('…'))
         self.assertLessEqual(len(errors[1]), 301)
+
+
+class StaticFailFastTests(unittest.TestCase):
+    """A failed analysis, lint or host-test run stops the gate before the Dart shards finish."""
+
+    def _done(self, value):
+        import concurrent.futures
+        future = concurrent.futures.Future()
+        future.set_result(value)
+        return future
+
+    def test_failed_static_check_is_a_verdict(self):
+        import concurrent.futures
+        pending = concurrent.futures.Future()
+        verdict = check.static_failure({'analyze-all.txt': self._done(False), 'raft-lints.txt': pending})
+        self.assertEqual(verdict['reason'], 'static-check')
+        self.assertEqual(verdict['fields'], {'check': 'analyze-all.txt'})
+
+    def test_passing_or_running_checks_do_not_stop(self):
+        import concurrent.futures
+        self.assertIsNone(check.static_failure({'analyze-all.txt': self._done(True),
+                                                'raft-lints.txt': concurrent.futures.Future()}))
+        self.assertIsNone(check.static_failure({}))
+
+    def test_abort_message_names_the_check(self):
+        class Emit:
+            def message(self, *lines):
+                return lines
+        lines = check.abort_message(Emit(), {'reason': 'static-check', 'fields': {'check': 'analyze-all.txt'},
+                                             'lines': ['see .local/analyze-all.txt']}, [])
+        self.assertIn('analyze-all.txt', lines[0])

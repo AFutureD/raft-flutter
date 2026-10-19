@@ -18,7 +18,7 @@ run may pass, and the final JSON lists it as
 "flaky": [{"file", "tests": [failed test names of the first run], "errors": [their first-run failure messages], "attempts": n}]
 (n = retry attempts used) while the summary prints "FLAKY (passed on retry)". A
 file that fails every attempt keeps the run failed. More than 6 files to retry
-(real breakage), an early stop (max failures, compile error, stall) or a failure
+(real breakage), an early stop (max failures, compile error, stall, failed static check) or a failure
 without a test file means no retry at all.
 
 An identical code tree is not checked twice. A full pass on a clean worktree
@@ -842,12 +842,29 @@ def abort_message(emit, verdict, failures):
     if verdict['reason'] == 'max-failures':
         tests = [f"{f['file']}: {f['name']}" for f in failures[:3]]
         return emit.message(f"失败测试已达 {verdict['fields']['limit']} 个，已提前终止", *tests, summary)
+    if verdict['reason'] == 'static-check':
+        return emit.message(f"{verdict['fields']['check']} 未通过，已提前终止（不等 Dart 测试跑完）", *verdict['lines'][:3], summary)
     return emit.message(f"超过 {verdict['fields']['minutes']:g} 分钟没有任何输出（疑似卡住），已终止", summary)
 
 
-def supervise(futures, shard_logs, event_files, watch, emit):
+def static_failure(static):
+    """Verdict for the first finished static check (analysis, lints, host tests) that failed.
+
+    `static` maps a check's log name to its future. Those checks take a few minutes while
+    the Dart shards take ten or more: a gate that cannot pass should stop when they fail,
+    not after every shard has run (two gates on 2026-10-18 spent 13-15 minutes that way).
+    """
+    for name, future in static.items():
+        if future.done() and not future.exception() and future.result() is False:
+            return {'reason': 'static-check', 'message': f'{name} failed',
+                    'lines': [f'see .local/{name}'], 'fields': {'check': name}}
+    return None
+
+
+def supervise(futures, shard_logs, event_files, watch, emit, static=None):
     """Watch the shards' output until every future is done; stop the run on the first verdict.
 
+    A failed static check (`static`, see `static_failure`) is a verdict too.
     Returns the verdict that stopped the run (None when it finished by itself).
     """
     tails, sizes, stop = [LogTail(p) for p in shard_logs], [0] * len(event_files), None
@@ -862,7 +879,7 @@ def supervise(futures, shard_logs, event_files, watch, emit):
                 watch.touch(now)
         if not pending:
             return stop
-        verdict = None if stop else watch.verdict(now)
+        verdict = None if stop else (static_failure(static or {}) or watch.verdict(now))
         if verdict:
             stop = verdict
             emit('ABORT', notify=abort_message(emit, verdict, watch.failures), reason=verdict['reason'], **verdict['fields'])
@@ -955,7 +972,9 @@ def run_gate(check_env, emit, started):
         shard_futures = [pool.submit(run_shard, i, bucket['files'], jobs, check_env, shard_timeout_seconds(bucket['weight'], jobs, timeout_override), startup_gate) for i, bucket in enumerate(plan)]
         watch = GateWatch([[repo_path(f) for f in bucket['files']] for bucket in plan], time.monotonic(), max_failures, stall_minutes, emit, to_repo_path)
         try:
-            stop = supervise([*shard_futures, host_future, analyze_future, lints_future], shard_logs, shard_events, watch, emit)
+            stop = supervise([*shard_futures, host_future, analyze_future, lints_future], shard_logs, shard_events, watch, emit,
+                             static={'analyze-all.txt': analyze_future, 'raft-lints.txt': lints_future,
+                                     'host-collector-tests.txt': host_future})
         except BaseException:
             kill_children()  # the pool waits for its threads on the way out
             raise
