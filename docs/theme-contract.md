@@ -12,8 +12,11 @@ dd6c1674 开始，交给 DeepDesign）。
 | `docs/theme-contract/values-appendix.md` | 全部 159 个颜色角色 + 5 级阴影 + 字体度量在三套主题下的取值（生成，不手抄） |
 | `docs/theme-contract/values.json` | 同一份数据的机器可读版本，P1 适配器的输入 |
 | `tool/theme-contract/dump_theme_values.py` | 生成上面两个文件的脚本，`--check` 可在 CI 里查过期 |
-| `docs/theme-contract/inventory/G1…G5` | 删主题前后五个区域的差异清单（文件、行号、A/B/C 分类），§3 的 † 数值与 §4 的实现点都出自这里 |
+| `tool/tests/test_theme_values.py` | 把上面的 `--check` 接进检查流程（全量检查与 preflight 都会跑） |
 | `docs/theme-contract/examples/user-brand.theme.json` | 一份最小用户主题包，演示格式 |
+
+删主题前后五个区域的逐文件清单（G1–G5）不入库：按仓库规矩，盘点类材料放 PR 描述与 Raft。
+下面 §3、§4 引用的每个数值与实现点都已写成 `a57b9dab` 的 file:line，出处足够复现；清单本身见 PR #294 的折叠段。
 
 ---
 
@@ -99,8 +102,9 @@ dd6c1674 开始，交给 DeepDesign）。
 - **Raft**：`tool/design-source/raft-ui-0.7.1/tokens.json` → 现行 `raft_token_mapping.dart`。
   半透明色 0.7.1 保留 authored alpha，未做 Chrome 拟合（见 `docs/design-tokens.md`）。
 - **Elegant light / Elegant dark**：`a57b9dab` 的 `RaftSemanticColors/Product/Component.elegantLight|elegantDark`。
-- **Brutal**：同文件的 `.brutal`。**Brutal 只有浅色** —— 旧版深色一直是 Elegant。
-  契约里 Brutal 的 dark 模式 = 它的 light 值（旧版行为），并在设置里不提供“Brutal + 深色”。
+- **Brutal**：同文件的 `.brutal`。**Brutal 只有浅色** —— 旧版选 Brutal 时，深色仍旧渲染 Elegant 深色。
+  要 100% 复刻旧版，Brutal 包的 `modes.dark` 就填 **Elegant dark** 的取值（不是它自己的浅色值）。
+  这样外观设置里“浅色 Brutal + 深色 Elegant”的组合与旧版逐像素一致，包本身也仍是自洽的一份数据。
 
 ---
 
@@ -185,7 +189,21 @@ Elegant/Brutal 需要同样一套槽位。槽位固定，值按主题；这样�
 
 † = 盘点未逐值确认。P2 建基准时从旧版渲染反查，写进包再进 P4。
 
-### 3.5 阴影
+### 3.5 大小写
+
+`textTransform` 只改显示，不改文案字符串，所以它不推翻设计决策 0002（文案不再用全大写）：
+Raft 包把它填成 none，旧的两套各自保留自己的写法。三档分开，因为旧版只对大写一部分：
+
+| 令牌 | 用在 | Raft | Elegant | Brutal |
+| --- | --- | --- | --- | --- |
+| `case.heading` | 对话框标题、分组标题 | none | none | uppercase |
+| `case.label` | eyebrow、分组小标题、出发标签 | none | uppercase † | uppercase |
+| `case.badge` | 徽章、Done 这类状态小标签 | none | none | uppercase |
+
+† = 旧代码在两种主题下都大写 eyebrow（G3 第 3 条）；Elegant 的对话框标题与状态标签是正常大小写。
+P2 基准确认后逐项落值。
+
+### 3.6 阴影
 
 阴影是 Elegant 与 Brutal 最大的观感差别（G1 第 1 条），但**不需要结构选项**，因为它纯是数据。
 契约要求五级阶梯（`xs…xl`）+ 七个角色：
@@ -236,10 +254,8 @@ Elegant/Brutal 需要同样一套槽位。槽位固定，值按主题；这样�
 
 **明确不进选项的：**
 
-- **大小写**（`textTransform`）。旧代码在 Brutal 用大写、Elegant 用正常；但设计决策 0002
-  已经全局去掉全大写，NEW 里 51 → 4 处。把大小写做成主题选项等于让主题推翻文案决策。
-  建议：大小写归文案，不进契约。**需要 Kevin 确认**（见 §9 Q3）。
 - 断点、布局规则、交互方式。设计规则，不属于主题（plan.md §1 已定）。
+- 大小写不是结构选项，而是三个数值令牌（§3.5）：它只改显示、不改字符串，也就不与文案决策冲突。
 
 ---
 
@@ -267,6 +283,7 @@ Elegant/Brutal 需要同样一套槽位。槽位固定，值按主题；这样�
       "colors":   { "foreground": "#191815", "layer-card": "#ffffff", "foreground-muted": "#3d3d3a" },
       "geometry": { "radius.control": 6, "stroke.control": 0, "size.panelHeader": 56 },
       "type":     { "body": [14, 20, 400, -0.01], "title": [17, 21.25, 500, 0] },
+      "case":     { "heading": "none", "label": "uppercase", "badge": "none" },
       "shadows":  { "shadow.control": "0 0 0 1px #3d3d3a", "shadow.popup": "/* … */" },
       "options":  { "control.edge": "ring", "mobileNav.style": "floatingCapsule" }
     },
@@ -291,6 +308,7 @@ Elegant/Brutal 需要同样一套槽位。槽位固定，值按主题；这样�
 5. **阴影**：CSS 原文，多层用逗号分隔，`inset` 支持。解析器只接受这一个语法，
    不引入第二种表达（避免 CSS 与结构化两种真相）。
 6. **选项**：只接受 §4 表里的名字与枚举值，拼错即报错，不静默忽略。
+7. **大小写**：`case.*` 只接受 `none` / `uppercase` / `lowercase`；它只影响显示，不动字符串。
 
 ### 5.2 校验（加载时，内置与用户同一条路径）
 
@@ -313,7 +331,9 @@ Elegant/Brutal 需要同样一套槽位。槽位固定，值按主题；这样�
 | `elegant.theme.json` | `a57b9dab` 的 `*.g.dart` 生成的 `elegantLight/elegantDark` 静态值 | 值直接取；结构选项按 §4 表填；几何取 `inventory/G1…G5` 的 file:line |
 | `brutal.theme.json` | 同上的 `.brutal` | 同上；dark = light |
 
-三份包都进版本库，和代码一起评审；生成脚本进 CI，`--check` 保证包与来源不漂移。
+三份包都进版本库，和代码一起评审。漂移检查由 `tool/tests/test_theme_values.py` 跑
+`dump_theme_values.py --check`：全量检查的 host tests 会带上它，`tool/preflight` 也单列一步，
+所以改了两处任一源头却没重生成，CI 会直接失败。
 
 ### 5.4 用户上传（收尾阶段）
 
@@ -379,14 +399,19 @@ Elegant/Brutal 需要同样一套槽位。槽位固定，值按主题；这样�
 
 | 层 | 方法 | 门槛 |
 | --- | --- | --- |
-| 令牌 | 三套包的值与来源逐值相等（单元测试，含 `--check` 防漂移） | 100% 相等 |
+| 令牌 | 三套包的值与来源逐值相等（单元测试）；附录漂移由 `tool/tests/test_theme_values.py` 拦，全量检查与 `tool/preflight` 都会跑 `dump_theme_values.py --check` | 100% 相等 |
 | 组件 | 15 个 raft-ui specimen（工具已在，`tool/parity-ui`）：Raft 对官方 React；Elegant/Brutal 对 `a57b9dab` 旧版渲染 | 官方 pass 线（>99%） |
 | 页面 | 现有的 parity case（官方 Web 用例 + 扩展用例）在 5 个尺寸（320/390/768/1024/1280）+ 矮窗下逐页对照 | 同上；布局断言（谁并排、谁盖住）单独跑 |
 | 用户主题 | 极端测试主题（全红、超大圆角、无描边）跑全量截图，抓漏网写死值 | 无未主题化区域 |
 
-**Elegant/Brutal 的基准必须在 P2 真跑出来**，不是估算：
-在临时 worktree 检出 `a57b9dab`，用当时的 `integration_test/desktop_screens_test.dart`
-主题矩阵渲染固定清单，产物放 `build/`（不入库，与其他 parity 参考一致）。
+**Elegant/Brutal 的基准必须在 P2 真跑出来**，不是估算：在临时 worktree 检出 `a57b9dab`，
+用当时的主题矩阵渲染固定清单，产物放 `build/`（不入库，与其他 parity 参考一致）。
+
+清单必须**同时覆盖手机和桌面**，因为手机独有的差异正好在主题里：
+`mobileNav.style`（Elegant 的悬浮胶囊 vs 贴底栏）、`mobileNav.labels`、手机推入页的悬浮标题栏、
+底部 tab 的贴纸。`desktop_screens_test` 只有桌面矩阵，所以 P2 还要用当时的手机入口
+（390 宽，外加 320 边界）渲染：手机首页、频道、任务、成员、设置、个人资料，浅色与深色各一份。
+桌面清单沿用 `desktop_screens_test` 的页面集合。
 
 ---
 
@@ -396,8 +421,8 @@ Elegant/Brutal 需要同样一套槽位。槽位固定，值按主题；这样�
 | --- | --- | --- |
 | Q1 | 颜色词汇：沿用 159 个旧角色名（省 900 处改动）还是重命名成一套干净的？ | **沿用**，只清 `color-brutal-*` 这类调色板别名。理由是这笔钱花在几何/字级上回报更高 |
 | Q2 | Raft 包是否带全量 96 个调色板值？ | **带**。它们是官方 token 的一部分，且 Raft 角色要靠它们解析；用户包只在引用时提供 |
-| Q3 | 大小写（全大写）要不要做成主题选项？ | **不做**。设计决策 0002 已全局去掉大写，做成选项等于让主题推翻文案决策。Elegant/Brutal 复刻因此在大写上会与旧版不同 |
-| Q4 | Brutal 深色怎么办？旧版没有 | **不提供**：Brutal 只有浅色，深色下自动回落到 Raft 深色。若要做，需要一套没人设计过的配色 |
+| Q3 | 大小写（全大写）怎么表达？ | **三个数值令牌**（§3.5）：`case.heading` / `case.label` / `case.badge`，Raft 全填 none，Brutal 填 uppercase。`textTransform` 只改显示不改字符串，与决策 0002 不冲突，100% 复刻需要它 |
+| Q4 | Brutal 深色怎么办？旧版没有单独的 Brutal 深色 | **Brutal 包的 `modes.dark` = Elegant dark 的取值**，这就是旧版的真实行为（选 Brutal 时深色永远渲染 Elegant）。不做一套没人设计过的配色 |
 
 ---
 

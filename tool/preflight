@@ -7,6 +7,7 @@ on a typical branch, and reports every result (it never stops at the first failu
   structure-audit       tool/structure-audit --check (a hotspot module grew in lines or tokens)
   ds-audit              tool/ds-audit --check (raw style literals; counts above the baseline)
   docs-index            tool/tests/test_docs_index.py (every docs/ file is listed in docs/README.md)
+  theme-values          tool/tests/test_theme_values.py (the theme contract's value appendix matches its sources)
   guard-tests           the structural Dart guard tests, see GUARD_TESTS
   analyze               flutter analyze on the changed Dart files (pinned SDK via tool/flutter)
   raft-lints            tool/raft-lints on the changed lib files
@@ -69,6 +70,7 @@ GUARD_TESTS = [
     'apps/raft_flutter/test/media_controls_guard_test.dart',     # media rails components still exist
 ]
 DOCS_INDEX_TEST = 'tool/tests/test_docs_index.py'
+THEME_VALUES_TEST = 'tool/tests/test_theme_values.py'
 
 WORKSPACE_DART = re.compile(r'^(apps|packages)/')
 TEST_FILE = re.compile(r'(^|/)(test|integration_test|test_driver)/')
@@ -367,6 +369,10 @@ def run_steps(runner, changes, max_tests):
         return runner.command('docs-index', [sys.executable, '-m', 'unittest', '-q', DOCS_INDEX_TEST], ok_detail='docs/README.md lists every doc',
                               requires_workspace=False)
 
+    def theme_values():
+        return runner.command('theme-values', [sys.executable, '-m', 'unittest', '-q', THEME_VALUES_TEST],
+                              ok_detail='value appendix matches its sources', requires_workspace=False)
+
     def analyze():
         if not workspace_dart:
             return runner.skip('analyze', 'no changed Dart files in apps/ or packages/')
@@ -428,8 +434,9 @@ def run_steps(runner, changes, max_tests):
             dart_exe = dart_executable()
         except PreflightError as error:
             dart_error = str(error)
-    order = ['structure-audit', 'ds-audit', 'docs-index', 'guard-tests', 'analyze', 'raft-lints', 'format', 'affected-tests', 'portability']
-    steps = [structure, design_system, docs_index, tests, analyze, lints, formatting, portability]
+    order = ['structure-audit', 'ds-audit', 'docs-index', 'theme-values', 'guard-tests', 'analyze', 'raft-lints',
+             'format', 'affected-tests', 'portability']
+    steps = [structure, design_system, docs_index, theme_values, tests, analyze, lints, formatting, portability]
     table = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(steps)) as pool:
         for future in [pool.submit(step) for step in steps]:
