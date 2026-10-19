@@ -315,7 +315,8 @@ P2 基准确认后逐项落值。
 | 检查 | 失败处理 |
 | --- | --- |
 | `format` / `id` / `version` / `modes.dark` 存在 | 拒绝 |
-| 名字在契约里存在、类型正确、枚举值在允许集合内 | 拒绝，报出第一个错误与位置 |
+| 名字在契约里存在（着色角色、几何令牌、字级槽、大小写槽、结构选项、阴影角色），类型正确，枚举值在允许集合内 | 拒绝，报出第一个错误与 JSON 路径 |
+| 角色值写 `{palette.x.y}` 时，调色板里有这一项 | 拒绝 |
 | 角色引用的 `palette.*` 能解析（或继承链上有） | 拒绝 |
 | 对比度：`foreground` 对 `layer-canvas` / `layer-card` / `layer-popover`，`foreground-muted` 对 `layer-canvas`，`sticker-ink` 对 `sticker-paper`、`primary`、`attention`、`warning`、`danger` | 正文低于 4.5:1、大字低于 3:1 时**警告并允许“仍然应用”**（用户可能是刻意的），但安装界面上显著提示 |
 | 字体资产 ≤ 4 个、单文件 ≤ 8 MB、扩展名白名单 | 拒绝 |
@@ -325,10 +326,17 @@ P2 基准确认后逐项落值。
 
 ### 5.3 三套内置包怎么来（构建期适配器，`tool/theme-adapters/`）
 
-Raft 包已经落地：`packages/raft_theme/assets/themes/raft.theme.json`，由
-`tool/theme-adapters/build_raft_pack.py` 从生成的 0.7.1 token 里读出并生成，
-`tool/tests/test_theme_values.py` 跑 `--check` 防漂移；`packages/raft_theme/test/
-raft_tokens_parity_test.dart` 证明它与现行 `RaftTokenSet` 逐值相等。
+Raft 包已经落地，生成器一次产出三份、由同一个 `--check` 守着
+（`tool/tests/test_theme_values.py`）：
+
+| 产物 | 用途 |
+| --- | --- |
+| `packages/raft_theme/lib/src/raft_pack.g.dart` | 内置包本体，**编译期常量**。首帧必须已经有主题，异步读 asset 会闪色（`docs/theme-flash.md`） |
+| `packages/raft_theme/assets/themes/raft.theme.json` | 同样的字节，给工具和想改一份的人 |
+| `packages/raft_theme/lib/src/contract_names.g.dart` | 契约自己的名字表：215 个颜色角色 + 30 个几何令牌。拼错即报错，不静默忽略 |
+
+`packages/raft_theme/test/raft_tokens_parity_test.dart` 证明它与现行
+`RaftTokenSet` 逐值相等。内置主题走常量、**同步可用**；JSON 解析只给用户上传的包用。
 
 | 包 | 来源 | 做法 |
 | --- | --- | --- |

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:ui' show Color;
 
 import 'color_value.dart';
+import 'contract_names.g.dart';
 import 'shadow_value.dart';
 
 /// The file format this parser reads.
@@ -323,18 +324,7 @@ RaftModeValues? _mode(Object? raw, String where) {
   final warnings = <String>[];
   _checkKeys(raw, _modeKeys, where, warnings);
 
-  final colors = <String, Color>{};
-  final rawColors = raw['colors'];
-  if (rawColors != null) {
-    if (rawColors is! Map)
-      throw RaftThemeException('colors is an object', where: '$where.colors');
-    for (final entry in rawColors.entries) {
-      colors['${entry.key}'] = parseThemeColor(
-        entry.value,
-        where: '$where.colors.${entry.key}',
-      );
-    }
-  }
+  // Palette first: a role may refer to one of its entries by name.
   final palette = <String, Color>{};
   final rawPalette = raw['palette'];
   if (rawPalette is! Map && rawPalette != null) {
@@ -346,6 +336,20 @@ RaftModeValues? _mode(Object? raw, String where) {
         entry.value,
         where: '$where.palette.${entry.key}',
       );
+    }
+  }
+  final colors = <String, Color>{};
+  final rawColors = raw['colors'];
+  if (rawColors != null) {
+    if (rawColors is! Map)
+      throw RaftThemeException('colors is an object', where: '$where.colors');
+    for (final entry in rawColors.entries) {
+      final role = '${entry.key}';
+      final path = '$where.colors.$role';
+      if (!raftColorRoles.contains(role)) {
+        throw RaftThemeException('unknown colour role "$role"', where: path);
+      }
+      colors[role] = _color(entry.value, path, palette);
     }
   }
   final geometry = <String, double>{};
@@ -362,7 +366,14 @@ RaftModeValues? _mode(Object? raw, String where) {
           where: '$where.geometry.${entry.key}',
         );
       }
-      geometry['${entry.key}'] = value.toDouble();
+      final token = '${entry.key}';
+      if (!raftGeometryTokens.contains(token)) {
+        throw RaftThemeException(
+          'unknown geometry token "$token"',
+          where: '$where.geometry.$token',
+        );
+      }
+      geometry[token] = value.toDouble();
     }
   }
   final type = <String, RaftTypeStyleSpec>{};
@@ -454,6 +465,23 @@ RaftModeValues? _mode(Object? raw, String where) {
     shadows: shadows,
     options: options,
   );
+}
+
+/// A colour value, or a `{palette.x.y}` reference to one in [palette].
+Color _color(Object? value, String where, Map<String, Color> palette) {
+  if (value is String) {
+    final reference = RegExp(r'^\{\s*palette[.\-]([^}]+)\s*\}$')
+        .firstMatch(value.trim());
+    if (reference != null) {
+      final name = 'palette-${reference.group(1)!.trim().replaceAll('.', '-')}';
+      final color = palette[name];
+      if (color == null) {
+        throw RaftThemeException('unknown palette entry "$name"', where: where);
+      }
+      return color;
+    }
+  }
+  return parseThemeColor(value, where: where);
 }
 
 RaftTypeStyleSpec _typeStyle(Object? raw, String where) {

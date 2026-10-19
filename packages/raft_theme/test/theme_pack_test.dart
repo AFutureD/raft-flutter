@@ -118,6 +118,19 @@ void main() {
     });
   });
 
+  group('the built-in pack', () {
+    test('is available synchronously from the compile-time constant', () {
+      final pack = builtInRaftTheme;
+      expect(pack.id, 'raft');
+      expect(pack.light.colors['layer-canvas'], isNotNull);
+      expect(identical(builtInRaftTheme, pack), isTrue);
+    });
+
+    test('the constant and the asset carry the same bytes', () {
+      expect(raftThemePackJson, shipPack());
+    });
+  });
+
   group('resolution', () {
     test('a child takes what it sets and inherits the rest', () {
       final base = RaftThemePack.parse(shipPack());
@@ -174,6 +187,58 @@ void main() {
       (json['modes'] as Map).remove('dark');
       expect(
         () => RaftThemePack.parse(jsonEncode(json)),
+        throwsA(isA<RaftThemeException>()),
+      );
+    });
+
+    test('rejects a misspelled colour role, and names the path', () {
+      try {
+        RaftThemePack.parse(
+          packJson(
+            light: {
+              'colors': {'foregound': '#101010'},
+            },
+          ),
+          origin: 'brand',
+        );
+        fail('expected a RaftThemeException');
+      } on RaftThemeException catch (error) {
+        expect('$error', contains('brand.modes.light.colors.foregound'));
+        expect('$error', contains('unknown colour role'));
+      }
+    });
+
+    test('rejects a misspelled geometry token', () {
+      expect(
+        () => RaftThemePack.parse(
+          packJson(
+            light: {
+              'geometry': {'radius.contol': 8},
+            },
+          ),
+        ),
+        throwsA(isA<RaftThemeException>()),
+      );
+    });
+
+    test('resolves a palette reference, and rejects an unknown one', () {
+      final pack = RaftThemePack.parse(
+        packJson(
+          light: {
+            'palette': {'palette-brand-400': '#ffd440'},
+            'colors': {'foreground': '{palette.brand.400}'},
+          },
+        ),
+      );
+      expect(pack.light.colors['foreground'], const Color(0xFFFFD440));
+      expect(
+        () => RaftThemePack.parse(
+          packJson(
+            light: {
+              'colors': {'foreground': '{palette.brand.400}'},
+            },
+          ),
+        ),
         throwsA(isA<RaftThemeException>()),
       );
     });

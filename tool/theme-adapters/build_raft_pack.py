@@ -31,6 +31,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 TOKENS = 'packages/raft_ui/lib/src/tokens'
 PACK = 'packages/raft_theme/assets/themes/raft.theme.json'
+PACK_DART = 'packages/raft_theme/lib/src/raft_pack.g.dart'
+NAMES_DART = 'packages/raft_theme/lib/src/contract_names.g.dart'
 PACK_FORMAT = 'raft-theme/1'
 
 COLOR = re.compile(
@@ -249,22 +251,82 @@ def render(pack: dict) -> str:
     return json.dumps(pack, indent=2, ensure_ascii=False) + '\n'
 
 
+def render_pack_dart(pack: dict) -> str:
+    header = (
+        "// GENERATED - do not edit. Regenerate with `tool/theme-adapters/build_raft_pack.py`.\n"
+        "//\n"
+        "// The built-in Raft theme, as a compile-time constant so the first frame can\n"
+        "// be themed synchronously: reading an asset is async, and a frame painted\n"
+        "// before that lands is the theme flash docs/theme-flash.md warns about.\n"
+        "// The same bytes are written to assets/themes/raft.theme.json for tooling and\n"
+        "// for anyone who wants to edit a copy.\n"
+        "//\n"
+        "// ignore_for_file: lines_longer_than_80_chars\n"
+        "library;\n\n"
+    )
+    body = render(pack)
+    quote = "'" * 3
+    if quote in body:
+        raise SystemExit("the pack contains a triple quote")
+    return (
+        header
+        + "const String raftThemePackId = '" + pack["id"] + "';\n\n"
+        + "const String raftThemePackJson = r" + quote + body + quote + ";\n"
+    )
+
+
+def render_names_dart(roles: list[str], geometry: list[str]) -> str:
+    def block(items: list[str]) -> str:
+        return "\n".join("  '" + item + "'," for item in items)
+
+    header = (
+        "// GENERATED - do not edit. Regenerate with `tool/theme-adapters/build_raft_pack.py`.\n"
+        "//\n"
+        "// Every name a theme pack may set a value for. A pack that misspells one is\n"
+        "// rejected with its JSON path instead of being silently ignored, so a\n"
+        "// designer sees the typo rather than a theme that quietly did nothing.\n"
+        "library;\n\n"
+    )
+    return (
+        header
+        + "/// Colour roles: the legacy role schema components read, plus the 0.7.1\n"
+        + "/// names the ported components read directly. Palette entries are not\n"
+        + "/// roles; they live under `palette` and a role refers to one as\n"
+        + "/// `{palette.x.y}`.\n"
+        + "const Set<String> raftColorRoles = {\n" + block(roles) + "\n};\n\n"
+        + "/// Numeric tokens: radii, stroke widths, sizes, density and spacing.\n"
+        + "const Set<String> raftGeometryTokens = {\n" + block(geometry) + "\n};\n"
+    )
+
+
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
 
-    path = ROOT / PACK
-    rendered = render(build())
+    pack = build()
+    outputs = {
+        PACK: render(pack),
+        PACK_DART: render_pack_dart(pack),
+        NAMES_DART: render_names_dart(sorted(pack['modes']['light']['colors']),
+                                      sorted(GEOMETRY_RAFT)),
+    }
     if args.check:
-        if not path.exists() or path.read_text() != rendered:
-            print(f'stale: {PACK}; run python3 tool/theme-adapters/build_raft_pack.py')
+        stale = [name for name, text in outputs.items()
+                 if not (ROOT / name).exists() or (ROOT / name).read_text() != text]
+        if stale:
+            print('stale: ' + ', '.join(stale) +
+                  '; run python3 tool/theme-adapters/build_raft_pack.py')
             return 1
-        print('raft theme pack is current')
+        print('raft theme pack, its Dart constant and the contract names are current')
         return 0
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(rendered)
-    print(f'wrote {PACK}')
+    for name, text in outputs.items():
+        path = ROOT / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+        print(f'wrote {name}')
     return 0
 
 

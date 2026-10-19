@@ -5,6 +5,8 @@
 /// import `raft_ui`, and it draws nothing. See `docs/theme-contract.md`.
 library;
 
+export 'src/built_in.dart';
 export 'src/color_value.dart';
+export 'src/raft_pack.g.dart' show raftThemePackId, raftThemePackJson;
 export 'src/shadow_value.dart';
 export 'src/theme_pack.dart';
