@@ -187,11 +187,15 @@ class WorkspaceMobileHomeHeader extends StatelessWidget {
     required this.onServer,
     required this.onBilling,
     this.serverSwitcher,
+    this.workingSummary,
   });
   final WorkspaceController controller;
   final VoidCallback onServer;
   final VoidCallback onBilling;
   final Widget? serverSwitcher;
+
+  /// The working-agents summary, before the bell.
+  final Widget? workingSummary;
 
   @override
   Widget build(BuildContext context) =>
@@ -203,6 +207,7 @@ class WorkspaceMobileHomeHeader extends StatelessWidget {
           onPressed: onServer,
         ),
         actions: [
+          ?workingSummary,
           SystemNotificationBell(
             key: const Key('mobile-home-notifications'),
             controller: controller,

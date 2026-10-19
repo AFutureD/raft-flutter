@@ -11,7 +11,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/appearance_section.dart';
 import 'package:raft_flutter/features/chat_agent_presentation.dart';
 import 'package:raft_flutter/features/message_reference_directory.dart';
-import 'package:raft_flutter/features/live_agent_activity_bar.dart';
+import 'package:raft_flutter/features/working_agents.dart';
 
 class _Storage implements SearchMemoryStorage {
   final values = <String, String>{};
@@ -160,20 +160,20 @@ void main() {
     void signal(Map<String, dynamic> data) =>
         activity.event(RaftEvent('agent:activity', data));
     signal({'agentId': 'absent', 'activity': 'working'});
-    expect(activity.latest, isNull);
+    expect(activity.working.firstOrNull, isNull);
     signal({'agentId': 'a', 'activity': 'working', 'serverId': 'other'});
-    expect(activity.latest, isNull);
+    expect(activity.working.firstOrNull, isNull);
     signal({'agentId': 'a', 'activity': 'working', 'isHeartbeat': true});
-    expect(activity.latest, isNull);
+    expect(activity.working.firstOrNull, isNull);
     signal({
       'agentId': 'a',
       'activity': 'working',
       'detail': 'Actual task',
       'serverSeq': '1',
     });
-    expect(activity.latest!.text, 'Actual task');
+    expect(activity.working.first.text, 'Actual task');
     signal({'agentId': 'a', 'activity': 'thinking', 'serverSeq': '0'});
-    expect(activity.latest!.text, 'Actual task');
+    expect(activity.working.first.text, 'Actual task');
     now = now.add(const Duration(seconds: 60));
     signal({
       'agentId': 'a',
@@ -185,15 +185,21 @@ void main() {
     expect(activity.items.length, 1);
     now = now.add(const Duration(seconds: 91));
     activity.prune();
-    expect(activity.latest, isNull);
+    expect(activity.working.firstOrNull, isNull);
     signal({'agentId': 'a', 'activity': 'thinking', 'serverSeq': '3'});
-    expect(activity.latest!.text, 'Thinking…');
+    expect(activity.working.first.text, 'Thinking…');
     signal({'agentId': 'a', 'activity': 'online', 'serverSeq': '4'});
-    expect(activity.latest, isNull);
+    // Idle: listed for the 5 second grace period, then gone.
+    expect(activity.working.first.text, 'Thinking…');
+    now = now.add(const Duration(seconds: 5));
+    activity.prune();
+    expect(activity.working.firstOrNull, isNull);
+    signal({'agentId': 'a', 'activity': 'error'});
+    expect(activity.working.firstOrNull, isNull);
     signal({'agentId': 'a', 'activity': 'working', 'serverSeq': '5'});
     w.server = RaftRecord({'id': 's', 'role': 'guest'});
     w.notifyListeners();
-    expect(activity.latest, isNull);
+    expect(activity.working.firstOrNull, isNull);
     expect(activity.modelLabel('a'), isNull);
     activity.dispose();
     directory.dispose();
@@ -279,7 +285,7 @@ void main() {
     store.dispose();
   });
   testWidgets(
-    'accepted real work bar hides on preference change and immediate authority revocation',
+    'accepted real work summary hides on preference change and immediate authority revocation',
     (t) async {
       final client = RaftClient(
         origin: 'https://fixture.invalid',
@@ -307,38 +313,37 @@ void main() {
         MaterialApp(
           theme: raftTheme(RaftFamily.elegant),
           home: Scaffold(
-            body: NativeLiveAgentActivityBar(
-              activities: activities,
-              presentation: store,
-              origin: client.origin,
+            body: Align(
+              alignment: Alignment.topRight,
+              child: NativeWorkingAgentsSummary(
+                activities: activities,
+                presentation: store,
+                origin: client.origin,
+                onOpenAgent: (_) {},
+              ),
             ),
           ),
         ),
       );
-      expect(find.text('Public fixture work'), findsOneWidget);
-      // The strip is raft_ui's, with the agent's pixel artwork (not the bot
-      // glyph) and the Web "<agent>: <text>" live-region label.
-      expect(find.byType(RaftLiveAgentActivityBar), findsOneWidget);
+      // The summary is the agent's face (pixel artwork, not the bot glyph)
+      // and a count, named by the full sentence; it is not the live bar.
+      expect(find.bySemanticsLabel('1 agent working'), findsOneWidget);
       expect(
         t.widget<RaftPixelAvatar>(find.byType(RaftPixelAvatar)).avatarKey,
         'cat',
       );
-      expect(
-        t.widget<RaftLiveAgentActivityBar>(
-          find.byType(RaftLiveAgentActivityBar),
-        ).agentName,
-        'Cindy',
-      );
+      expect(find.byKey(const Key('live-agent-activity-bar')), findsNothing);
+      expect(find.text('Public fixture work'), findsNothing);
       store.update(store.key, liveActivity: false);
       await t.pump();
-      expect(find.text('Public fixture work'), findsNothing);
+      expect(find.byKey(const Key('working-agents-summary')), findsNothing);
       store.update(store.key, liveActivity: true);
       await t.pump();
-      expect(find.text('Public fixture work'), findsOneWidget);
+      expect(find.byKey(const Key('working-agents-summary')), findsOneWidget);
       w.server = RaftRecord({'id': 's', 'role': 'guest'});
       w.notifyListeners();
       await t.pump();
-      expect(find.text('Public fixture work'), findsNothing);
+      expect(find.byKey(const Key('working-agents-summary')), findsNothing);
       await t.pumpWidget(const SizedBox());
       activities.dispose();
       directory.dispose();

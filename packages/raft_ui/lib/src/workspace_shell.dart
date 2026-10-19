@@ -15,9 +15,13 @@ class RaftChatSidebarHeading extends StatelessWidget {
     super.key,
     required this.label,
     this.workspaceEnabled = false,
+    this.trailing,
   });
   final String label;
   final bool workspaceEnabled;
+
+  /// The working-agents summary when the screen has no top bar to hold it.
+  final Widget? trailing;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -30,6 +34,23 @@ class RaftChatSidebarHeading extends StatelessWidget {
       workspaceEnabled: workspaceEnabled,
     );
     final grows = RaftScaled.grows(context);
+    final title = Text(
+      label,
+      style: RaftTypography.heading(
+        t,
+        size: workspaceEnabled ? 16 : 18,
+        line: workspaceEnabled ? 24 : 28,
+        weight: workspaceEnabled ? FontWeight.w600 : FontWeight.w700,
+      ),
+    );
+    final heading = trailing == null
+        ? title
+        : Row(
+            children: [
+              Expanded(child: title),
+              trailing!,
+            ],
+          );
     return Container(
       height: grows ? null : recipe.headerHeight,
       constraints: grows
@@ -49,15 +70,7 @@ class RaftChatSidebarHeading extends StatelessWidget {
         ),
       ),
       alignment: AlignmentDirectional.centerStart,
-      child: Text(
-        label,
-        style: RaftTypography.heading(
-          t,
-          size: workspaceEnabled ? 16 : 18,
-          line: workspaceEnabled ? 24 : 28,
-          weight: workspaceEnabled ? FontWeight.w600 : FontWeight.w700,
-        ),
-      ),
+      child: heading,
     );
   }
 }

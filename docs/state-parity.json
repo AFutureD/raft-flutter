@@ -517,21 +517,16 @@
    "id": "shell.live-activity-bar",
    "title": "Live agent activity bar",
    "webEntry": "packages/web/src/components/layout/LiveAgentActivityBar.tsx",
-   "flutterEntry": "apps/raft_flutter/lib/features/live_agent_activity_bar.dart",
+   "flutterEntry": "apps/raft_flutter/lib/features/working_agents.dart",
    "states": [
     {
      "state": "partial",
      "variant": "working / thinking / compacting / tool finished / long",
      "web": "yes",
-     "flutter": "yes",
-     "parityCase": [
-      "components.liveactivity.desktop.working",
-      "components.liveactivity.desktop.thinking",
-      "components.liveactivity.desktop.compacting",
-      "components.liveactivity.desktop.tool-finished",
-      "components.liveactivity.desktop.long"
-     ],
-     "status": "covered"
+     "flutter": "missing",
+     "parityCase": [],
+     "status": "intentional",
+     "justification": "Raft Design System decision 0006 deprecates the live bar; Flutter shows working agents in place (summary, Working now, agent rows, channel subtitle) instead."
     }
    ]
   },

@@ -174,7 +174,7 @@ SECTIONS = [
           p=['components.list-pages.dialogs.phone-archive-channel'], prio=3),
         R('2.13', 'Conversation finder ("Find a conversation..." box and results)', 'components/layout/SidebarConversationFinder.tsx', 'DP', prio=2),
         R('2.14', 'Live agent activity bar (tool finished, working, thinking, compacting, long)', 'components/layout/LiveAgentActivityBar.tsx', 'DP',
-          d=['components.liveactivity.desktop.*'], p=['components.liveactivity.mobile.*']),
+          excl=('superseded', 'Raft Design System decision 0006 deprecates the live bar; Flutter shows working agents in place (summary, Working now, rows, channel subtitle).')),
         R('2.15', 'Activity page frame (rail + inbox column edge)', 'components/layout/MainLayout.tsx', 'DP',
           d=['components.shell.desktop.activity.frame'], p=['components.shell.mobile.activity.frame']),
         R('2.16', 'Confirm dialogs (danger, warning, acknowledge)', 'components/ConfirmDialog.tsx', 'DP',

@@ -87,15 +87,32 @@ class RaftMobilePageHeader extends StatelessWidget
               const SizedBox(width: 8),
             Expanded(child: Semantics(header: true, child: title)),
             for (final action in actions)
-              SizedBox.square(
-                dimension: actionExtent,
-                child: Center(child: action),
-              ),
+              action is RaftWideHeaderAction
+                  // As wide as its content (none when it has none); the
+                  // row's height is the square actions' height.
+                  ? SizedBox(
+                      height: actionExtent,
+                      child: Center(child: action),
+                    )
+                  : SizedBox.square(
+                      dimension: actionExtent,
+                      child: Center(child: action),
+                    ),
           ],
         ),
       ),
     );
   }
+}
+
+/// A header action that is as wide as its content instead of a square slot
+/// (the working-agents summary: faces and a count). It takes no room while
+/// [child] draws nothing.
+class RaftWideHeaderAction extends StatelessWidget {
+  const RaftWideHeaderAction({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => child;
 }
 
 /// A platform back glyph in the same 48px slot on every mobile page.

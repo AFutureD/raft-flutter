@@ -19,6 +19,7 @@ import 'status_bar.dart';
 import 'text_measure.dart';
 import 'theme.dart';
 import 'tooltip.dart';
+import 'working_agents.dart';
 
 /// Header bar of a mounted conversation panel: Web `PanelHeader` inside the
 /// `edge="attached"` ConversationPanelRoot (ChatPanel). The panel root paints
@@ -187,8 +188,14 @@ class RaftChannelHeader extends StatelessWidget {
     this.searchLabel = 'Search this channel',
     this.settingsLabel = 'Channel settings',
     this.archivedLabel,
+    this.workingAgents = const [],
   });
   final String name, description, kind, backLabel, searchLabel, settingsLabel;
+
+  /// Agents working in this channel (members only), in the order they
+  /// started. The subtitle then starts with up to three faces and
+  /// "2 agents working", then " · " and the description.
+  final List<RaftWorkingAgent> workingAgents;
   final VoidCallback? onBack, onSearch, onSettings;
   final Key? backKey;
 
@@ -202,9 +209,10 @@ class RaftChannelHeader extends StatelessWidget {
     // ChannelDescription is `line-clamp-2` inside PanelMeta, whose recipe is
     // `truncate`: one unwrapped line, clipped (no ellipsis) at the box edge.
     final meta = raftCollapseWhitespace(description);
+    final working = workingAgents.isNotEmpty;
     final recipe = RaftConversationHeader.recipeOf(
       context,
-      hasMeta: meta.isNotEmpty,
+      hasMeta: meta.isNotEmpty || working,
     );
     final glyph = switch (kind) {
       'private' => RaftGlyph.lock,
@@ -217,7 +225,7 @@ class RaftChannelHeader extends StatelessWidget {
       onBack: onBack,
       backKey: backKey,
       backLabel: backLabel,
-      hasMeta: meta.isNotEmpty,
+      hasMeta: meta.isNotEmpty || working,
       identity: RaftIcon(
         glyph,
         size: 14,
@@ -245,7 +253,76 @@ class RaftChannelHeader extends StatelessWidget {
             ),
           ),
         ),
-        meta: meta.isEmpty
+        meta: working
+            ? LayoutBuilder(
+                key: const Key('channel-header-subtitle'),
+                builder: (context, box) {
+                  final label = raftWorkingAgentsLabel(
+                    context,
+                    workingAgents.length,
+                  );
+                  final facesWidth =
+                      math.min(workingAgents.length, raftWorkingFaceLimit) *
+                          19.0 -
+                      (math.min(workingAgents.length, raftWorkingFaceLimit) -
+                              1) *
+                          5.0;
+                  final lineWidth =
+                      facesWidth +
+                      6 +
+                      raftTextWidth(
+                        TextSpan(text: label, style: metaStyle),
+                        textDirection: Directionality.of(context),
+                        textScaler: MediaQuery.textScalerOf(context),
+                        maxLines: 1,
+                      );
+                  // " · " and the description need their separator plus room
+                  // for a few characters; otherwise the working line stands
+                  // alone (and ellipsizes if it is wider than the header).
+                  const dotWidth = 16.0, minDescription = 24.0;
+                  final room = box.maxWidth - lineWidth - dotWidth;
+                  final showDescription =
+                      meta.isNotEmpty && room >= minDescription;
+                  return Row(
+                    children: [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: box.maxWidth),
+                        child: RaftWorkingLine(
+                          agents: workingAgents,
+                          style: metaStyle,
+                        ),
+                      ),
+                      if (showDescription) ...[
+                        // " · " between the working line and the description.
+                        ExcludeSemantics(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Text('·', style: metaStyle, softWrap: false),
+                          ),
+                        ),
+                        Flexible(
+                          child: RaftTruncationTooltip(
+                            text: meta,
+                            style: metaStyle,
+                            child: RaftCssText(
+                              meta,
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.ellipsis,
+                              style: metaStyle,
+                              strutStyle: StrutStyle.fromTextStyle(
+                                metaStyle,
+                                forceStrutHeight: true,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              )
+            : meta.isEmpty
             ? null
             : RaftTruncationTooltip(
                 text: meta,

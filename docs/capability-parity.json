@@ -6917,14 +6917,14 @@
    "status": "covered",
    "webEntry": "components/layout/LiveAgentActivityBar (showLiveAgentActivityBar setting)",
    "gate": "personal appearance setting",
-   "flutterEntry": "live_agent_activity_bar.dart NativeLiveAgentActivityBar (presentation.value.liveActivity)",
+   "flutterEntry": "working_agents.dart NativeWorkingAgentsSummary (presentation.value.liveActivity); Flutter follows the Raft Design System (decision 0006) and shows working agents in place instead of a live bar",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/live_agent_activity_bar.dart",
-     "needle": "NativeLiveAgentActivityBar"
+     "file": "apps/raft_flutter/lib/features/working_agents.dart",
+     "needle": "NativeWorkingAgentsSummary"
     },
     {
-     "file": "apps/raft_flutter/lib/features/live_agent_activity_bar.dart",
+     "file": "apps/raft_flutter/lib/features/working_agents.dart",
      "needle": "liveActivity"
     }
    ],
@@ -15172,7 +15172,7 @@
    "status": "covered",
    "webEntry": "store/appearanceStore.ts showLiveAgentActivityBar (slock_show_live_agent_activity_bar)",
    "gate": "",
-   "flutterEntry": "appearance_section.dart toggle 'Live agent activity'; live_agent_activity_bar.dart",
+   "flutterEntry": "appearance_section.dart toggle 'Live agent activity'; working_agents.dart",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/appearance_section.dart",

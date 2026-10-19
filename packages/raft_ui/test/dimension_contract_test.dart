@@ -23,7 +23,7 @@ void main() {
         const EdgeInsetsDirectional.fromSTEB(26, 56, 18, 12),
       );
       expect(desktop.contentInset(headerInFlow: true).top, 0);
-      expect(desktop.contentInset(liveActivity: true).bottom, 68);
+      expect(desktop.contentInset().bottom, 12);
       final shortMobile = RaftSidebarRecipe(
         elegant,
         viewportWidth: 390,
@@ -37,7 +37,6 @@ void main() {
         shortMobile.contentInset(),
         const EdgeInsetsDirectional.fromSTEB(28, 48, 28, 12),
       );
-      expect(shortMobile.contentInset(liveActivity: true).bottom, 12);
       final brutal = RaftSidebarRecipe(
         raftTheme(RaftFamily.brutal).extension<RaftTokens>()!,
         viewportWidth: 1024,
@@ -49,7 +48,7 @@ void main() {
         brutal.contentInset(),
         const EdgeInsetsDirectional.fromSTEB(8, 12, 8, 12),
       );
-      expect(brutal.contentInset(liveActivity: true).bottom, 52);
+      expect(brutal.contentInset().bottom, 12);
     },
   );
   test(
@@ -106,17 +105,15 @@ void main() {
     );
     expect(mobile.headerInset.start, 16);
     expect(mobile.contentInset().bottom, 68);
-    expect(
-      mobile.contentInset(liveActivity: true, bottomInset: 24).bottom,
-      140,
-    );
+    // Nothing is attached above the tab bar: clearance is the capsule only.
+    expect(mobile.contentInset(bottomInset: 24).bottom, 92);
     final brutal = RaftSidebarRecipe(
       raftTheme(RaftFamily.brutal).extension<RaftTokens>()!,
       viewportWidth: 390,
       viewportHeight: 844,
       variant: RaftSidebarVariant.mountedProduct,
     );
-    expect(brutal.contentInset(liveActivity: true, bottomInset: 24).bottom, 12);
+    expect(brutal.contentInset(bottomInset: 24).bottom, 12);
   });
   test(
     'sidebar uses the source body role across theme and responsive variants',

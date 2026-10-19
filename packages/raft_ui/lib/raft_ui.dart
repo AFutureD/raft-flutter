@@ -60,7 +60,7 @@ export 'src/design_primitives.dart';
 export 'src/recipe_surface.dart';
 export 'src/control_typography.dart';
 export 'src/indicators.dart';
-export 'src/live_agent_activity_bar.dart';
+export 'src/working_agents.dart';
 export 'src/form_controls.dart';
 export 'src/list_items.dart';
 export 'src/list_page_parts.dart';

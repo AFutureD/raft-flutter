@@ -31,7 +31,7 @@ import '../data/rail_side_preference.dart';
 import '../data/sidebar_disclosure.dart';
 import 'message_reference_directory.dart';
 import 'chat_agent_presentation.dart';
-import 'live_agent_activity_bar.dart';
+import 'working_agents.dart';
 import 'chat_view.dart';
 import 'mobile_route_gate.dart';
 import 'rail_gesture_exclusion.dart';
@@ -626,15 +626,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
   late MessageReferenceDirectory activityDirectory;
   late ChatAgentPresentation liveActivities;
 
-  /// The shell rebuilds only when the live activity bar appears or leaves
-  /// (the mobile home inset); the bar itself follows every activity change.
-  final liveActivityShown = ValueNotifier(false);
-  void syncLiveActivityShown() {
-    final latest = liveActivities.latest;
-    liveActivityShown.value =
-        latest != null && liveActivities.agent(latest.agentId) != null;
-  }
-
   /// Sidebar agent rows and DM peers render identity fields only; agent
   /// presence patches never rebuild the shell.
   late WorkspaceEntitySelection shellIdentities;
@@ -651,10 +642,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
     );
   }
 
-  Widget liveActivityBar() => NativeLiveAgentActivityBar(
+  /// The working-agents summary (faces and count, opening Working now). It
+  /// listens to the activity itself, so the shell never rebuilds for it.
+  Widget workingSummary() => NativeWorkingAgentsSummary(
     activities: liveActivities,
     presentation: presentation,
     origin: w.client.origin,
+    onOpenAgent: (id) => w.openProfile(RaftProfileKind.agent, id),
   );
   bool get wide => !RaftAdaptiveWorkspace.compactOf(context);
 
@@ -726,8 +720,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
     liveActivities =
         mobileHost?.liveActivities ??
         ChatAgentPresentation(w, activityDirectory);
-    liveActivities.addListener(syncLiveActivityShown);
-    syncLiveActivityShown();
     shellIdentities = bindShellIdentities();
     w.addListener(syncChannelSearch);
     w.addListener(syncPresentation);
@@ -875,9 +867,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       activityFlag.dispose();
       activityFlag = DesktopActivityFlag(w)..addListener(activityFlagChanged);
       activityDirectory = MessageReferenceDirectory(w);
-      liveActivities = ChatAgentPresentation(w, activityDirectory)
-        ..addListener(syncLiveActivityShown);
-      syncLiveActivityShown();
+      liveActivities = ChatAgentPresentation(w, activityDirectory);
       shellIdentities.dispose();
       shellIdentities = bindShellIdentities();
       w.addListener(syncPresentation);
@@ -1015,9 +1005,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     searchFocusRequests.dispose();
     quickSwitcher.dispose();
     sidebarDisclosure.dispose();
-    liveActivities.removeListener(syncLiveActivityShown);
     if (mobileHost == null) liveActivities.dispose();
-    liveActivityShown.dispose();
     shellIdentities.dispose();
     if (mobileHost == null) activityDirectory.dispose();
     activityFlag.removeListener(activityFlagChanged);
@@ -1348,7 +1336,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
       presentation,
       mobileTabbar,
       railSideStore,
-      liveActivityShown,
       shellIdentities,
       sidebarDisclosure,
     ]),
@@ -1490,6 +1477,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
           ? DesktopDirectoryView(
               key: ValueKey('directory-$mobileAuthority'),
               controller: w,
+              activities: liveActivities,
               mobileRoot: !wide,
               selected: desktopNavigation.target,
               onSelected: selectDesktopDirectoryTarget,
@@ -1499,6 +1487,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                 ? DesktopDirectoryView(
                     key: ValueKey('directory-$mobileAuthority-$route'),
                     controller: w,
+                    activities: liveActivities,
                     computers: route == 'computers',
                     selected: desktopNavigation.target,
                     onSelected: selectDesktopDirectoryTarget,
@@ -1829,9 +1818,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                 )
                               : const SizedBox.shrink(),
                           mobileNavigationFloating: !t.brutal,
-                          mobileNavigationClearance: raftTabBarClearance(
-                            liveActivity: liveActivityVisible,
-                          ),
+                          mobileNavigationClearance: raftTabBarClearance(),
                           mobileRail: railShown
                               ? RailGestureExclusion(
                                   itemArea: railItemArea,
@@ -1841,30 +1828,15 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                   child: workspaceRail(),
                                 )
                               : null,
+                          // Nothing is attached above the tab bar. With the
+                          // side rail there is no bottom navigation at all.
                           mobileNavigation: railNavigation
-                              // Only the live activity strip docks in the
-                              // content region next to the rail.
-                              ? railShown && liveActivityVisible
-                                    ? Padding(
-                                        padding: EdgeInsets.only(
-                                          bottom: raftSystemBottomInset(
-                                            context,
-                                          ),
-                                        ),
-                                        child: liveActivityBar(),
-                                      )
-                                    : null
+                              ? null
                               : w.navigation.mobileRootTabOf(location) ==
                                         null ||
                                     w.server == null
                               ? null
-                              : Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    liveActivityBar(),
-                                    mobileNavigation(),
-                                  ],
-                                ),
+                              : mobileNavigation(),
                           content: Column(
                             children: [
                                         // The Computers root header sits in the
@@ -2867,6 +2839,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       ),
       headerActions: mobile
           ? [
+              RaftWideHeaderAction(child: workingSummary()),
               SystemNotificationBell(
                 key: const Key('mobile-home-notifications'),
                 controller: w,
@@ -3172,22 +3145,34 @@ class _WorkspaceViewState extends State<WorkspaceView>
     );
   }
 
-  Widget channelHeader({bool mobile = false}) => RaftChannelHeader(
-    key: Key(
-      mobile ? 'workspace-mobile-detail-header' : 'workspace-channel-header',
-    ),
-    name: w.channel!.name,
-    description: w.channel!.description,
-    kind: w.channel!.type,
-    onBack: mobile ? dismissPanel : null,
-    backKey: mobile ? const Key('mobile-detail-back') : null,
-    backLabel: mainSelection.active ? tr('Exit selection') : tr('Back'),
-    onSearch: searchThisChannel,
-    onSettings: channelSettings,
-    searchLabel: tr('Search this channel'),
-    settingsLabel: tr('Channel details and settings'),
-    archivedLabel: w.channel!.archived ? tr('Archived') : null,
-  );
+  Widget channelHeader({bool mobile = false}) {
+    final channel = w.channel!;
+    return NativeChannelWorkingAgents(
+      controller: w,
+      channelId: channel.id,
+      activities: liveActivities,
+      presentation: presentation,
+      builder: (context, working) => RaftChannelHeader(
+        key: Key(
+          mobile
+              ? 'workspace-mobile-detail-header'
+              : 'workspace-channel-header',
+        ),
+        name: channel.name,
+        description: channel.description,
+        kind: channel.type,
+        onBack: mobile ? dismissPanel : null,
+        backKey: mobile ? const Key('mobile-detail-back') : null,
+        backLabel: mainSelection.active ? tr('Exit selection') : tr('Back'),
+        onSearch: searchThisChannel,
+        onSettings: channelSettings,
+        searchLabel: tr('Search this channel'),
+        settingsLabel: tr('Channel details and settings'),
+        archivedLabel: channel.archived ? tr('Archived') : null,
+        workingAgents: working,
+      ),
+    );
+  }
 
   /// ChatPanel's DM header: identity from the DM record (first frame), the
   /// agent's status from the server-scoped agent directory.
@@ -3578,6 +3563,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
       description: c.type == 'dm' && description.isNotEmpty
           ? description
           : null,
+      // What a working agent is doing takes the place of its runtime.
+      activityText: agent && c.string('peerId').isNotEmpty
+          ? liveActivities.rowText(c.string('peerId'))
+          : null,
       label: c.type == 'dm' ? name : c.name,
       glyph: c.type == 'dm'
           ? RaftGlyph.user
@@ -3600,14 +3589,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
           (w.conversationReads.unread[c.id] ?? 0) > 0,
       onTap: () => chooseChannel(c, expectedScope: scope),
     );
-  }
-
-  /// The live-activity strip above the mobile tab bar (Web 116 px clearance).
-  bool get liveActivityVisible {
-    final latest = liveActivities.latest;
-    return presentation.value.liveActivity &&
-        latest != null &&
-        liveActivities.agent(latest.agentId) != null;
   }
 
   Widget sidebar({bool mobileHome = false}) {
@@ -3639,10 +3620,14 @@ class _WorkspaceViewState extends State<WorkspaceView>
                 onServer: showWorkspaceSwitcher,
                 onBilling: () => select('billing'),
                 serverSwitcher: workspaceServerMenu(mobile: true),
+                workingSummary: RaftWideHeaderAction(child: workingSummary()),
               )
             else
+              // The desktop has no top bar here, so the working summary sits
+              // at the end of the Chat heading.
               RaftChatSidebarHeading(
                 label: tr('Chat'),
+                trailing: workingSummary(),
               ),
             Expanded(
               child: GestureDetector(
@@ -3669,7 +3654,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
                       SliverPadding(
                         padding: recipe.contentInset(
                           headerInFlow: true,
-                          liveActivity: mobileHome && liveActivityVisible,
                           bottomBar: !railNavigation,
                           bottomInset: edgeToEdgeHome
                               ? raftSystemBottomInset(context)
@@ -3730,7 +3714,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
                 ),
               ),
             ),
-            if (!mobileHome) liveActivityBar(),
           ],
         ),
       ),

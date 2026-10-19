@@ -191,7 +191,7 @@ class RaftAppearanceSection extends StatelessWidget {
           toggle(
             'appearance-live-activity',
             'Live agent activity',
-            'Show the latest agent status at the bottom of the sidebar and above the mobile tab bar.',
+            'Show who is working at the top of the screen and in channel headers.',
             value.liveActivity,
             (show) => presentation.update(captured, liveActivity: show),
           ),

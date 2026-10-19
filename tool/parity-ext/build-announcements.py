@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Append the account-level announcement modal cases to the run-time manifest ($PARITY_EXT_MANIFEST).
 
-Run after build-cases.py (which regenerates the Computers cases) and
-build-live-activity.py; idempotent: every `components.announcements.*` case
+Run after build-cases.py (which regenerates the Computers cases); idempotent: every `components.announcements.*` case
 is replaced, all other cases are kept.
 
 Derivation (raft-source packages/web/src):

@@ -156,7 +156,6 @@ class RaftSidebarRecipe {
         );
   EdgeInsetsDirectional contentInset({
     bool headerInFlow = false,
-    bool liveActivity = false,
     double bottomInset = 0,
 
     /// False when the phone's navigation is the side rail: nothing floats at
@@ -180,12 +179,8 @@ class RaftSidebarRecipe {
         : headerHeight,
     bottom: product
         ? !desktop && !tokens.brutal
-              ? (bottomBar ? (liveActivity ? 116 : 68) : 12) + bottomInset
+              ? (bottomBar ? 68 : 12) + bottomInset
               : 12
-        : liveActivity && desktop
-        ? tokens.brutal
-              ? 52
-              : 68
         : 12,
   );
 }

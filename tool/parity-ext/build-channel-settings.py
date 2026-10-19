@@ -2,7 +2,7 @@
 """Append the channel / DM settings drawer cases to the run-time manifest ($PARITY_EXT_MANIFEST) and
 write tool/parity-ext/fixtures/channelsettings.json.
 
-Run after build-cases.py, build-live-activity.py, build-channel-header.py and
+Run after build-cases.py, build-channel-header.py and
 build-announcements.py; idempotent: every `components.channelsettings.*` case is
 replaced, all other cases are kept in place (append-only for other families).
 

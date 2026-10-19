@@ -25,6 +25,7 @@ import 'composer_suggestions.dart';
 import 'collapsible.dart';
 import 'sidebar_indicators.dart';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import 'raft_selection_area.dart';
@@ -916,6 +917,7 @@ class RaftNavItem extends StatelessWidget {
     this.onContextMenu,
     this.contextMenuOnLongPress = true,
     this.menuOpen = false,
+    this.activityText,
   }) : assert(icon != null || glyph != null || leading != null),
        assert(conversationKind == null || role == RaftNavItemRole.generic);
   final String label;
@@ -964,6 +966,13 @@ class RaftNavItem extends StatelessWidget {
 
   /// This row's context menu is open (keeps the muted fill).
   final bool menuOpen;
+
+  /// What a working agent is doing. While it has text (and no unread count
+  /// takes its place), the text replaces the description / runtime on the
+  /// right of the row: `text-footnote`, `foreground-muted`, at most 58% of
+  /// the row, and hidden from assistive technology (the name stays the
+  /// row's label and the light already carries the state).
+  final ValueListenable<String?>? activityText;
   bool get _channel => conversationKind == RaftConversationNavKind.channel;
   bool get _mutedIcon => _channel && joined && activityMuted;
   bool get _mention => mention && _channel && joined;
@@ -1003,11 +1012,23 @@ class RaftNavItem extends StatelessWidget {
           style: style,
         );
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => activityText == null
+      ? _build(context, null)
+      : ValueListenableBuilder<String?>(
+          valueListenable: activityText!,
+          builder: (context, value, _) => _build(context, value),
+        );
+
+  Widget _build(BuildContext context, String? activityValue) {
     final t = RaftTokens.of(context);
     if (role != RaftNavItemRole.generic) {
       return _mounted(context, t);
     }
+    final activity = unread == 0 && (activityValue?.isNotEmpty ?? false)
+        ? activityValue
+        : null;
+    // The activity takes the place of the description (an agent's runtime).
+    final description = activity != null ? null : this.description;
     final conversation = conversationKind == null
         ? null
         : RaftConversationNavigationRecipe(
@@ -1069,7 +1090,7 @@ class RaftNavItem extends StatelessWidget {
           text,
           const SizedBox(height: 2),
           Text(
-            description!,
+            description,
             style:
                 RaftTypography.heading(
                   t,
@@ -1139,7 +1160,7 @@ class RaftNavItem extends StatelessWidget {
                   child: Padding(
                     padding: EdgeInsets.only(top: tag == null ? 0 : 2),
                     child: Text(
-                      description!,
+                      description,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style:
@@ -1216,7 +1237,41 @@ class RaftNavItem extends StatelessWidget {
               leading,
             const SizedBox(width: 6),
             Expanded(
-              child: _mutedIcon
+              child: activity != null
+                  ? LayoutBuilder(
+                      builder: (context, box) => Row(
+                        children: [
+                          Expanded(child: titleContent(context)),
+                          const SizedBox(width: 8),
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: box.maxWidth * .58,
+                            ),
+                            child: ExcludeSemantics(
+                              child: Text(
+                                activity,
+                                key: const Key('nav-item-activity'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                                style:
+                                    RaftTypography.heading(
+                                      t,
+                                      size: 12,
+                                      line: 16,
+                                      weight: FontWeight.w500,
+                                    ).copyWith(
+                                      color: t.brutal
+                                          ? Colors.black.withValues(alpha: .6)
+                                          : t.colors['foreground-muted'],
+                                    ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _mutedIcon
                   ? Row(
                       children: [
                         Flexible(child: titleContent(context)),
