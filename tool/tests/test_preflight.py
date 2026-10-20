@@ -3,6 +3,7 @@
 Every subprocess is faked: nothing here runs git against a real remote, Flutter or the audits.
 """
 import importlib.machinery
+import os
 import pathlib
 import importlib.util
 import io
@@ -162,6 +163,8 @@ class FakeWorld:
             (self.root / name).parent.mkdir(parents=True, exist_ok=True)
             (self.root / name).write_text(text)
         self.failing, self.behind, self.commands = set(failing), behind, []
+        self.cases = {}  # repo test path -> cases its (fake) suite reports; default 3
+        self.baseline = {'version': 1, 'files': {}}
         self.changes = pf.Changes('mergebase1', sorted(self.files), set(self.files))
         patches = [
             mock.patch.object(pf, 'root', self.root), mock.patch.object(pf, 'app_dir', self.root / 'apps/raft_flutter'),
@@ -171,6 +174,9 @@ class FakeWorld:
             mock.patch.object(pf, 'dart_executable', lambda: '/sdk/bin/dart'),
             mock.patch.object(pf, 'rank_tests', lambda changes, cap: (['test/a_test.dart'][:cap], 2, 3)),
             mock.patch.object(pf, 'run_tmp', lambda: self.root / 'tmp'),
+            mock.patch.object(pf, 'dart_sources', lambda changes: dict(self.files)),
+            mock.patch.object(pf.affected_tests, 'workspace_packages', lambda root: {}),
+            mock.patch.object(pf.test_budget, 'load_baseline', lambda: self.baseline),
         ]
         for patcher in patches:
             patcher.start()
@@ -191,8 +197,26 @@ class FakeWorld:
             return ''
         return ''
 
+    def write_events(self, command):
+        """What `flutter test --file-reporter json:<path> <files>` would write: a load entry and N cases per file."""
+        target = pathlib.Path(command[command.index('--file-reporter') + 1].split(':', 1)[1])
+        lines = []
+        for number, arg in enumerate(a for a in command if a.endswith('_test.dart')):
+            path = Path(os.path.normpath(self.root / 'apps/raft_flutter' / arg))
+            repo = path.relative_to(self.root).as_posix()
+            lines += [{'type': 'suite', 'suite': {'id': number, 'path': str(path)}},
+                      {'type': 'testStart', 'test': {'id': number * 1000, 'name': f'loading {path}', 'suiteID': number}, 'time': 0},
+                      {'type': 'testDone', 'testID': number * 1000, 'result': 'success', 'time': 5}]
+            for i in range(1, self.cases.get(repo, 3) + 1):
+                lines += [{'type': 'testStart', 'test': {'id': number * 1000 + i, 'name': f'case {i}', 'suiteID': number}, 'time': 10},
+                          {'type': 'testDone', 'testID': number * 1000 + i, 'result': 'success', 'time': 20}]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(''.join(json.dumps(line) + '\n' for line in lines))
+
     def execute(self, command, cwd, env):
         self.commands.append(command)
+        if '--file-reporter' in command:
+            self.write_events(command)
         text = ' '.join(command)
         for name in self.failing:
             if any(part == name or part.endswith('/' + name) for part in command) or (' ' in name and name in text):
@@ -216,11 +240,11 @@ class RunTests(unittest.TestCase):
         self.assertEqual(result['tree'], 'treehash0123456789abcdef')
         self.assertEqual(result['head'], 'headsha')
         self.assertEqual([c['name'] for c in result['checks']],
-                         ['structure-audit', 'ds-audit', 'docs-index', 'guard-tests', 'analyze', 'raft-lints', 'format', 'affected-tests', 'portability'])
+                         ['structure-audit', 'ds-audit', 'docs-index', 'guard-tests', 'analyze', 'raft-lints', 'format', 'affected-tests', 'test-budget', 'portability'])
         self.assertEqual(result['affectedTests'], {'maxTests': 40, 'selected': 1, 'total': 3, 'skipped': 2})
         self.assertEqual(result['changedDart'], 2)
         last = out.strip().splitlines()[-1]
-        self.assertTrue(last.startswith('preflight: PASSED 9/9 checks'), last)
+        self.assertTrue(last.startswith('preflight: PASSED 10/10 checks'), last)
         self.assertIn('tree treehash0123', last)
         for check in ('structure-audit', 'ds-audit', 'portability'):
             self.assertIn(check, out)
@@ -231,7 +255,7 @@ class RunTests(unittest.TestCase):
         self.assertEqual(code, 1)
         result = json.loads((world.root / 'result.json').read_text())
         statuses = {c['name']: c['status'] for c in result['checks']}
-        self.assertEqual(len(statuses), 9)
+        self.assertEqual(len(statuses), 10)
         self.assertEqual(statuses['structure-audit'], 'fail')
         self.assertEqual(statuses['ds-audit'], 'pass')
         self.assertEqual(statuses['format'], 'fail')
@@ -254,7 +278,7 @@ class RunTests(unittest.TestCase):
         result = json.loads((world.root / 'result.json').read_text())
         statuses = {c['name']: c['status'] for c in result['checks']}
         self.assertEqual({n for n, s in statuses.items() if s == 'pass'}, {'structure-audit', 'ds-audit', 'docs-index', 'guard-tests'})
-        self.assertEqual({n for n, s in statuses.items() if s == 'skip'}, {'analyze', 'raft-lints', 'format', 'affected-tests', 'portability'})
+        self.assertEqual({n for n, s in statuses.items() if s == 'skip'}, {'analyze', 'raft-lints', 'format', 'affected-tests', 'test-budget', 'portability'})
         self.assertIn('PASSED 4/4 checks', out)
 
     def test_analyze_format_and_lints_get_only_the_changed_files(self):
@@ -349,6 +373,117 @@ class SummaryTests(unittest.TestCase):
         self.assertIn('SKIP', table[3])
         line = pf.summary_line(results, 61.4, 'abcdef0123456789', 'origin/cindy/integration@1234abcd', 0)
         self.assertEqual(line, 'preflight: FAILED (b) 1/2 checks, 61s, tree abcdef012345, base origin/cindy/integration@1234abcd')
+
+
+class TestBudgetStepTests(unittest.TestCase):
+    """The test-budget step: cases counted from the JSON event streams, judged by tool/test_budget.py."""
+
+    def run_world(self, world, argv=(), selected=('test/db_test.dart',)):
+        out = io.StringIO()
+        with mock.patch.object(pf, 'rank_tests', lambda changes, cap: (list(selected), 0, len(selected))), contextlib.redirect_stdout(out):
+            code = pf.main(['--out', str(world.root / 'result.json'), *argv])
+        checks = {c['name']: c for c in json.loads((world.root / 'result.json').read_text())['checks']}
+        return code, out.getvalue(), checks
+
+    def flutter_tests(self, world):
+        return [c for c in world.commands if 'test' in c and '--no-pub' in c and '--reporter' in c]
+
+    def test_cases_come_from_the_affected_run_without_another_flutter_test(self):
+        world = FakeWorld(self)
+        world.cases = {TEST: 7}
+        code, out, checks = self.run_world(world)
+        self.assertEqual(code, 0)
+        self.assertEqual((checks['test-budget']['status'], checks['test-budget']['detail']), ('pass', '1 test files counted'))
+        self.assertEqual(len(self.flutter_tests(world)), 2)  # the guards and the affected tests; nothing extra
+        self.assertIn('--file-reporter', self.flutter_tests(world)[1])
+
+    def test_a_listed_file_that_grew_fails_with_the_full_check_message(self):
+        world = FakeWorld(self)
+        world.baseline = {'version': 1, 'files': {TEST: {'cases': 3, 'seconds': 1.0}}}
+        world.cases = {TEST: 11}
+        code, out, checks = self.run_world(world)
+        self.assertEqual(code, 1)
+        self.assertEqual(checks['test-budget']['status'], 'fail')
+        self.assertEqual([c for c, v in checks.items() if v['status'] == 'fail'], ['test-budget'])
+        self.assertIn(f'test-budget: FAIL {TEST}: grew from 3 to 11 cases; a file listed in tool/test-budget-baseline.json may only shrink.', out)
+        self.assertIn('preflight: FAILED (test-budget)', out)
+        self.assertIn('grew from 3 to 11', (world.root / checks['test-budget']['log']).read_text())
+
+    def test_a_listed_file_that_did_not_grow_passes(self):
+        world = FakeWorld(self)
+        world.baseline = {'version': 1, 'files': {TEST: {'cases': 11, 'seconds': 1.0}}}
+        world.cases = {TEST: 11}
+        self.assertEqual(self.run_world(world)[0], 0)
+
+    def test_an_unlisted_file_over_the_limit_fails_unless_it_is_marked_per_surface(self):
+        world = FakeWorld(self)
+        world.cases = {TEST: 61}
+        code, out, checks = self.run_world(world)
+        self.assertEqual((code, checks['test-budget']['status']), (1, 'fail'))
+        self.assertIn(f'{TEST}: 61 cases (limit 60)', out)
+        marked = FakeWorld(self, files={TEST: '// budget: per-surface\nvoid main() {}\n'})
+        marked.cases = {TEST: 61}
+        code, out, checks = self.run_world(marked)
+        self.assertEqual((code, checks['test-budget']['status']), (0, 'skip'))
+        self.assertEqual(len(self.flutter_tests(marked)), 2)  # an exempt file is not run for the budget
+
+    def test_a_file_the_affected_run_did_not_cover_runs_once_more(self):
+        world = FakeWorld(self)
+        world.baseline = {'version': 1, 'files': {TEST: {'cases': 3, 'seconds': 1.0}}}
+        world.cases = {TEST: 5}
+        code, out, checks = self.run_world(world, selected=('test/other_test.dart',))  # --max-tests cut it
+        self.assertEqual((code, checks['test-budget']['status']), (1, 'fail'))
+        self.assertEqual(checks['test-budget']['detail'], '1 over budget')
+        extra = self.flutter_tests(world)[-1]
+        self.assertEqual([a for a in extra if a.endswith('.dart')], ['test/db_test.dart'])
+        self.assertIn('grew from 3 to 5', out)
+
+    def test_the_parts_of_a_changed_registering_file_are_counted_too(self):
+        part = 'apps/raft_flutter/test/db_part2_test.dart'
+        world = FakeWorld(self, files={TEST: 'void registerDb(TestPart p) {}\n',
+                                       part: "import 'db_test.dart' show registerDb;\nvoid main() => registerDb(TestPart(1, 2));\n"})
+        world.changes = pf.Changes('mergebase1', [TEST], {TEST})  # only the registering file changed
+        world.baseline = {'version': 1, 'files': {part: {'cases': 3, 'seconds': 1.0}}}
+        world.cases = {TEST: 2, part: 9}
+        code, out, checks = self.run_world(world)
+        self.assertEqual(code, 1)
+        extra = self.flutter_tests(world)[-1]
+        self.assertEqual([a for a in extra if a.endswith('.dart')], ['test/db_part2_test.dart'])
+        self.assertIn(f'{part}: grew from 3 to 9', out)
+
+    def test_no_changed_test_file_skips_the_step(self):
+        world = FakeWorld(self, files={'apps/raft_flutter/lib/a.dart': 'void a() {}\n'})
+        code, out, checks = self.run_world(world)
+        self.assertEqual((code, checks['test-budget']['status']), (0, 'skip'))
+        self.assertEqual(checks['test-budget']['detail'], 'no changed test file')
+
+    def test_an_extra_run_that_fails_fails_the_step(self):
+        world = FakeWorld(self, failing=('db_test.dart',))
+        code, out, checks = self.run_world(world, selected=('test/other_test.dart',))
+        self.assertEqual(checks['test-budget']['status'], 'fail')
+        self.assertIn('not covered by the affected tests failed to run', checks['test-budget']['detail'])
+
+    def test_stale_event_streams_are_not_counted(self):
+        world = FakeWorld(self)
+        world.baseline = {'version': 1, 'files': {TEST: {'cases': 3, 'seconds': 1.0}}}
+        stale = world.root / '.local/preflight/guard-tests.events.json'  # left by an earlier run
+        world.cases = {TEST: 99}
+        world.write_events(['flutter', 'test', '--file-reporter', f'json:{stale}', 'test/db_test.dart'])
+        world.cases = {TEST: 3}
+        code, out, checks = self.run_world(world, selected=('test/other_test.dart',))
+        self.assertEqual((code, checks['test-budget']['status']), (0, 'pass'))
+        self.assertEqual(len(self.flutter_tests(world)), 3)  # the extra run counted it afresh
+
+    def test_the_run_uses_the_gate_tier_whatever_the_shell_says(self):
+        with mock.patch.dict(pf.os.environ, {'RAFT_TEST_TIER': 'full', 'RAFT_TEST_ALL_THEMES': '1'}):
+            env = pf.run_env('/tmp/x')
+        self.assertEqual(env['RAFT_TEST_TIER'], 'gate')
+        self.assertNotIn('RAFT_TEST_ALL_THEMES', env)
+
+    def test_suite_paths_are_repo_relative_whether_absolute_or_app_relative(self):
+        self.assertEqual(pf.repo_relative(str(pf.root / 'apps/raft_flutter/test/a_test.dart')), 'apps/raft_flutter/test/a_test.dart')
+        self.assertEqual(pf.repo_relative('test/a_test.dart'), 'apps/raft_flutter/test/a_test.dart')
+        self.assertEqual(pf.repo_relative('../../packages/raft_ui/test/b_test.dart'), 'packages/raft_ui/test/b_test.dart')
 
 
 if __name__ == '__main__':

@@ -31,8 +31,13 @@ integration owner runs --update-baseline after merges, like tool/ds-audit.
 import argparse
 import json
 import pathlib
+import posixpath
 import re
 import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import affected_tests  # noqa: E402
+import test_events  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BASELINE = ROOT / 'tool/test-budget-baseline.json'
@@ -112,6 +117,13 @@ def check(measured, baseline, exempt=is_exempt, exists=lambda name: True):
     return {'violations': violations, 'warnings': warnings, 'notes': notes}
 
 
+def check_measured(measured, baseline, exempt=is_exempt, exists=lambda name: True):
+    """`check()` for a partial run (preflight): only the baseline entries of the measured files take part,
+    so the notes about listed files nobody touched stay out."""
+    listed = {name: entry for name, entry in baseline.get('files', {}).items() if name in measured}
+    return check(measured, {**baseline, 'files': listed}, exempt, exists)
+
+
 def lowered(baseline, measured, exempt=is_exempt, exists=lambda name: True):
     """The baseline after `--update-baseline`: entries only get smaller or disappear, none is added."""
     files = {}
@@ -150,17 +162,50 @@ def new_baseline(cases):
             'files': {name: dict(entry) for name, entry in sorted(cases.items()) if over_limit(entry) and not is_exempt(ROOT / name)}}
 
 
+def measure_events(lines, to_repo_path=lambda p: p):
+    """`measure()` of a JSON-reporter stream: the cases each file declares, counted as the full check counts them
+    (tool/check-project folds the shard streams with the same test_events functions)."""
+    return measure(test_events.file_durations(test_events.parse_test_events(lines, to_repo_path)))
+
+
+def budget_files(changed, sources, package_roots, test_dirs):
+    """Test files (repo-relative `*_test.dart` under `test_dirs`) whose case count a change can move.
+
+    A changed `*_test.dart` file counts itself. A suite spread over files with `support/test_parts.dart`
+    declares its cases in one registering file and runs them from part files that only import it
+    (`image_viewer_part2_test.dart` imports `registerImageViewerTests`): when a changed file is imported
+    by a part file, every such part is counted too, since a case added to the registering file moves the
+    claims between all the parts. `sources` maps repo path -> Dart text.
+    """
+    def in_suite(name):
+        return name.endswith('_test.dart') and any(name.startswith(d + '/') for d in test_dirs)
+
+    changed = set(changed)
+    found = {name for name in changed if in_suite(name)}
+    for name, text in sources.items():
+        if name in found or not in_suite(name) or 'TestPart' not in text:
+            continue
+        for uri in affected_tests.directive_targets(text):
+            if affected_tests.resolve(uri, name, package_roots) in changed:
+                found.add(name)
+                break
+    return sorted(found)
+
+
+def report_lines(result, measured_count):
+    """The lines both checks print: notes, warnings, `FAIL` lines, then the totals."""
+    lines = [f'test-budget: note: {line}' for line in result['notes']]
+    lines += [f'test-budget: warning: {line}' for line in result['warnings']]
+    lines += [f'test-budget: FAIL {line}' for line in result['violations']]
+    lines.append(f"test-budget: {measured_count} files measured, {len(result['violations'])} over budget, {len(result['warnings'])} slow warnings.")
+    return lines
+
+
 def run_check(durations_path, baseline_path=BASELINE):
-    durations = read_json(durations_path).get('files', {})
-    measured = measure(durations)
+    measured = measure(read_json(durations_path).get('files', {}))
     result = check(measured, load_baseline(baseline_path), lambda name: is_exempt(ROOT / name), lambda name: (ROOT / name).is_file())
-    for line in result['notes']:
-        print(f'test-budget: note: {line}')
-    for line in result['warnings']:
-        print(f'test-budget: warning: {line}')
-    for line in result['violations']:
-        print(f'test-budget: FAIL {line}')
-    print(f"test-budget: {len(measured)} files measured, {len(result['violations'])} over budget, {len(result['warnings'])} slow warnings.")
+    for line in report_lines(result, len(measured)):
+        print(line)
     return result
 
 

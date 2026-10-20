@@ -100,5 +100,100 @@ class BootstrapTests(unittest.TestCase):
                 budget.main(['--bootstrap', str(cases), '--baseline', str(target)])
 
 
+def events(*items):
+    return [json.dumps(item) for item in items]
+
+
+def suite_events(path, cases, hidden=0, loading=True):
+    """The JSON-reporter stream of one suite: a load entry, `cases` tests and `hidden` bookkeeping entries."""
+    out = [{'type': 'suite', 'suite': {'id': 1, 'path': path}}]
+    if loading:
+        out += [{'type': 'testStart', 'test': {'id': 100, 'name': f'loading {path}', 'suiteID': 1}, 'time': 0},
+                {'type': 'testDone', 'testID': 100, 'result': 'success', 'time': 500}]
+    for i in range(cases + hidden):
+        out += [{'type': 'testStart', 'test': {'id': i, 'name': f'case {i}', 'suiteID': 1}, 'time': 1000 + i},
+                {'type': 'testDone', 'testID': i, 'result': 'success', 'hidden': i >= cases, 'time': 1500 + i}]
+    return out
+
+
+class MeasureEventsTests(unittest.TestCase):
+    def test_counts_the_cases_a_file_declares_like_the_full_check(self):
+        lines = events(*suite_events('/repo/a_test.dart', 7, hidden=2))
+        self.assertEqual(budget.measure_events(lines, lambda p: p.replace('/repo/', ''))['a_test.dart']['cases'], 7)  # load and (setUpAll) entries are not cases
+
+    def test_a_skipped_case_still_counts_and_a_file_without_cases_is_left_out(self):
+        items = suite_events('/repo/a_test.dart', 2)
+        items[-1] = dict(items[-1], skipped=True)
+        self.assertEqual(budget.measure_events(events(*items))['/repo/a_test.dart']['cases'], 2)
+        self.assertEqual(budget.measure_events(events(*suite_events('/repo/empty_test.dart', 0))), {})
+
+    def test_it_agrees_with_what_check_project_stores_for_the_same_stream(self):
+        import test_events
+        lines = events(*suite_events('/repo/a_test.dart', 5), *suite_events('/repo/b_test.dart', 3)[:0])
+        durations = test_events.file_durations(test_events.parse_test_events(lines))
+        self.assertEqual(budget.measure(durations), budget.measure_events(lines))
+
+    def test_a_truncated_stream_is_tolerated(self):
+        lines = events(*suite_events('/repo/a_test.dart', 3)) + ['{"type": "tes']
+        self.assertEqual(budget.measure_events(lines)['/repo/a_test.dart']['cases'], 3)
+
+
+class BudgetFilesTests(unittest.TestCase):
+    DIRS = ['apps/raft_flutter/test', 'packages/raft_ui/test']
+    T = 'apps/raft_flutter/test/'
+
+    def part(self, target):
+        return f"import '{target}' show registerThings;\nimport 'support/test_parts.dart';\nvoid main() => registerThings(TestPart(1, 3));\n"
+
+    def files(self, changed, sources, dirs=None):
+        return budget.budget_files(changed, sources, {'raft_ui': 'packages/raft_ui'}, dirs or self.DIRS)
+
+    def test_a_changed_test_file_counts_and_other_changed_files_do_not(self):
+        found = self.files([self.T + 'a_test.dart', self.T + 'support/helper.dart', 'apps/raft_flutter/lib/x.dart', 'tool/x_test.dart'], {})
+        self.assertEqual(found, [self.T + 'a_test.dart'])
+
+    def test_every_part_of_a_changed_registering_file_counts(self):
+        sources = {self.T + 'viewer_test.dart': 'void registerThings(TestPart p) {}\nvoid main() => registerThings(TestPart(0, 3));\n',
+                   self.T + 'viewer_part2_test.dart': self.part('viewer_test.dart'),
+                   self.T + 'viewer_part3_test.dart': self.part('viewer_test.dart'),
+                   self.T + 'other_part2_test.dart': self.part('other_test.dart')}
+        self.assertEqual(self.files([self.T + 'viewer_test.dart'], sources),
+                         [self.T + 'viewer_part2_test.dart', self.T + 'viewer_part3_test.dart', self.T + 'viewer_test.dart'])
+
+    def test_a_changed_shared_registration_helper_pulls_in_its_parts_too(self):
+        sources = {self.T + 'support/cases.dart': 'void registerThings(TestPart p) {}\n', self.T + 'a_part2_test.dart': self.part('support/cases.dart')}
+        self.assertEqual(self.files([self.T + 'support/cases.dart'], sources), [self.T + 'a_part2_test.dart'])
+
+    def test_a_test_that_merely_imports_a_changed_file_is_not_a_part(self):
+        sources = {self.T + 'b_test.dart': "import 'support/helper.dart';\nvoid main() {}\n"}
+        self.assertEqual(self.files([self.T + 'support/helper.dart'], sources), [])
+
+    def test_package_imports_and_test_dirs_are_followed(self):
+        sources = {'packages/raft_ui/test/x_part2_test.dart': "import 'package:raft_ui/test_cases.dart';\nvoid main() => run(TestPart(1, 2));\n",
+                   'tool/y_part2_test.dart': "import 'package:raft_ui/test_cases.dart';\nvoid main() => run(TestPart(1, 2));\n"}
+        self.assertEqual(self.files(['packages/raft_ui/lib/test_cases.dart'], sources), ['packages/raft_ui/test/x_part2_test.dart'])
+
+
+class CheckMeasuredTests(unittest.TestCase):
+    BASE = {'version': 1, 'files': {'a_test.dart': {'cases': 100, 'seconds': 5.0}, 'untouched_test.dart': {'cases': 80, 'seconds': 5.0}}}
+
+    def test_a_listed_file_that_grew_fails_and_unmeasured_entries_stay_quiet(self):
+        result = budget.check_measured({'a_test.dart': {'cases': 108, 'seconds': 1.0}}, self.BASE, lambda name: False)
+        self.assertEqual(len(result['violations']), 1)
+        self.assertIn('a_test.dart: grew from 100 to 108 cases', result['violations'][0])
+        self.assertEqual(result['notes'], [])  # untouched_test.dart is neither measured nor reported as gone
+
+    def test_an_unlisted_file_over_the_limit_fails_unless_marked_per_surface(self):
+        over = {'new_test.dart': {'cases': 61, 'seconds': 1.0}}
+        self.assertEqual(len(budget.check_measured(over, self.BASE)['violations']), 1)
+        self.assertEqual(budget.check_measured(over, self.BASE, lambda name: True)['violations'], [])
+
+    def test_the_report_has_the_full_check_wording(self):
+        result = budget.check_measured({'a_test.dart': {'cases': 108, 'seconds': 1.0}}, self.BASE)
+        self.assertEqual(budget.report_lines(result, 1), [
+            'test-budget: FAIL a_test.dart: grew from 100 to 108 cases; a file listed in tool/test-budget-baseline.json may only shrink.',
+            'test-budget: 1 files measured, 1 over budget, 0 slow warnings.'])
+
+
 if __name__ == '__main__':
     unittest.main()

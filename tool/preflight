@@ -13,6 +13,10 @@ on a typical branch, and reports every result (it never stops at the first failu
   format                dart format --set-exit-if-changed on the changed Dart files
   affected-tests        flutter test --no-pub on the test files that can execute a changed Dart file
                         (tool/affected_tests.py); at most --max-tests, the closest first
+  test-budget           the cases declared by the changed test files (and the part files of a suite spread
+                        with support/test_parts.dart) against tool/test_budget.py: a file over 60 cases that is
+                        not exempt or listed, or a listed file that grew; counted from the affected-tests run
+                        (an extra `flutter test` only for files it did not run)
   portability           changed or added test lines with hard-coded tool paths (/usr/bin/x,
                         /usr/local/bin/x, /opt/homebrew/...) or Process.run/start of a system CLI
 
@@ -43,6 +47,7 @@ import time
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import affected_tests  # noqa: E402
+import test_budget  # noqa: E402
 
 root = pathlib.Path(__file__).resolve().parent.parent
 app_dir = root / 'apps/raft_flutter'
@@ -121,8 +126,11 @@ def git_names(*args):
 
 
 def run_env(tmp):
-    """The check-project environment: UTF-8, and temp files on disk (not a RAM-backed /tmp)."""
-    return dict(os.environ, PYTHONUTF8='1', RAFT_PREFLIGHT='1', TMPDIR=str(tmp), TEMP=str(tmp), TMP=str(tmp))
+    """The check-project environment: UTF-8, temp files on disk (not a RAM-backed /tmp), and the gate test tier
+    (the theme matrix the full check runs, which is what the test budget counts)."""
+    env = dict(os.environ, PYTHONUTF8='1', RAFT_PREFLIGHT='1', RAFT_TEST_TIER='gate', TMPDIR=str(tmp), TEMP=str(tmp), TMP=str(tmp))
+    env.pop('RAFT_TEST_ALL_THEMES', None)
+    return env
 
 
 def run_tmp():
@@ -324,12 +332,18 @@ def ensure_resolved(runner, need_lints):
     return results
 
 
-def rank_tests(changes, max_tests):
-    """(selected, skipped count, total) test files for `flutter test`, as app-dir relative paths."""
+def dart_sources(changes):
+    """`{path: text}` of every tracked Dart file plus the changed ones (untracked files are not in `git ls-files`)."""
     sources = affected_tests.tracked_dart_sources(root)
-    for name in changes.dart:  # untracked files are not in `git ls-files`
+    for name in changes.dart:
         if name not in sources:
             sources[name] = (root / name).read_text(encoding='utf-8', errors='replace')
+    return sources
+
+
+def rank_tests(changes, max_tests):
+    """(selected, skipped count, total) test files for `flutter test`, as app-dir relative paths."""
+    sources = dart_sources(changes)
     ranked = affected_tests.ranked_affected_tests(set(changes.dart), sources, affected_tests.workspace_packages(root))
     guarded = set(GUARD_TESTS)
     runnable = [path for _, path in ranked if path not in guarded and any(path.startswith(d + '/') for d in TEST_DIRS)]
@@ -337,13 +351,71 @@ def rank_tests(changes, max_tests):
     return [os.path.relpath(path, app_dir).replace('\\', '/') for path in chosen], len(runnable) - len(chosen), len(runnable)
 
 
-def flutter_test_command(files):
+def flutter_test_command(files, events=None):
+    """`flutter test` printing the expanded log; `events` also writes the JSON event stream there (the test budget counts from it)."""
     jobs = max(2, min(8, (os.cpu_count() or 2) // 2))
-    return [*tool_command('flutter'), 'test', '--no-pub', '-j', str(jobs), '--reporter', 'expanded', *files]
+    return [*tool_command('flutter'), 'test', '--no-pub', '-j', str(jobs), '--reporter', 'expanded',
+            *(['--file-reporter', f'json:{events}'] if events else []), *files]
 
 
 def app_relative(path):
     return os.path.relpath(root / path, app_dir).replace('\\', '/')
+
+
+def repo_relative(path):
+    """Repo path of a suite path from the JSON reporter (absolute, or relative to the app directory)."""
+    return pathlib.Path(os.path.relpath(path if os.path.isabs(path) else app_dir / path, root)).as_posix()
+
+
+# ---------------------------------------------------------------- test budget
+
+def read_events(path):
+    try:
+        return pathlib.Path(path).read_text(encoding='utf-8', errors='replace').splitlines()
+    except OSError:
+        return []
+
+
+def budget_step(runner, changes, event_files):
+    """Judge the changed test files against tool/test_budget.py, as the full check does at the end.
+
+    The cases come from the JSON event files of the guard and affected-test runs; the budget files
+    those runs did not cover (over --max-tests, outside the affected selection) run once more.
+    """
+    started = clock()
+    name = 'test-budget'
+    if not any(f.startswith(d + '/') for f in changes.dart for d in TEST_DIRS):
+        return runner.skip(name, 'no changed test file')
+    candidates = test_budget.budget_files(changes.dart, dart_sources(changes), affected_tests.workspace_packages(root), TEST_DIRS)
+    # Exempt files (slow tag or marker) are not budgeted: do not run them for it.
+    candidates = [f for f in candidates if not test_budget.is_exempt(root / f)]
+    if not candidates:
+        return runner.skip(name, 'no changed test file is budgeted')
+    if not runner.resolved:
+        return Result(name, 'fail', 0.0, 'workspace is not resolved (pub get failed above)')
+    measured = {}
+    for events in event_files:
+        measured.update(test_budget.measure_events(read_events(events), repo_relative))
+    missing = [f for f in candidates if f not in measured]
+    output, extra = '', ''
+    if missing:
+        events = runner.out_dir / 'test-budget.events.json'
+        events.parent.mkdir(parents=True, exist_ok=True)
+        command = flutter_test_command([app_relative(f) for f in missing], events)
+        code, extra = execute(command, app_dir, runner.env)
+        output += f"$ {' '.join(command)}\n{extra}\n"
+        measured.update(test_budget.measure_events(read_events(events), repo_relative))
+        if code != 0:
+            return runner.outcome(name, False, started, output, None, '', f'{len(missing)} test file(s) not covered by the affected tests failed to run')
+    counted = {f: measured[f] for f in candidates if f in measured}
+    result = test_budget.check_measured(counted, test_budget.load_baseline(), lambda f: test_budget.is_exempt(root / f), lambda f: (root / f).is_file())
+    lines = test_budget.report_lines(result, len(counted))
+    output += '\n'.join(lines) + '\n'
+    ran = f"; {len(missing)} ran separately" if missing else ''
+    outcome = runner.outcome(name, not result['violations'], started, output, None, f'{len(counted)} test files counted{ran}',
+                             f"{len(result['violations'])} over budget")
+    outcome.tail = [line for line in lines if ': FAIL ' in line or ': warning: ' in line]
+    return outcome
 
 
 def run_steps(runner, changes, max_tests):
@@ -401,20 +473,24 @@ def run_steps(runner, changes, max_tests):
         return result
 
     def tests():
-        """One lane, not two: guard tests, then the affected tests (two `flutter test` at once only fight over the build)."""
-        guards = runner.command('guard-tests', flutter_test_command([app_relative(t) for t in GUARD_TESTS]), app_dir,
+        """One lane, not two: guard tests, the affected tests, then the test budget from their event streams (two `flutter test` at once only fight over the build)."""
+        events = [runner.out_dir / 'guard-tests.events.json', runner.out_dir / 'affected-tests.events.json']
+        for stale in events:  # a leftover stream of an earlier run must not be counted
+            stale.unlink(missing_ok=True)
+        guards = runner.command('guard-tests', flutter_test_command([app_relative(t) for t in GUARD_TESTS], events[0]), app_dir,
                                 ok_detail=f'{len(GUARD_TESTS)} guard files', fail_detail='a guard test failed; see the log')
         if not dart:
-            return [guards, runner.skip('affected-tests', 'no changed Dart files')]
+            return [guards, runner.skip('affected-tests', 'no changed Dart files'), runner.skip('test-budget', 'no changed test file')]
         if not runner.resolved:
-            return [guards, Result('affected-tests', 'fail', 0.0, 'workspace is not resolved (pub get failed above)')]
+            return [guards, Result('affected-tests', 'fail', 0.0, 'workspace is not resolved (pub get failed above)'),
+                    runner.skip('test-budget', 'workspace is not resolved')]
         files, skipped, total = rank_tests(changes, max_tests)
         if not files:
-            return [guards, runner.skip('affected-tests', 'no test file reaches a changed Dart file')]
+            return [guards, runner.skip('affected-tests', 'no test file reaches a changed Dart file'), budget_step(runner, changes, events)]
         note = f'{len(files)} of {total} test files' + (f'; {skipped} farthest skipped (--max-tests {max_tests})' if skipped else '')
-        affected = runner.command('affected-tests', flutter_test_command(files), app_dir, ok_detail=note, fail_detail='test failures; ' + note)
+        affected = runner.command('affected-tests', flutter_test_command(files, events[1]), app_dir, ok_detail=note, fail_detail='test failures; ' + note)
         affected.selected, affected.total, affected.skipped = len(files), total, skipped
-        return [guards, affected]
+        return [guards, affected, budget_step(runner, changes, events)]
 
     def portability():
         found, result = portability_step(runner, changes)
@@ -428,7 +504,7 @@ def run_steps(runner, changes, max_tests):
             dart_exe = dart_executable()
         except PreflightError as error:
             dart_error = str(error)
-    order = ['structure-audit', 'ds-audit', 'docs-index', 'guard-tests', 'analyze', 'raft-lints', 'format', 'affected-tests', 'portability']
+    order = ['structure-audit', 'ds-audit', 'docs-index', 'guard-tests', 'analyze', 'raft-lints', 'format', 'affected-tests', 'test-budget', 'portability']
     steps = [structure, design_system, docs_index, tests, analyze, lints, formatting, portability]
     table = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(steps)) as pool:
