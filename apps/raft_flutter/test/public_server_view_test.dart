@@ -542,4 +542,24 @@ void _loadOlderTests() {
       reason: 'sparseAnchor=bottom',
     );
   });
+
+  // Web renders public messages through MarkdownLink: obsidian:// asks first.
+  testWidgets('an obsidian link in a public message asks before opening', (
+    t,
+  ) async {
+    final routes = _routes();
+    routes['GET $_base/channels/c1/messages'] = (_, _) => {
+      'messages': [
+        _message('m1', 'Wenyi', '[vault](obsidian://open?vault=work)'),
+      ],
+    };
+    await _mount(t, _PublicClient(routes));
+    await t.tap(find.text('vault', findRichText: true));
+    await t.pumpAndSettle();
+    expect(find.text('Open external link?'), findsOneWidget);
+    expect(find.text('obsidian://open?vault=work'), findsOneWidget);
+    await t.tap(find.text('Cancel'));
+    await t.pumpAndSettle();
+    expect(find.text('Open external link?'), findsNothing);
+  });
 }
