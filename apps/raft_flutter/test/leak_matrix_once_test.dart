@@ -7,11 +7,16 @@ import 'package:raft_ui/test_themes.dart' show raftFullMatrix;
 import 'package:test_api/src/backend/invoker.dart' show Invoker;
 
 void main() {
-  final big = <bool>[];
+  final big =
+      <int, bool>{}; // by declared index; the order is random on the nightly
   final small = <bool>[];
+  // Test traces only exist under a JSON reporter (the gate and the nightly);
+  // the per-declaration matrix detection depends on them.
+  var traced = false;
   for (var i = 0; i < 10; i++) {
     testWidgets('a ten case matrix, case $i', (t) async {
-      big.add(LeakTesting.settings.ignore);
+      traced = Invoker.current!.liveTest.test.trace != null;
+      big[i] = LeakTesting.settings.ignore;
     });
   }
   for (var i = 0; i < 8; i++) {
@@ -20,19 +25,16 @@ void main() {
     });
   }
 
-  testWidgets('a matrix of more than 8 cases is tracked once on the gate', (
-    t,
-  ) async {
-    if (Invoker.current!.liveTest.test.trace == null) {
-      markTestSkipped('no test traces without a JSON reporter');
-      return;
-    }
+  // Checked after every case has run: the nightly randomizes the order, so a
+  // check declared as a test of its own could run before the matrix filled.
+  tearDownAll(() {
+    if (!traced) return;
     expect(big, hasLength(10));
     expect(
-      big.where((ignored) => !ignored),
+      big.values.where((ignored) => !ignored),
       hasLength(raftFullMatrix ? 10 : 1),
+      reason: 'a matrix of more than 8 cases is tracked once on the gate',
     );
-    expect(big.first, isFalse, reason: 'the first case stays tracked');
     expect(
       small.where((ignored) => ignored),
       isEmpty,
