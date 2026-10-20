@@ -18,6 +18,7 @@ import '../data/runtime_error.dart'
 import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import 'agent_runtime_catalog.dart';
+import 'agent_runtime_labels.dart';
 import 'agent_runtime_draft.dart';
 import 'management_support.dart'
     show pageIdentity, readPageSnapshot, writePageSnapshot;
@@ -556,9 +557,8 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
 
   /// `formatRuntimeLabelWithStatus` + `formatRuntimeAvailabilitySuffix`.
   String runtimeLabel(BuildContext context, String id) {
-    final info = runtimeInfos.where((r) => r.id == id).firstOrNull;
     var label = runtimeDisplayName(id);
-    if (info?.deprecated == true) {
+    if (isRuntimeDeprecated(id)) {
       label += raftText(context, ' (deprecated)');
     }
     label += switch (runtimeAvailabilityKind(id, machineRuntimes)) {
