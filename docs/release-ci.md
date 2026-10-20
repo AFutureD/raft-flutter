@@ -245,11 +245,17 @@ prevents bundling incompatible device libraries. Every ELF is checked for missin
 libraries and a maximum glibc requirement of 2.39 before packaging.
 
 The latest reviewed official appimagetool and type2-runtime snapshots are recorded
-in `packaging/appimage/tools.json` with source commits and verified SHA-256.
+in `packaging/appimage/tools.json` with source commits and verified SHA-256. CI
+downloads them from this repository's `appimage-tools-<date>` pre-release, not from
+upstream's `continuous` releases, whose files are replaced on every rebuild; the
+`upstream` field records where each copy came from. To adopt a newer snapshot,
+review the upstream change, upload the files as a new `appimage-tools-<date>`
+pre-release (never marked latest, so in-app updates are unaffected) and update the
+lock.
 The runtime statically includes FUSE 3, so users do not need `libfuse2`. The normal
 launch uses the kernel FUSE device when available; extract-and-run uses no FUSE
 at all. Changed upstream downloads fail the hash check instead of silently
-changing the executable. Update the reviewed lock to adopt a newer snapshot.
+changing the executable.
 
 A version-tag release includes `raft-flutter-VERSION-appimage-x64.AppImage` and its
 `raft-flutter-VERSION-appimage-x64.AppImage.zsync` in the independently verified
