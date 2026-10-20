@@ -1124,7 +1124,12 @@ class _ChannelSettingsState extends State<ChannelSettings> {
         id: '${agent ? m['id'] : (m['userId'] ?? m['id'])}',
         name: '${m['name'] ?? ''}',
         displayName: m['displayName'] as String?,
-        avatarUrl: m['avatarUrl'] as String?,
+        avatarUrl: agent
+            ? agentAvatarWithDirectory(
+                w.services.entityDirectory.agent('${m['id']}'),
+                m['avatarUrl'] as String?,
+              )
+            : m['avatarUrl'] as String?,
       );
       return RaftStripMember(
         label: candidate.label,

@@ -4,6 +4,8 @@
 // roster and the staged multi-select "Add Member" view (search, AGENTS /
 // HUMANS candidates with CheckMarker + AvatarSlot compact-list, pinned
 // "Create a New Agent" entry, "Add selected (N)").
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -293,12 +295,29 @@ class _ChannelMembersState extends State<ChannelMembers> {
     }
     _feed.addListener(_directoryChanged);
     w.services.entityDirectory.addListener(_directoryChanged);
+    // Source useChannelMembers: a member change in this channel re-reads the
+    // roster in place, so a newly joined agent appears while the view is open.
+    _events = w.client.events.listen(_event);
     load();
     loadRoleActionsFlag();
   }
 
   void _directoryChanged() {
     if (mounted) setState(() {});
+  }
+
+  StreamSubscription<RaftEvent>? _events;
+  Timer? _reload;
+
+  void _event(RaftEvent event) {
+    if (event.name != 'channel:members-updated') return;
+    final payload = event.payload;
+    final id = payload is Map ? payload['channelId'] : null;
+    if (id is String && id != widget.channel.id) return;
+    _reload?.cancel();
+    _reload = Timer(const Duration(milliseconds: 150), () {
+      if (mounted) unawaited(load());
+    });
   }
 
   Future<void> loadRoleActionsFlag() async {
@@ -328,6 +347,8 @@ class _ChannelMembersState extends State<ChannelMembers> {
 
   @override
   void dispose() {
+    unawaited(_events?.cancel());
+    _reload?.cancel();
     _feed.removeListener(_directoryChanged);
     _feed.dispose();
     w.services.entityDirectory.removeListener(_directoryChanged);
@@ -581,7 +602,12 @@ class _ChannelMembersState extends State<ChannelMembers> {
         id: id,
         name: '${m['name'] ?? ''}',
         displayName: m['displayName'] as String?,
-        avatarUrl: m['avatarUrl'] as String?,
+        avatarUrl: kind == 'agent'
+            ? agentAvatarWithDirectory(
+                w.services.entityDirectory.agent(id),
+                m['avatarUrl'] as String?,
+              )
+            : m['avatarUrl'] as String?,
       );
       final display = kind == 'agent'
           ? channelMemberAgentDisplay(

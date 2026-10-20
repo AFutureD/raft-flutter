@@ -66,6 +66,7 @@ class _ThreadAgentFollowersViewState extends State<ThreadAgentFollowersView> {
     store = w.services.threadFollowers;
     _authority = authority;
     store.addListener(changed);
+    w.services.entityDirectory.addListener(changed);
     w.addListener(authorityChanged);
     events = w.client.events.listen(onEvent);
     store.request(widget.threadChannelId);
@@ -73,6 +74,7 @@ class _ThreadAgentFollowersViewState extends State<ThreadAgentFollowersView> {
 
   void unbind(WorkspaceController owner) {
     store.removeListener(changed);
+    owner.services.entityDirectory.removeListener(changed);
     owner.removeListener(authorityChanged);
     unawaited(events?.cancel());
   }
@@ -181,7 +183,10 @@ class _ThreadAgentFollowersViewState extends State<ThreadAgentFollowersView> {
       id: agent.id,
       name: agent.name,
       displayName: agent.displayName,
-      avatarUrl: agent.avatarUrl,
+      avatarUrl: agentAvatarWithDirectory(
+        w.services.entityDirectory.agent(agent.id),
+        agent.avatarUrl,
+      ),
     ),
     avatarContext: context,
     origin: w.client.origin,
