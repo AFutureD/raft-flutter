@@ -85,7 +85,9 @@ example, Android publishes `CHECKSUMS-android-arm64.txt` alongside its APK and
 `build-manifest-android-arm64.json`.
 
 Pull requests touching release tooling, the lockfile or desktop hosts run the
-unsigned desktop platforms and retain artifacts for 14 days. **PR and manual
+unsigned desktop platforms and retain artifacts for 14 days. Tag builds keep their
+release artifacts for 2 days only, because the same run copies them into the GitHub
+Release; this keeps the account's Actions storage from filling up. **PR and manual
 runs never publish.** From Actions → Build and release → Run workflow, leave
 `platforms` blank for the enabled set, or select e.g. `windows,macos` to test
 builders before enabling them. Pull request plans exclude Android and pass no

@@ -187,7 +187,7 @@ jobs:
           overwrite: true
           path: build/release/*
           if-no-files-found: error
-          retention-days: 14
+          retention-days: ${{ github.event_name == 'push' && 2 || 14 }}  # tag builds are copied into the Release in the same run
 
 
   appimage-compatibility:
