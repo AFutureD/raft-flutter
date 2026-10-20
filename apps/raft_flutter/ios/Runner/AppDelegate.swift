@@ -8,6 +8,11 @@ import workmanager_apple
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Restore alone only covers tasks persisted by a previous launch. The first
+    // notification opt-in also needs its handler before Dart submits the task.
+    WorkmanagerPlugin.registerPeriodicTask(
+      withIdentifier: "app.raft.raft_flutter.inbox_refresh"
+    )
     WorkmanagerPlugin.registerLaunchHandlers()
     WorkmanagerPlugin.setPluginRegistrantCallback { registry in
       GeneratedPluginRegistrant.register(with: registry)
