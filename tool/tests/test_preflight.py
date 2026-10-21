@@ -240,7 +240,7 @@ class RunTests(unittest.TestCase):
         self.assertEqual(result['tree'], 'treehash0123456789abcdef')
         self.assertEqual(result['head'], 'headsha')
         self.assertEqual([c['name'] for c in result['checks']],
-                         ['structure-audit', 'ds-audit', 'docs-index', 'guard-tests', 'analyze', 'raft-lints', 'format', 'affected-tests', 'test-budget', 'portability'])
+                         ['structure-audit', 'ds-audit', 'docs-index', 'tool-tests', 'guard-tests', 'analyze', 'raft-lints', 'format', 'affected-tests', 'test-budget', 'portability'])
         self.assertEqual(result['affectedTests'], {'maxTests': 40, 'selected': 1, 'total': 3, 'skipped': 2})
         self.assertEqual(result['changedDart'], 2)
         last = out.strip().splitlines()[-1]
@@ -255,7 +255,7 @@ class RunTests(unittest.TestCase):
         self.assertEqual(code, 1)
         result = json.loads((world.root / 'result.json').read_text())
         statuses = {c['name']: c['status'] for c in result['checks']}
-        self.assertEqual(len(statuses), 10)
+        self.assertEqual(len(statuses), 11)
         self.assertEqual(statuses['structure-audit'], 'fail')
         self.assertEqual(statuses['ds-audit'], 'pass')
         self.assertEqual(statuses['format'], 'fail')
@@ -278,8 +278,20 @@ class RunTests(unittest.TestCase):
         result = json.loads((world.root / 'result.json').read_text())
         statuses = {c['name']: c['status'] for c in result['checks']}
         self.assertEqual({n for n, s in statuses.items() if s == 'pass'}, {'structure-audit', 'ds-audit', 'docs-index', 'guard-tests'})
-        self.assertEqual({n for n, s in statuses.items() if s == 'skip'}, {'analyze', 'raft-lints', 'format', 'affected-tests', 'test-budget', 'portability'})
+        self.assertEqual({n for n, s in statuses.items() if s == 'skip'}, {'tool-tests', 'analyze', 'raft-lints', 'format', 'affected-tests', 'test-budget', 'portability'})
         self.assertIn('PASSED 4/4 checks', out)
+
+    def test_a_tool_change_runs_every_tool_suite_and_its_failure_fails_preflight(self):
+        world = FakeWorld(self, files={'tool/git-hooks/pre-commit': '#!/bin/sh\n'}, failing=('tool/tests',))
+        code, _ = self.run_main(world)
+        self.assertEqual(code, 1)
+        result = json.loads((world.root / 'result.json').read_text())
+        statuses = {c['name']: c['status'] for c in result['checks']}
+        self.assertEqual(statuses['tool-tests'], 'fail')
+        self.assertIn(['discover', '-q', '-s', 'tool/tests'], [c[-4:] for c in world.commands])
+
+    def test_close_registry_is_a_guard_test(self):
+        self.assertIn('apps/raft_flutter/test/close_registry_test.dart', pf.GUARD_TESTS)
 
     def test_analyze_format_and_lints_get_only_the_changed_files(self):
         world = FakeWorld(self)
