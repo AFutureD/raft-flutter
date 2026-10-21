@@ -41,6 +41,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Connect to the Raft server you choose on your local network.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Select photos and videos to share in Raft.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
