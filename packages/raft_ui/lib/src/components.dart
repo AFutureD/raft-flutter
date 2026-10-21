@@ -868,11 +868,18 @@ class RaftSidebarUnreadCount extends StatelessWidget {
       ),
       padding: recipe.countPadding,
       decoration: recipe.countDecoration,
-      alignment: Alignment.center,
-      child: Text(
-        count > 99 ? '99+' : '$count',
-        style: recipe.countTextStyle,
-        textScaler: bounded,
+      // Not `Container(alignment: center)`: an Align fills the loose height a
+      // Row (or the width a Stack) offers and the chip becomes a tall bar. A
+      // factor of 1 keeps the chip as big as its text, centred inside the
+      // 16px minimum.
+      child: Center(
+        widthFactor: 1,
+        heightFactor: grown ? 1 : null,
+        child: Text(
+          count > 99 ? '99+' : '$count',
+          style: recipe.countTextStyle,
+          textScaler: bounded,
+        ),
       ),
     );
   }
@@ -1420,43 +1427,11 @@ class RaftNavItem extends StatelessWidget {
                   else if (saved)
                     Text(savedLabel, style: recipe.savedCount)
                   else if (role == RaftNavItemRole.activity && unread > 0)
-                    Container(
-                      // 16px is a minimum: larger text grows the counter
-                      // instead of clipping its digits.
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: t.brutal ? 6 : 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: t.brutal
-                            ? t.colors['color-brutal-pink']
-                            : t.colors['accent-soft'],
-                        border: t.brutal
-                            ? Border.all(color: Colors.black)
-                            : null,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        unread > 99 ? '99+' : '$unread',
-                        style:
-                            RaftTypography.heading(
-                              t,
-                              size: 10,
-                              line: 10,
-                              weight: t.brutal
-                                  ? FontWeight.w700
-                                  : FontWeight.w400,
-                            ).copyWith(
-                              color: t.brutal
-                                  ? Colors.white
-                                  : t.colors['accent-strong'],
-                            ),
-                      ),
-                    ),
+                    // Sidebar.tsx mounts the same `SidebarItemCount accent`
+                    // here as in the channel and DM rows. Do not rebuild the
+                    // chip: a `Container(alignment:)` in this Row fills the
+                    // row height (a tall bar) instead of keeping its size.
+                    RaftSidebarUnreadCount(count: unread),
                 ],
               ),
             ),
@@ -3566,8 +3541,12 @@ class RaftActorTypeBadge extends StatelessWidget {
       // ds-allow: Web MessageInput.tsx mention option `px-1 py-px`
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: style.decoration,
-      alignment: Alignment.center,
-      child: Text(style.label, style: style.text),
+      // Centre without `alignment:`, which would fill a Row's height.
+      child: Center(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Text(style.label, style: style.text),
+      ),
     );
   }
 }
@@ -3595,17 +3574,21 @@ class RaftArchivedBadge extends StatelessWidget {
       constraints: BoxConstraints(minHeight: s.height ?? 0),
       padding: s.padding,
       decoration: s.decoration(resolver),
-      alignment: Alignment.center,
-      child: Text(
-        s.textTransform == 'uppercase' ? label.toUpperCase() : label,
-        style: RaftControlTypography.of(
-          context,
-          s
-              .textStyle(resolver)
-              .copyWith(
-                fontFamily: t.headingFont,
-                leadingDistribution: TextLeadingDistribution.even,
-              ),
+      // Centre without `alignment:`, which would fill a Row's height.
+      child: Center(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Text(
+          s.textTransform == 'uppercase' ? label.toUpperCase() : label,
+          style: RaftControlTypography.of(
+            context,
+            s
+                .textStyle(resolver)
+                .copyWith(
+                  fontFamily: t.headingFont,
+                  leadingDistribution: TextLeadingDistribution.even,
+                ),
+          ),
         ),
       ),
     );
