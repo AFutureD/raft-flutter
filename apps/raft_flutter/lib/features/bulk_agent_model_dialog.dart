@@ -13,6 +13,7 @@ import 'bulk_agent_model_change.dart';
 import 'bulk_model_step_body.dart';
 import 'management_support.dart';
 import 'resource_cards.dart' show resourceRelativeTime;
+import 'runtime_options_request.dart';
 import 'runtime_usage_chip.dart';
 
 Future<BulkModelReceipt?> showBulkAgentModelDialog(
@@ -269,8 +270,8 @@ class _BulkAgentModelDialogState extends State<BulkAgentModelDialog> {
         if (row['runtime'] != selectedRuntime)
           (() async {
             try {
-              final value = await w.query(
-                '/agents/${row['id']}/runtime-options',
+              final value = await readRuntimeOptions(
+                () => w.query('/agents/${row['id']}/runtime-options'),
               );
               final options = value is Map ? value['options'] : null;
               return (
